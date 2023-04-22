@@ -4,7 +4,7 @@ RUN npm install -g yarn
 
 WORKDIR /app
 
-VOLUME . /app
+VOLUME /app
 
 #COPY package.json yarn.lock ./
 
