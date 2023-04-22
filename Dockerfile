@@ -1,15 +1,15 @@
 FROM node:18-alpine
 
-RUN npm install -g yarn
-
 WORKDIR /app
+
+COPY package*.json yarn.lock ./
+
+RUN yarn install
+
+COPY . .
 
 VOLUME /app
 
-#COPY package.json yarn.lock ./
+EXPOSE 3000
 
-#RUN yarn install
-
-EXPOSE 9000
-
-# CMD ["yarn", "start"]
+CMD ["yarn", "start:dev"]
