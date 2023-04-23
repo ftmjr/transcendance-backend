@@ -10,6 +10,6 @@ COPY . .
 
 VOLUME /app
 
-EXPOSE 9000
+EXPOSE 3001
 
 CMD ["yarn", "start:dev"]
