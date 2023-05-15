@@ -75,12 +75,6 @@ Nest is [MIT licensed](LICENSE).
 ## Prisma
 https://www.prisma.io/docs/getting-started/setup-prisma/start-from-scratch/relational-databases-typescript-postgresql
 ```bash
-# Invoke prisma CLI
-$ yarn prisma
-
-# setup prisma project
-$ yarn prisma init
-
-# test coverage
-$ yarn run test:cov
+# Launch web database visualizer
+$ yarn prisma studio 
 ```
