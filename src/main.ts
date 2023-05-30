@@ -6,15 +6,15 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const config = new DocumentBuilder()
-      .setTitle('Median')
-      .setDescription('The Median API')
-      .setVersion('0.1')
-      .addServer('/api')
-      .build();
+    .setTitle('FTMJR Pong')
+    .setDescription('Transcendancee API Documentation')
+    .setVersion('0.1')
+    .addServer('/api')
+    .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('prisma', app, document);
+  SwaggerModule.setup('/', app, document);
 
-  await app.listen(3001, "0.0.0.0");
+  await app.listen(3001, '0.0.0.0');
 }
 bootstrap();
