@@ -62,12 +62,14 @@ $ git push origin branch-name
 
 ### How to develop
 
-Start the docker container  with the database, it will be open on 5432 port
-```bash
-  docker-compose -f path_to/docker-compose.yml -p transcendance up -d db
-```
+1. Start the docker container  with the database, it will be open on 5432 port
+    ```bash
+      docker-compose -f path_to/docker-compose.yml -p transcendance up -d db
+    ```
 
-Start the backend
-```bash
-  yarn start:dev
-```
+2. Start the backend
+   1. Check the right url for datasource in `prisma/schema.prisma`
+   2. Start the backend
+       ```bash
+         yarn start:dev
+       ```
