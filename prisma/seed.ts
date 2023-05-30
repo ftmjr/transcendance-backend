@@ -1,29 +1,28 @@
 // prisma/seed.ts
-
-import { PrismaClient, Role } from '@prisma/client';
+import { PrismaClient } from '@prisma/client';
 
 // initialize Prisma Client
 const prisma = new PrismaClient();
 
 async function main() {
   const user1 = await prisma.user.upsert({
-    where: { id: 0 },
+    where: { id: 1 },
     create: {
       username: 'flahoud',
       email: 'flahoud@email.com',
       password: 'pass1234',
-      role: Role.ADMIN,
+      role: 'ADMIN',
     },
     update: {},
   });
 
   const user2 = await prisma.user.upsert({
-    where: { id: 1 },
+    where: { id: 2 },
     create: {
       username: 'flahoud2',
       email: 'flahoud2@email.com',
       password: 'pass1234',
-      role: Role.SUPER_MODERATOR,
+      role: 'SUPER_MODERATOR',
     },
     update: {},
   });
