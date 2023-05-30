@@ -7,28 +7,163 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Post {
-  id        Int      @id @default(autoincrement())
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  title     String   @db.VarChar(255)
-  content   String?
-  published Boolean  @default(false)
-  authorId  Int
-  author    User     @relation(fields: [authorId], references: [id])
+enum Role {
+  USER
+  ADMIN
+  SUPER_MODERATOR
 }
 
-model Profile {
-  id     Int     @id @default(autoincrement())
-  bio    String?
-  userId Int     @unique
-  user   User    @relation(fields: [userId], references: [id])
+enum Visibility {
+  PUBLIC
+  PRIVATE
+}
+
+enum GameEvent {
+  GAME_STARTED
+  GAME_ENDED
+  PLAYER_JOINED
+  PLAYER_LEFT
+  ACTION_PERFORMED
+  MATCH_WON
+  MATCH_LOST
 }
 
 model User {
-  id      Int      @id @default(autoincrement())
-  email   String   @unique
-  name    String?
-  posts   Post[]
-  profile Profile?
+  id                   Int                   @id @default(autoincrement())
+  username             String                @unique
+  email                String                @unique
+  password             String
+  role                 Role                  @default(USER)
+  profile              Profile?
+  sessions             Session[]
+  games                Game[]
+  groups               Group[]
+  gameParticipations    GameParticipation[]
+  gameObservations     GameObservation[]
+  competitionParticipations CompetitionParticipation[]
+  gameHistories        GameHistory[]
+  contacts             Contact[]             @relation("UserToContact")
+  contactedBy          Contact[]             @relation("ContactToUser")
+  createdAt            DateTime              @default(now())
+}
+
+model Profile {
+  id      Int     @id @default(autoincrement())
+  userId  Int     @unique
+  user    User    @relation(fields: [userId], references: [id])
+  name    String
+  lastname String
+  avatar  String?
+  bio     String?
+  oauth   Json?
+  awards  ProfileAward[]
+}
+
+model Award {
+  id          Int            @id @default(autoincrement())
+  name        String
+  description String
+  image       String
+  profiles    ProfileAward[]
+}
+
+model ProfileAward {
+  profileId Int
+  profile   Profile @relation(fields: [profileId], references: [id])
+  awardId   Int
+  award     Award   @relation(fields: [awardId], references: [id])
+
+  @@id([profileId, awardId])
+}
+
+model Contact {
+  id          Int    @id @default(autoincrement())
+  userId      Int
+  user        User   @relation("UserToContact", fields: [userId], references: [id])
+  contactId   Int
+  contact     User   @relation("ContactToUser", fields: [contactId], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, contactId])
+}
+
+model Group {
+  id      Int       @id @default(autoincrement())
+  name    String
+  chatRoom String
+  members User[]
+}
+
+model Competition {
+  id          Int       @id @default(autoincrement())
+  name        String
+  description String
+  startDate   DateTime
+  endDate     DateTime
+  visibility  Visibility
+  rules       Json?
+  games       Game[]
+  participants CompetitionParticipation[]
+}
+
+model Game {
+  id            Int                 @id @default(autoincrement())
+  name          String
+  description   String
+  visibility    Visibility          @default(PUBLIC)
+  competitionId Int?
+  competition   Competition?        @relation(fields: [competitionId], references: [id])
+  winnerId      Int?
+  winner        User?               @relation(fields: [winnerId], references: [id])
+  histories     GameHistory[]
+  participants  GameParticipation[]
+  observers     GameObservation[]
+}
+
+model GameParticipation {
+  gameId Int
+  game   Game @relation(fields: [gameId], references: [id])
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  @@id([gameId, userId])
+}
+
+model GameObservation {
+  gameId Int
+  game   Game @relation(fields: [gameId], references: [id])
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  @@id([gameId, userId])
+}
+
+model CompetitionParticipation {
+  competitionId Int
+  competition   Competition @relation(fields: [competitionId], references: [id])
+  userId        Int
+  user          User        @relation(fields: [userId], references: [id])
+  @@id([competitionId, userId])
+}
+
+
+model Session {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User     @relation(fields: [userId], references: [id])
+  token      String
+  createdAt  DateTime @default(now())
+  expiresAt  DateTime
+  ipAddress  String?
+  userAgent  String?
+}
+
+model GameHistory {
+  id      Int       @id @default(autoincrement())
+  gameId  Int
+  game    Game      @relation(fields: [gameId], references: [id])
+  event   GameEvent
+  userId  Int
+  user    User     @relation(fields: [userId], references: [id])
+  timestamp DateTime @default(now())
 }
