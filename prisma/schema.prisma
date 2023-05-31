@@ -38,13 +38,19 @@ model User {
   sessions             Session[]
   games                Game[]
   groups               Group[]
-  gameParticipations    GameParticipation[]
+  gameParticipations   GameParticipation[]
   gameObservations     GameObservation[]
   competitionParticipations CompetitionParticipation[]
   gameHistories        GameHistory[]
   contacts             Contact[]             @relation("UserToContact")
   contactedBy          Contact[]             @relation("ContactToUser")
+  googleId             String?               @unique
+  facebookId           String?               @unique
+  api42Id              String?               @unique
+  twoFactorSecret      String?
+  twoFactorEnabled     Boolean               @default(false)
   createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
 }
 
 model Profile {
