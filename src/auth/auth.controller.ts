@@ -89,39 +89,42 @@ export class AuthController {
   // // Google auth
   // @Get('google')
   // @UseGuards(AuthGuard('google'))
+  // // eslint-disable-next-line @typescript-eslint/no-empty-function
   // googleLogin() {}
   //
   // @Get('google/callback')
   // @UseGuards(AuthGuard('google'))
   // googleLoginCallback(@Request() req) {
-  //   return this.authService.login(req.user);
+  //   return this.authService.signInWithOauth(req, req.user);
   // }
   //
   // // Facebook auth
   // @Get('facebook')
   // @UseGuards(AuthGuard('facebook'))
+  // // eslint-disable-next-line @typescript-eslint/no-empty-function
   // facebookLogin() {}
   //
   // @Get('facebook/callback')
   // @UseGuards(AuthGuard('facebook'))
   // facebookLoginCallback(@Request() req) {
-  //   return this.authService.login(req.user);
+  //   return this.authService.signInWithOauth(req, req.user);
   // }
   //
   // // 42 auth
   // @Get('42')
   // @UseGuards(AuthGuard('42'))
+  // // eslint-disable-next-line @typescript-eslint/no-empty-function
   // api42Login() {}
   //
   // @Get('42/callback')
   // @UseGuards(AuthGuard('42'))
   // api42LoginCallback(@Request() req) {
-  //   return this.authService.login(req.user);
+  //   return this.authService.signInWithOauth(req, req.user);
   // }
   //
   // // Two-factor auth
   // @Post('twofactor/verify')
   // async verifyTwoFactorAuth(@Request() req, @Body('token') token: string) {
-  //   return this.authService.verifyTwoFactorAuth(req.user, token);
+  //   return this.authService.checkTwoFactor(req, req.user);
   // }
 }

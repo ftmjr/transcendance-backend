@@ -107,6 +107,10 @@ export class AuthService {
     return tokens;
   }
 
+  async signInWithOauth(req: Request, profileFetched: any): Promise<Tokens> {
+    throw new Error('Method not implemented.');
+  }
+
   async logOut(sessionId: number) {
     try {
       await this.destroySession(sessionId);
