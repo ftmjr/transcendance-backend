@@ -1,21 +1,22 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Body, UseGuards } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CreateUserDto } from './dto/create-user.dto';
+import { AuthGuard } from '@nestjs/passport';
+import { ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Post()
-  async createUser(@Body() data: CreateUserDto) {
-    const { name, email } = data;
-    return this.usersService.createUser({
-      name,
-      email,
-    });
-  }
   @Get()
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({
+    summary: 'get all users',
+    description: `
+      - fetch all users from the database
+    `,
+  })
+  @ApiResponse({ status: 200, description: 'return an array of users' })
   getUsers() {
-      return this.usersService.getUsers();
+    return this.usersService.getUsers();
   }
 }
