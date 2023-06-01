@@ -4,7 +4,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://josias:pass1234@localhost:5432/pong-db?schema=public"
+  url      = env("DATABASE_URL")
 }
 
 enum Role {
