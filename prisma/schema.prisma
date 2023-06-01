@@ -48,7 +48,7 @@ model User {
   facebookId           String?               @unique
   api42Id              String?               @unique
   twoFactorSecret      String?
-  twoFactorEnabled     Boolean               @default(false)
+  twoFactorEnabled     Boolean               @default(false) // to be changed to true
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
 }
@@ -158,10 +158,10 @@ model Session {
   userId     Int
   user       User     @relation(fields: [userId], references: [id])
   token      String
-  createdAt  DateTime @default(now())
   expiresAt  DateTime
   ipAddress  String?
   userAgent  String?
+  createdAt  DateTime @default(now())
 }
 
 model GameHistory {
