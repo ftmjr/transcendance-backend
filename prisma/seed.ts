@@ -5,29 +5,27 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function main() {
-  const user1 = await prisma.user.upsert({
-    where: { id: 0 },
-    create: {
-      username: 'flahoud',
-      email: 'flahoud@email.com',
-      password: 'pass1234',
-      role: 'ADMIN',
-    },
-    update: {},
-  });
-
-  const user2 = await prisma.user.upsert({
+  const award1 = await prisma.award.upsert({
     where: { id: 1 },
     create: {
-      username: 'flahoud2',
-      email: 'flahoud2@email.com',
-      password: 'pass1234',
-      role: 'SUPER_MODERATOR',
+      name: 'First Game',
+      description: 'Awarded for playing your first game',
+      image: 'https://www.svgrepo.com/show/5528/award.svg',
     },
     update: {},
   });
 
-  console.log({ user1, user2 });
+  const award2 = await prisma.award.upsert({
+    where: { id: 2 },
+    create: {
+      name: 'First Win',
+      description: 'Awarded for winning your first game',
+      image: 'https://www.svgrepo.com/show/118222/award.svg',
+    },
+    update: {},
+  });
+
+  console.log({ award1, award2 });
 }
 
 // execute the main function
