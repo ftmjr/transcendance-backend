@@ -180,7 +180,7 @@ export class AuthService {
       },
     };
     const tokens = await Promise.all([
-      this.jwtService.signAsync(payload, { expiresIn: 60 * 5 }), // 5 minutes
+      this.jwtService.signAsync(payload, { expiresIn: 60 * 15 }), // 15 minutes
       this.jwtService.signAsync(payload, { expiresIn: '7d' }), // 7 days
     ]);
 
