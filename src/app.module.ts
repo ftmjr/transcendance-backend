@@ -1,12 +1,11 @@
 import { Module } from '@nestjs/common';
-import { AppController } from './app.controller';
-import { AppService } from './app.service';
-import { LoginModule } from './login/login.module';
-import { PrismaModule } from './prisma/prisma.module';
-import { UsersModule } from './users/users.module';
-import {UsersController} from "./users/users.controller";
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
+import { AuthModule } from './auth/auth.module';
+import { PrismaModule } from './prisma/prisma.module';
+import { GamesModule } from './games/games.module';
+import { CompetitionModule } from './competition/competition.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -14,10 +13,13 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
       driver: ApolloDriver,
       autoSchemaFile: true,
     }),
-    LoginModule,
     PrismaModule,
-    UsersModule],
-  controllers: [AppController, UsersController],
-  providers: [AppService],
+    UsersModule,
+    AuthModule,
+    GamesModule,
+    CompetitionModule,
+  ],
+  controllers: [],
+  providers: [],
 })
 export class AppModule {}
