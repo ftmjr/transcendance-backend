@@ -9,10 +9,10 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService, JwtPayload } from './auth.service';
-import { LoginDto, SignupDto } from './dto';
-import { Tokens, ILoginData } from './interfaces';
+import { LoginDataDto, LoginDto, RefreshDataDto, SignupDto } from './dto';
+import { ILoginData } from './interfaces';
 import { JwtService } from '@nestjs/jwt';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('auth')
 export class AuthController {
@@ -31,7 +31,12 @@ export class AuthController {
   })
   @ApiResponse({
     status: 200,
-    description: 'return the jwt access token and user',
+    description: `
+    - return the jwt access token and user data
+    - create a new session in the database
+    - create a new refresh token in the cookies
+    `,
+    type: LoginDataDto,
   })
   async login(
     @Request() req,
@@ -46,14 +51,17 @@ export class AuthController {
     summary: 'create an account',
     description: `
       - send access token, and user info: { accessToken, user }
-      - create a new user in the database
-      - create a new session in the database
       - if the user already exists, will return a 403 status code
     `,
   })
   @ApiResponse({
     status: 200,
-    description: 'return the jwt access token and user data',
+    description: `
+    - return the jwt access token and user data
+    - create a new session in the database
+    - create a REFRESH_TOKEN in the cookies
+    `,
+    type: LoginDataDto,
   })
   async signup(
     @Request() req,
@@ -64,16 +72,21 @@ export class AuthController {
   }
 
   @Post('refresh')
+  @ApiCookieAuth('REFRESH_TOKEN')
   @ApiOperation({
     summary: 'refresh access token',
     description: `
       - send a string of the new access token
-      - update the database with the new refresh token and the cookie
+      - update the database session with the new refresh token and the cookie
       - it use the refresh token in the cookies to get the session
-      - if the refresh token in cookies is invalid, will return a 401 status code
+      - if the REFRESH_TOKEN in cookies is invalid, will return a 401
     `,
   })
-  @ApiResponse({ status: 200, description: 'return the access token' })
+  @ApiResponse({
+    status: 200,
+    type: RefreshDataDto,
+    description: 'return the access token',
+  })
   async refresh(
     @Request() req,
     @Response({ passthrough: true }) res,

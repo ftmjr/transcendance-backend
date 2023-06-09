@@ -86,9 +86,10 @@ export class AuthService {
       });
       const tokens = await this.getTokens(user.email, user.id, session.id);
       await this.refreshSession(session.id, tokens.refreshToken, res);
+      const userWithoutPassword = this.usersService.removePassword(user);
       return {
         accessToken: tokens.accessToken,
-        user,
+        user: userWithoutPassword,
       };
     } catch (err) {
       if (err?.code === 'P2002' && err?.meta?.target) {
@@ -122,9 +123,10 @@ export class AuthService {
     });
     const tokens = await this.getTokens(user.email, user.id, session.id);
     await this.refreshSession(session.id, tokens.refreshToken, res);
+    const userWithoutPassword = this.usersService.removePassword(user);
     return {
       accessToken: tokens.accessToken,
-      user,
+      user: userWithoutPassword,
     };
   }
 
