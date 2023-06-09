@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { User, Session } from '@prisma/client';
+import { Session, User } from '@prisma/client';
 import { UsersRepository } from './users.repository';
 import * as argon from 'argon2';
 
@@ -150,5 +150,14 @@ export class UsersService {
       where: { userId },
     });
     return sessions;
+  }
+
+  // utils functions
+  removePassword(user: User) {
+    return exclude(user, ['password']);
+  }
+
+  removesPasswords(users: User[]) {
+    return users.map((user) => exclude(user, ['password']));
   }
 }
