@@ -6,9 +6,9 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto, SignupDto } from './dto';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import * as argon from 'argon2';
-import { Tokens } from './interfaces';
+import { Tokens, ILoginData } from './interfaces';
 import { UsersService } from '../users/users.service';
 import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
 import { User } from '@prisma/client';
@@ -28,7 +28,11 @@ export class AuthService {
     private usersService: UsersService,
   ) {}
 
-  async signUpLocal(req: Request, signUpDto: SignupDto): Promise<Tokens> {
+  async signUpLocal(
+    req: Request,
+    res: Response,
+    signUpDto: SignupDto,
+  ): Promise<ILoginData> {
     try {
       const { email, password, username } = signUpDto;
       const { ip, userAgent } = this.getRequestInfo(req);
@@ -42,11 +46,14 @@ export class AuthService {
         token: 'jwt-local-token',
         ipAddress: ip,
         userAgent: userAgent,
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7), // 7 days max
+        expiresAt: new Date(), // expired immediately, if refresh not working
       });
       const tokens = await this.getTokens(user.email, user.id, session.id);
-      await this.refreshSession(session.id, tokens.refreshToken);
-      return tokens;
+      await this.refreshSession(session.id, tokens.refreshToken, res);
+      return {
+        accessToken: tokens.accessToken,
+        user,
+      };
     } catch (err) {
       if (err?.code === 'P2002' && err?.meta?.target) {
         throw new ForbiddenException(`${err.meta?.target} already exists`);
@@ -56,7 +63,11 @@ export class AuthService {
     }
   }
 
-  async signUpWithOauth(req: Request, profileFetched: any): Promise<Tokens> {
+  async signUpWithOauth(
+    req: Request,
+    res: Response,
+    profileFetched: any,
+  ): Promise<ILoginData> {
     try {
       const { email, username } = profileFetched;
       const { ip, userAgent } = this.getRequestInfo(req);
@@ -71,11 +82,14 @@ export class AuthService {
         token: 'jwt-oauth-token',
         ipAddress: ip,
         userAgent: userAgent,
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7), // 7 days max
+        expiresAt: new Date(), // expired immediately, if refresh not working
       });
       const tokens = await this.getTokens(user.email, user.id, session.id);
-      await this.refreshSession(session.id, tokens.refreshToken);
-      return tokens;
+      await this.refreshSession(session.id, tokens.refreshToken, res);
+      return {
+        accessToken: tokens.accessToken,
+        user,
+      };
     } catch (err) {
       if (err?.code === 'P2002' && err?.meta?.target) {
         throw new ForbiddenException(`${err.meta?.target} already exists`);
@@ -85,7 +99,11 @@ export class AuthService {
     }
   }
 
-  async signInLocalUser(req: Request, loginDto: LoginDto): Promise<Tokens> {
+  async signInLocalUser(
+    req: Request,
+    res: Response,
+    loginDto: LoginDto,
+  ): Promise<ILoginData> {
     const user = await this.usersService.getUserByUsername(loginDto.username);
     const { ip, userAgent } = this.getRequestInfo(req);
     if (!user) {
@@ -100,20 +118,33 @@ export class AuthService {
       token: 'jwt-signIn-token',
       ipAddress: ip,
       userAgent: userAgent,
-      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
+      expiresAt: new Date(),
     });
     const tokens = await this.getTokens(user.email, user.id, session.id);
-    await this.refreshSession(session.id, tokens.refreshToken);
-    return tokens;
+    await this.refreshSession(session.id, tokens.refreshToken, res);
+    return {
+      accessToken: tokens.accessToken,
+      user,
+    };
   }
 
-  async signInWithOauth(req: Request, profileFetched: any): Promise<Tokens> {
+  async signInWithOauth(
+    req: Request,
+    res: Response,
+    profileFetched: any,
+  ): Promise<Tokens> {
     throw new Error('Method not implemented.');
   }
 
-  async logOut(sessionId: number) {
+  async logOut(refreshToken: string, res: Response) {
     try {
+      const isValid = this.jwtService.verify(refreshToken) as JwtPayload;
+      if (!isValid) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      const { sessionId } = isValid.sub;
       await this.destroySession(sessionId);
+      this.destroyCookieForRefreshToken(res);
       return {
         message: 'Successfully logged out, bye bye',
       };
@@ -127,10 +158,14 @@ export class AuthService {
   }
 
   async refreshAccessToken(
-    userId: number,
-    sessionId: number,
     refreshToken: string,
-  ) {
+    res: Response,
+  ): Promise<{ accessToken: string }> {
+    const isValid = this.jwtService.verify(refreshToken) as JwtPayload;
+    if (!isValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    const { userId, sessionId } = isValid.sub;
     const user = await this.usersService.getUser({ id: userId });
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -139,16 +174,14 @@ export class AuthService {
     if (!session) {
       throw new UnauthorizedException('Invalid credentials, no session found');
     }
-    const isValid = this.jwtService.verify(refreshToken);
-    if (!isValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
     const tokens = await this.getTokens(user.email, user.id, session.id);
-    await this.refreshSession(session.id, tokens.refreshToken);
-    return tokens;
+    await this.refreshSession(session.id, tokens.refreshToken, res);
+    return {
+      accessToken: tokens.accessToken,
+    };
   }
 
-  async getUSerFromJwt(userId: number, sessionId: number): Promise<User> {
+  async getUserFromJwt(userId: number, sessionId: number): Promise<User> {
     const user = await this.usersService.getUser({ id: userId });
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -156,14 +189,28 @@ export class AuthService {
     return user;
   }
 
-  async refreshSession(sessionId: number, refreshToken: string) {
+  async refreshSession(sessionId: number, refreshToken: string, res: Response) {
     const data = this.jwtService.decode(refreshToken);
     const expiresAt = new Date((data as any).exp * 1000);
     await this.usersService.updateSession(sessionId, refreshToken, expiresAt);
+    this.setCookieForRefreshToken(refreshToken, res);
   }
 
   async destroySession(sessionId: number) {
     await this.usersService.deleteSession({ id: sessionId });
+  }
+
+  setCookieForRefreshToken(refreshToken: string, res: Response) {
+    res.cookie('REFRESH_TOKEN', refreshToken, {
+      httpOnly: true,
+    });
+  }
+
+  destroyCookieForRefreshToken(res: Response) {
+    res.cookie('REFRESH_TOKEN', '', {
+      httpOnly: true,
+      expires: new Date(0),
+    });
   }
 
   // build tokens and return them as a promise
@@ -171,7 +218,7 @@ export class AuthService {
     email: string,
     userId: number,
     sessionId: number,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
+  ): Promise<Tokens> {
     const payload: JwtPayload = {
       email: email,
       sub: {
@@ -180,7 +227,7 @@ export class AuthService {
       },
     };
     const tokens = await Promise.all([
-      this.jwtService.signAsync(payload, { expiresIn: 60 * 15 }), // 15 minutes
+      this.jwtService.signAsync(payload, { expiresIn: 60 * 5 }), // 5 minutes
       this.jwtService.signAsync(payload, { expiresIn: '7d' }), // 7 days
     ]);
 
