@@ -51,13 +51,15 @@ export class UsersRepository {
     return this.prisma.user.findUnique({ where });
   }
 
-  async getByID(params: { id: User[`id`] }): Promise<User | null> {
-    const { id } = params;
+  async getByID(id: User[`id`]): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { id } });
   }
 
-  async getByEmail(params: { email: User[`email`] }): Promise<User | null> {
-    const { email } = params;
+  async getByUserName(username: User[`username`]): Promise<User | null> {
+    return this.prisma.user.findUnique({ where: { username } });
+  }
+
+  async getByEmail(email: User[`email`]): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { email } });
   }
 
