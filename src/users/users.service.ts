@@ -98,19 +98,17 @@ export class UsersService {
   }
 
   // Return a user without password if found
-  async getUserWithData(
-    params: Partial<User>,
-  ): Promise<Omit<User, 'password'> | null> {
+  async getUserWithData(params: Partial<User>): Promise<User | null> {
     const user = await this.repository.getUsers({
       where: params,
       take: 1,
       include: {
         profile: true,
-        sessions: true,
+        // sessions: true,
       },
     });
 
-    return user.length > 0 ? this.removePassword(user[0]) : null;
+    return user.length > 0 ? user[0] : null;
   }
 
   async updateUser(params: {
