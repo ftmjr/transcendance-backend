@@ -8,10 +8,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto, SignupDto } from './dto';
 import { Request, Response } from 'express';
 import * as argon from 'argon2';
-import { Tokens, ILoginData } from './interfaces';
+import { ILoginData, OauthData, Tokens } from './interfaces';
 import { UsersService } from '../users/users.service';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
 import { User } from '@prisma/client';
+
 export interface JwtPayload {
   email: string;
   sub: {
@@ -34,26 +34,14 @@ export class AuthService {
     signUpDto: SignupDto,
   ): Promise<ILoginData> {
     try {
-      const { email, password, username } = signUpDto;
-      const { ip, userAgent } = this.getRequestInfo(req);
-      const user = await this.usersService.createUser({
-        username,
-        email,
-        password: password, // will be hashed in the service layer
+      const userCreated = await this.usersService.createUserWithProfile({
+        username: signUpDto.username,
+        email: signUpDto.email,
+        password: signUpDto.password, // will be hashed in user service layer
+        name: signUpDto.firstName,
+        lastName: signUpDto.lastName,
       });
-      const session = await this.usersService.createSession({
-        user,
-        token: 'jwt-local-token',
-        ipAddress: ip,
-        userAgent: userAgent,
-        expiresAt: new Date(), // expired immediately, if refresh not working
-      });
-      const tokens = await this.getTokens(user.email, user.id, session.id);
-      await this.refreshSession(session.id, tokens.refreshToken, res);
-      return {
-        accessToken: tokens.accessToken,
-        user,
-      };
+      return this.loginAndRefreshTokens(req, res, userCreated);
     } catch (err) {
       if (err?.code === 'P2002' && err?.meta?.target) {
         throw new ForbiddenException(`${err.meta?.target} already exists`);
@@ -63,34 +51,32 @@ export class AuthService {
     }
   }
 
-  async signUpWithOauth(
-    req: Request,
-    res: Response,
-    profileFetched: any,
-  ): Promise<ILoginData> {
+  async createOrFindUserWithOauthData(data: OauthData) {
     try {
-      const { email, username } = profileFetched;
-      const { ip, userAgent } = this.getRequestInfo(req);
-      const hashedPassword = await argon.hash('oauth');
-      const user = await this.usersService.createUser({
-        username,
-        email,
-        password: hashedPassword, // not possible to log with a password with OAuth
+      const findUser = await this.usersService.getUserWithData({
+        email: data.email,
       });
-      const session = await this.usersService.createSession({
-        user,
-        token: 'jwt-oauth-token',
-        ipAddress: ip,
-        userAgent: userAgent,
-        expiresAt: new Date(), // expired immediately, if refresh not working
+      if (findUser) {
+        if (findUser.googleId !== data.id && data.from === 'google') {
+          await this.usersService.updateUserProviderId(
+            findUser,
+            data.from,
+            data.id,
+          );
+          findUser.googleId = data.id;
+        }
+        return findUser;
+      }
+      return await this.usersService.createUserWithProfile({
+        username: data.username,
+        email: data.email,
+        password: `oauth-${data.from}-${data.id}`,
+        name: data.profile.firstName,
+        lastName: data.profile.lastName,
+        avatar: data.profile.avatar,
+        provider: data.from,
+        providerId: data.id,
       });
-      const tokens = await this.getTokens(user.email, user.id, session.id);
-      await this.refreshSession(session.id, tokens.refreshToken, res);
-      const userWithoutPassword = this.usersService.removePassword(user);
-      return {
-        accessToken: tokens.accessToken,
-        user: userWithoutPassword,
-      };
     } catch (err) {
       if (err?.code === 'P2002' && err?.meta?.target) {
         throw new ForbiddenException(`${err.meta?.target} already exists`);
@@ -105,8 +91,9 @@ export class AuthService {
     res: Response,
     loginDto: LoginDto,
   ): Promise<ILoginData> {
-    const user = await this.usersService.getUserByUsername(loginDto.username);
-    const { ip, userAgent } = this.getRequestInfo(req);
+    const user = await this.usersService.getUserWithData({
+      username: loginDto.username,
+    });
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -114,28 +101,15 @@ export class AuthService {
     if (!isValid) {
       throw new UnauthorizedException('Invalid credentials, wrong password');
     }
-    const session = await this.usersService.createSession({
-      user,
-      token: 'jwt-signIn-token',
-      ipAddress: ip,
-      userAgent: userAgent,
-      expiresAt: new Date(),
-    });
-    const tokens = await this.getTokens(user.email, user.id, session.id);
-    await this.refreshSession(session.id, tokens.refreshToken, res);
-    const userWithoutPassword = this.usersService.removePassword(user);
-    return {
-      accessToken: tokens.accessToken,
-      user: userWithoutPassword,
-    };
+    return this.loginAndRefreshTokens(req, res, user);
   }
 
   async signInWithOauth(
     req: Request,
     res: Response,
-    profileFetched: any,
-  ): Promise<Tokens> {
-    throw new Error('Method not implemented.');
+    user: User,
+  ): Promise<ILoginData> {
+    return this.loginAndRefreshTokens(req, res, user);
   }
 
   async logOut(refreshToken: string, res: Response) {
@@ -157,6 +131,28 @@ export class AuthService {
         throw err;
       }
     }
+  }
+
+  async loginAndRefreshTokens(
+    req: Request,
+    res: Response,
+    user: User,
+  ): Promise<ILoginData> {
+    const { ip, userAgent } = this.getRequestInfo(req);
+    const session = await this.usersService.createSession({
+      user,
+      token: 'jwt-signIn-token',
+      ipAddress: ip,
+      userAgent: userAgent,
+      expiresAt: new Date(),
+    });
+    const tokens = await this.getTokens(user.email, user.id, session.id);
+    await this.refreshSession(session.id, tokens.refreshToken, res);
+    const userWithoutPassword = this.usersService.removePassword(user);
+    return {
+      accessToken: tokens.accessToken,
+      user: userWithoutPassword,
+    };
   }
 
   async refreshAccessToken(
@@ -184,7 +180,7 @@ export class AuthService {
   }
 
   async getUserFromJwt(userId: number, sessionId: number): Promise<User> {
-    const user = await this.usersService.getUser({ id: userId });
+    const user = await this.usersService.getUserWithData({ id: userId });
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }

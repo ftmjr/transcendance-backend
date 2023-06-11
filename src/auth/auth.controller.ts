@@ -8,7 +8,7 @@ import {
   Body,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { AuthService, JwtPayload } from './auth.service';
+import { AuthService } from './auth.service';
 import { LoginDataDto, LoginDto, RefreshDataDto, SignupDto } from './dto';
 import { ILoginData } from './interfaces';
 import { JwtService } from '@nestjs/jwt';
@@ -16,10 +16,7 @@ import { ApiCookieAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('auth')
 export class AuthController {
-  constructor(
-    private authService: AuthService,
-    private jwtService: JwtService,
-  ) {}
+  constructor(private authService: AuthService) {}
 
   @Post('login')
   @ApiOperation({
@@ -114,17 +111,44 @@ export class AuthController {
     return this.authService.logOut(refreshToken, res);
   }
 
-  // // Google auth
-  // @Get('google')
-  // @UseGuards(AuthGuard('google'))
-  // // eslint-disable-next-line @typescript-eslint/no-empty-function
-  // googleLogin() {}
-  //
-  // @Get('google/callback')
-  // @UseGuards(AuthGuard('google'))
-  // googleLoginCallback(@Request() req) {
-  //   return this.authService.signInWithOauth(req, req.user);
-  // }
+  // Google auth
+  @Get('google')
+  @ApiOperation({
+    summary: 'Google auth entry request route',
+    description: 'Will make a call to google, and redirect',
+  })
+  @ApiResponse({
+    status: 302,
+    description: 'redirection to auth callback for google',
+  })
+  @UseGuards(AuthGuard('google'))
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  googleLogin() {}
+
+  @Get('google/callback')
+  @ApiOperation({
+    summary: 'Google Auth callback route',
+    description: `
+      - Will receive tokens from google
+      - Profile data will be load and user found or created
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: `
+    - return the jwt access token and user data
+    - create a new session in the database
+    - create a REFRESH_TOKEN in the cookies
+    `,
+    type: LoginDataDto,
+  })
+  @UseGuards(AuthGuard('google'))
+  googleLoginCallback(
+    @Request() req,
+    @Response({ passthrough: true }) res,
+  ): Promise<ILoginData> {
+    return this.authService.signInWithOauth(req, res, req.user);
+  }
   //
   // // Facebook auth
   // @Get('facebook')
