@@ -12,7 +12,7 @@ import process from 'process';
   imports: [
     PassportModule,
     JwtModule.register({
-      secret: process.env.JWT_SECRET,
+      secret: 'secret', // todo: change this with a env variable
     }),
     UsersModule,
   ],

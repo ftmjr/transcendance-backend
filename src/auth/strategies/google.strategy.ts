@@ -29,11 +29,13 @@ interface GoogleProfile {
 export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   constructor(private authService: AuthService) {
     super({
-      clientID: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: process.env.BACKEND_URL + '/auth/google/callback',
+      clientID:
+        '725258635055-gt5tpal7liiq949ccc649m5ovjhrqsm6.apps.googleusercontent.com',
+      clientSecret: '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',
+      callbackURL: 'https://localhost/api' + '/auth/google/callback',
       scope: ['email', 'profile'],
     });
+    // todo: change this with a env variables to avoid plain text
   }
 
   async validate(
