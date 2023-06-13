@@ -82,7 +82,7 @@ export class UsersService {
   async getUsers() {
     const users = await this.repository.getUsers({});
     const usersWithoutPassword = users.map((user) =>
-      exclude(user, ['password']),
+      exclude(user, user.password['password']),
     );
     return usersWithoutPassword;
   }
@@ -92,7 +92,7 @@ export class UsersService {
       include: { profile: true },
     });
     const usersWithoutPassword = users.map((user) =>
-      exclude(user, ['password']),
+      exclude(user, user.password['password']),
     );
     return usersWithoutPassword;
   }
@@ -110,7 +110,7 @@ export class UsersService {
       include: { profile: true, gameHistories: true },
     });
     const usersWithoutPassword = users.map((user) =>
-      exclude(user, ['password']),
+      exclude(user, user.password['password']),
     );
     return usersWithoutPassword;
   }
