@@ -26,6 +26,5 @@ async function bootstrap() {
   SwaggerModule.setup('/', app, document);
 
   await app.listen(3001, '0.0.0.0');
-  console.log(process.env);
 }
 bootstrap();
