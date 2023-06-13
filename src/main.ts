@@ -18,7 +18,9 @@ async function bootstrap() {
     .setTitle('FTMJR Pong')
     .setDescription('Transcendancee API Documentation')
     .setVersion('0.1')
-    .addServer('/')
+    .addServer('/api')
+    .addCookieAuth('REFRESH_TOKEN')
+    .addBearerAuth()
     .build();
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('/', app, document);
