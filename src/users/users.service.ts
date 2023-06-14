@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Profile, Session, User, Prisma } from '@prisma/client';
+import { Prisma, Profile, Session, User } from '@prisma/client';
 import { UsersRepository } from './users.repository';
 import * as argon from 'argon2';
 
@@ -185,10 +185,7 @@ export class UsersService {
       cursor: cursor ? { id: cursor } : undefined,
       include: { profile: true, gameHistories: true },
     });
-    const usersWithoutPassword = users.map((user) =>
-      exclude(user, ['password']),
-    );
-    return usersWithoutPassword;
+    return users.map((user) => exclude(user, ['password']));
   }
 
   // session management
@@ -201,7 +198,7 @@ export class UsersService {
     expiresAt: Session[`expiresAt`];
   }) {
     const { user, token, ipAddress, userAgent, expiresAt } = params;
-    const session = this.repository.createSession({
+    return this.repository.createSession({
       data: {
         token,
         ipAddress,
@@ -210,13 +207,11 @@ export class UsersService {
         user: { connect: { id: user.id } },
       },
     });
-    return session;
   }
 
   async getSession(params: { id: Session[`id`] }) {
     const { id } = params;
-    const session = await this.repository.getSessions({ where: { id } });
-    return session;
+    return this.repository.getSessions({ where: { id } });
   }
 
   async getSessionById(id: Session[`id`]) {
@@ -227,11 +222,10 @@ export class UsersService {
     refreshToken: Session[`token`],
     expiresAt: Session[`expiresAt`],
   ) {
-    const session = await this.repository.updateSession({
+    return this.repository.updateSession({
       where: { id: sessionId },
       data: { token: refreshToken, expiresAt },
     });
-    return session;
   }
 
   async deleteSession(params: { id: Session[`id`] }) {
@@ -242,10 +236,9 @@ export class UsersService {
   // get all sessions for a user
   getAllUserSessions(params: { userId: User[`id`] }) {
     const { userId } = params;
-    const sessions = this.repository.getSessions({
+    return this.repository.getSessions({
       where: { userId },
     });
-    return sessions;
   }
 
   // util function to remove the hashed password field on the user object
