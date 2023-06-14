@@ -18,4 +18,16 @@ export class SignupDto {
   @IsString()
   @IsNotEmpty()
   password: string;
+
+  @ApiProperty()
+  @Length(3, 32)
+  @IsString()
+  @IsNotEmpty()
+  firstName: string;
+
+  @ApiProperty()
+  @Length(3, 32)
+  @IsString()
+  @IsNotEmpty()
+  lastName: string;
 }

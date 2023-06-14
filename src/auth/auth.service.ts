@@ -6,12 +6,12 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto, SignupDto } from './dto';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import * as argon from 'argon2';
-import { Tokens } from './interfaces';
+import { ILoginData, OauthData, Tokens } from './interfaces';
 import { UsersService } from '../users/users.service';
-import { PrismaClientKnownRequestError } from '@prisma/client/runtime';
 import { User } from '@prisma/client';
+
 export interface JwtPayload {
   email: string;
   sub: {
@@ -28,25 +28,20 @@ export class AuthService {
     private usersService: UsersService,
   ) {}
 
-  async signUpLocal(req: Request, signUpDto: SignupDto): Promise<Tokens> {
+  async signUpLocal(
+    req: Request,
+    res: Response,
+    signUpDto: SignupDto,
+  ): Promise<ILoginData> {
     try {
-      const { email, password, username } = signUpDto;
-      const { ip, userAgent } = this.getRequestInfo(req);
-      const user = await this.usersService.createUser({
-        username,
-        email,
-        password: password, // will be hashed in the service layer
+      const userCreated = await this.usersService.createUserWithProfile({
+        username: signUpDto.username,
+        email: signUpDto.email,
+        password: signUpDto.password, // will be hashed in user service layer
+        name: signUpDto.firstName,
+        lastName: signUpDto.lastName,
       });
-      const session = await this.usersService.createSession({
-        user,
-        token: 'jwt-local-token',
-        ipAddress: ip,
-        userAgent: userAgent,
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7), // 7 days max
-      });
-      const tokens = await this.getTokens(user.email, user.id, session.id);
-      await this.refreshSession(session.id, tokens.refreshToken);
-      return tokens;
+      return this.loginAndRefreshTokens(req, res, userCreated);
     } catch (err) {
       if (err?.code === 'P2002' && err?.meta?.target) {
         throw new ForbiddenException(`${err.meta?.target} already exists`);
@@ -56,26 +51,32 @@ export class AuthService {
     }
   }
 
-  async signUpWithOauth(req: Request, profileFetched: any): Promise<Tokens> {
+  async createOrFindUserWithOauthData(data: OauthData) {
     try {
-      const { email, username } = profileFetched;
-      const { ip, userAgent } = this.getRequestInfo(req);
-      const hashedPassword = await argon.hash('oauth');
-      const user = await this.usersService.createUser({
-        username,
-        email,
-        password: hashedPassword, // not possible to log with a password with OAuth
+      const findUser = await this.usersService.getUserWithData({
+        email: data.email,
       });
-      const session = await this.usersService.createSession({
-        user,
-        token: 'jwt-oauth-token',
-        ipAddress: ip,
-        userAgent: userAgent,
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7), // 7 days max
+      if (findUser) {
+        if (findUser.googleId !== data.id && data.from === 'google') {
+          await this.usersService.updateUserProviderId(
+            findUser,
+            data.from,
+            data.id,
+          );
+          findUser.googleId = data.id;
+        }
+        return findUser;
+      }
+      return await this.usersService.createUserWithProfile({
+        username: data.username,
+        email: data.email,
+        password: `oauth-${data.from}-${data.id}`,
+        name: data.profile.firstName,
+        lastName: data.profile.lastName,
+        avatar: data.profile.avatar,
+        provider: data.from,
+        providerId: data.id,
       });
-      const tokens = await this.getTokens(user.email, user.id, session.id);
-      await this.refreshSession(session.id, tokens.refreshToken);
-      return tokens;
     } catch (err) {
       if (err?.code === 'P2002' && err?.meta?.target) {
         throw new ForbiddenException(`${err.meta?.target} already exists`);
@@ -85,9 +86,14 @@ export class AuthService {
     }
   }
 
-  async signInLocalUser(req: Request, loginDto: LoginDto): Promise<Tokens> {
-    const user = await this.usersService.getUserByUsername(loginDto.username);
-    const { ip, userAgent } = this.getRequestInfo(req);
+  async signInLocalUser(
+    req: Request,
+    res: Response,
+    loginDto: LoginDto,
+  ): Promise<ILoginData> {
+    const user = await this.usersService.getUserWithData({
+      username: loginDto.username,
+    });
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
@@ -95,25 +101,26 @@ export class AuthService {
     if (!isValid) {
       throw new UnauthorizedException('Invalid credentials, wrong password');
     }
-    const session = await this.usersService.createSession({
-      user,
-      token: 'jwt-signIn-token',
-      ipAddress: ip,
-      userAgent: userAgent,
-      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24 * 7),
-    });
-    const tokens = await this.getTokens(user.email, user.id, session.id);
-    await this.refreshSession(session.id, tokens.refreshToken);
-    return tokens;
+    return this.loginAndRefreshTokens(req, res, user);
   }
 
-  async signInWithOauth(req: Request, profileFetched: any): Promise<Tokens> {
-    throw new Error('Method not implemented.');
+  async signInWithOauth(
+    req: Request,
+    res: Response,
+    user: User,
+  ): Promise<ILoginData> {
+    return this.loginAndRefreshTokens(req, res, user);
   }
 
-  async logOut(sessionId: number) {
+  async logOut(refreshToken: string, res: Response) {
     try {
+      const isValid = this.jwtService.verify(refreshToken) as JwtPayload;
+      if (!isValid) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      const { sessionId } = isValid.sub;
       await this.destroySession(sessionId);
+      this.destroyCookieForRefreshToken(res);
       return {
         message: 'Successfully logged out, bye bye',
       };
@@ -126,11 +133,37 @@ export class AuthService {
     }
   }
 
+  async loginAndRefreshTokens(
+    req: Request,
+    res: Response,
+    user: User,
+  ): Promise<ILoginData> {
+    const { ip, userAgent } = this.getRequestInfo(req);
+    const session = await this.usersService.createSession({
+      user,
+      token: 'jwt-signIn-token',
+      ipAddress: ip,
+      userAgent: userAgent,
+      expiresAt: new Date(),
+    });
+    const tokens = await this.getTokens(user.email, user.id, session.id);
+    await this.refreshSession(session.id, tokens.refreshToken, res);
+    const userWithoutPassword = this.usersService.removePassword(user);
+    return {
+      accessToken: tokens.accessToken,
+      user: userWithoutPassword,
+    };
+  }
+
   async refreshAccessToken(
-    userId: number,
-    sessionId: number,
     refreshToken: string,
-  ) {
+    res: Response,
+  ): Promise<{ accessToken: string }> {
+    const isValid = this.jwtService.verify(refreshToken) as JwtPayload;
+    if (!isValid) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+    const { userId, sessionId } = isValid.sub;
     const user = await this.usersService.getUser({ id: userId });
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
@@ -139,31 +172,43 @@ export class AuthService {
     if (!session) {
       throw new UnauthorizedException('Invalid credentials, no session found');
     }
-    const isValid = this.jwtService.verify(refreshToken);
-    if (!isValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
     const tokens = await this.getTokens(user.email, user.id, session.id);
-    await this.refreshSession(session.id, tokens.refreshToken);
-    return tokens;
+    await this.refreshSession(session.id, tokens.refreshToken, res);
+    return {
+      accessToken: tokens.accessToken,
+    };
   }
 
-  async getUSerFromJwt(userId: number, sessionId: number): Promise<User> {
-    const user = await this.usersService.getUser({ id: userId });
+  async getUserFromJwt(userId: number, sessionId: number): Promise<User> {
+    const user = await this.usersService.getUserWithData({ id: userId });
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
     return user;
   }
 
-  async refreshSession(sessionId: number, refreshToken: string) {
+  async refreshSession(sessionId: number, refreshToken: string, res: Response) {
     const data = this.jwtService.decode(refreshToken);
     const expiresAt = new Date((data as any).exp * 1000);
     await this.usersService.updateSession(sessionId, refreshToken, expiresAt);
+    this.setCookieForRefreshToken(refreshToken, res);
   }
 
   async destroySession(sessionId: number) {
     await this.usersService.deleteSession({ id: sessionId });
+  }
+
+  setCookieForRefreshToken(refreshToken: string, res: Response) {
+    res.cookie('REFRESH_TOKEN', refreshToken, {
+      httpOnly: true,
+    });
+  }
+
+  destroyCookieForRefreshToken(res: Response) {
+    res.cookie('REFRESH_TOKEN', '', {
+      httpOnly: true,
+      expires: new Date(0),
+    });
   }
 
   // build tokens and return them as a promise
@@ -171,7 +216,7 @@ export class AuthService {
     email: string,
     userId: number,
     sessionId: number,
-  ): Promise<{ accessToken: string; refreshToken: string }> {
+  ): Promise<Tokens> {
     const payload: JwtPayload = {
       email: email,
       sub: {
@@ -180,7 +225,7 @@ export class AuthService {
       },
     };
     const tokens = await Promise.all([
-      this.jwtService.signAsync(payload, { expiresIn: 60 * 15 }), // 15 minutes
+      this.jwtService.signAsync(payload, { expiresIn: 60 * 5 }), // 5 minutes
       this.jwtService.signAsync(payload, { expiresIn: '7d' }), // 7 days
     ]);
 

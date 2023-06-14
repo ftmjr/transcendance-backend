@@ -4,99 +4,150 @@ import {
   Post,
   UseGuards,
   Request,
+  Response,
   Body,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { AuthService, JwtPayload } from './auth.service';
-import { LoginDto, SignupDto } from './dto';
-import { Tokens } from './interfaces';
-import { JwtService } from '@nestjs/jwt';
-import { JwtRefreshPayload } from './strategies';
-import { ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { AuthService } from './auth.service';
+import { LoginDataDto, LoginDto, RefreshDataDto, SignupDto } from './dto';
+import { ILoginData } from './interfaces';
+import { ApiCookieAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @Controller('auth')
 export class AuthController {
-  constructor(
-    private authService: AuthService,
-    private jwtService: JwtService,
-  ) {}
+  constructor(private authService: AuthService) {}
 
   @Post('login')
   @ApiOperation({
     summary: 'login the user',
     description: `
-      - send a new pair of access and refresh tokens: { accessToken, refreshToken }
+      - send access token and user info: { accessToken, user }
       - If the user is not found, will return a 401 status code
     `,
   })
-  @ApiResponse({ status: 200, description: 'return a pair of jwt token' })
-  async login(@Request() req, @Body() loginDto: LoginDto): Promise<Tokens> {
-    return this.authService.signInLocalUser(req, loginDto);
+  @ApiResponse({
+    status: 200,
+    description: `
+    - return the jwt access token and user data
+    - create a new session in the database
+    - create a new refresh token in the cookies
+    `,
+    type: LoginDataDto,
+  })
+  async login(
+    @Request() req,
+    @Response({ passthrough: true }) res,
+    @Body() loginDto: LoginDto,
+  ): Promise<ILoginData> {
+    return this.authService.signInLocalUser(req, res, loginDto);
   }
 
   @Post('signup')
   @ApiOperation({
     summary: 'create an account',
     description: `
-      - send a new pair of access and refresh tokens: { accessToken, refreshToken }
-      - create a new user in the database
-      - create a new session in the database
+      - send access token, and user info: { accessToken, user }
       - if the user already exists, will return a 403 status code
     `,
   })
-  @ApiResponse({ status: 200, description: 'return a pair of jwt token' })
-  async signup(@Request() req, @Body() signUpDto: SignupDto): Promise<Tokens> {
-    return this.authService.signUpLocal(req, signUpDto);
+  @ApiResponse({
+    status: 200,
+    description: `
+    - return the jwt access token and user data
+    - create a new session in the database
+    - create a REFRESH_TOKEN in the cookies
+    `,
+    type: LoginDataDto,
+  })
+  async signup(
+    @Request() req,
+    @Response({ passthrough: true }) res,
+    @Body() signUpDto: SignupDto,
+  ): Promise<ILoginData> {
+    return this.authService.signUpLocal(req, res, signUpDto);
   }
 
-  @UseGuards(AuthGuard('jwt-refresh'))
   @Post('refresh')
+  @ApiCookieAuth('REFRESH_TOKEN')
   @ApiOperation({
     summary: 'refresh access token',
     description: `
-      - send a new pair of access and refresh tokens
-      - the refresh token 'refreshToken' needs to be sent in the Authorization header
-      - update the database with the new refresh token
-      - if the refresh token is invalid, will return a 401 status code
+      - send a string of the new access token
+      - update the database session with the new refresh token and the cookie
+      - it use the refresh token in the cookies to get the session
+      - if the REFRESH_TOKEN in cookies is invalid, will return a 401
     `,
   })
-  @ApiResponse({ status: 200, description: 'return new pair of jwt token' })
-  async refresh(@Request() req): Promise<Tokens> {
-    const payload = req.user as JwtRefreshPayload; // user here is different from jwt strategy
-    const { userId, sessionId } = payload.sub;
-    const refreshToken = payload.refreshToken;
-    return this.authService.refreshAccessToken(userId, sessionId, refreshToken);
+  @ApiResponse({
+    status: 200,
+    type: RefreshDataDto,
+    description: 'return the access token',
+  })
+  async refresh(
+    @Request() req,
+    @Response({ passthrough: true }) res,
+  ): Promise<{ accessToken: string }> {
+    const refreshToken = req.cookies['REFRESH_TOKEN'] ?? '';
+    return this.authService.refreshAccessToken(refreshToken, res);
   }
 
-  @UseGuards(AuthGuard('jwt-refresh'))
+  @UseGuards(AuthGuard('jwt'))
   @Post('logout')
   @ApiOperation({
     summary: 'logout the user and destroy session',
     description: `
-      - use the refresh token to invalidate the session
-      - the refresh token 'refreshToken' needs to be sent in the Authorization header
+      - use access token, check in the cookies for the refresh token
       - will destroy the session and return a 200 status code
-      - if the refresh token is invalid, will return a 401 status code
+      - if the token is valid, but the session is not found, will return a 401 status code
     `,
   })
   @ApiResponse({ status: 200, description: 'logout successful' })
-  async logout(@Request() req): Promise<{ message: string }> {
-    const payload = req.user as JwtRefreshPayload; // user here is different from jwt strategy
-    const sessionId = payload.sub.sessionId;
-    return this.authService.logOut(sessionId);
+  async logout(
+    @Request() req,
+    @Response({ passthrough: true }) res,
+  ): Promise<{ message: string }> {
+    const refreshToken = req.cookies['REFRESH_TOKEN'] ?? '';
+    return this.authService.logOut(refreshToken, res);
   }
 
-  // // Google auth
-  // @Get('google')
-  // @UseGuards(AuthGuard('google'))
-  // // eslint-disable-next-line @typescript-eslint/no-empty-function
-  // googleLogin() {}
-  //
-  // @Get('google/callback')
-  // @UseGuards(AuthGuard('google'))
-  // googleLoginCallback(@Request() req) {
-  //   return this.authService.signInWithOauth(req, req.user);
-  // }
+  // Google auth
+  @Get('google')
+  @ApiOperation({
+    summary: 'Google auth entry request route',
+    description: 'Will make a call to google, and redirect',
+  })
+  @ApiResponse({
+    status: 302,
+    description: 'redirection to auth callback for google',
+  })
+  @UseGuards(AuthGuard('google'))
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  googleLogin() {}
+
+  @Get('google/callback')
+  @ApiOperation({
+    summary: 'Google Auth callback route',
+    description: `
+      - Will receive tokens from google
+      - Profile data will be load and user found or created
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: `
+    - return the jwt access token and user data
+    - create a new session in the database
+    - create a REFRESH_TOKEN in the cookies
+    `,
+    type: LoginDataDto,
+  })
+  @UseGuards(AuthGuard('google'))
+  googleLoginCallback(
+    @Request() req,
+    @Response({ passthrough: true }) res,
+  ): Promise<ILoginData> {
+    return this.authService.signInWithOauth(req, res, req.user);
+  }
   //
   // // Facebook auth
   // @Get('facebook')
