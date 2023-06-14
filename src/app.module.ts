@@ -6,6 +6,8 @@ import { PrismaModule } from './prisma/prisma.module';
 import { GamesModule } from './games/games.module';
 import { CompetitionModule } from './competition/competition.module';
 import { UsersModule } from './users/users.module';
+import { ChatRealtimeModule } from './chatRealtime/chatRealtime.module';
+import { GameRealtimeModule } from './gameRealtime/gameRealtime.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { UsersModule } from './users/users.module';
     AuthModule,
     GamesModule,
     CompetitionModule,
+    ChatRealtimeModule,
+    GameRealtimeModule,
   ],
   controllers: [],
   providers: [],
