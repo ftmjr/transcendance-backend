@@ -152,7 +152,9 @@ export class UsersService {
   }
 
   async getUsers() {
-    const users = await this.repository.getUsers({});
+    const users = await this.repository.getUsers({
+      include: { profile: true, sessions: true, gameHistories: true },
+    });
     return users.map((user) => exclude(user, ['password']));
   }
 
