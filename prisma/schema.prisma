@@ -28,6 +28,15 @@ enum GameEvent {
   MATCH_LOST
 }
 
+model UserSettings {
+    id                  Int                 @id @default(autoincrement())
+    username            String              @unique
+    email               String              @unique
+    password            String
+    token               String
+    refresh_token       String
+}
+
 model User {
   id                   Int                   @id @default(autoincrement())
   username             String                @unique
