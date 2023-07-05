@@ -3,6 +3,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
+import { User } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto, SignupDto } from './dto';
@@ -10,7 +11,6 @@ import { Request, Response } from 'express';
 import * as argon from 'argon2';
 import { ILoginData, OauthData, Tokens } from './interfaces';
 import { UsersService } from '../users/users.service';
-import { User } from '@prisma/client';
 
 export interface JwtPayload {
   email: string;
@@ -198,17 +198,19 @@ export class AuthService {
     await this.usersService.deleteSession({ id: sessionId });
   }
 
+  // TODO Verify with 42 api, res.cookie not a function
   setCookieForRefreshToken(refreshToken: string, res: Response) {
-    res.cookie('REFRESH_TOKEN', refreshToken, {
-      httpOnly: true,
-    });
+    // res.cookie('REFRESH_TOKEN', refreshToken, {
+    //   httpOnly: true,
+    // });
   }
 
+  // TODO Verify with 42 api, res.cookie not a function
   destroyCookieForRefreshToken(res: Response) {
-    res.cookie('REFRESH_TOKEN', '', {
-      httpOnly: true,
-      expires: new Date(0),
-    });
+    // res.cookie('REFRESH_TOKEN', '', {
+    //   httpOnly: true,
+    //   expires: new Date(0),
+    // });
   }
 
   // build tokens and return them as a promise
