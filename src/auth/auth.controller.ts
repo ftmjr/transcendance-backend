@@ -71,6 +71,8 @@ export class AuthController {
     return this.authService.signUpLocal(req, res, signUpDto);
   }
 
+  @UseGuards(AuthenticatedGuard)
+  @ApiBearerAuth()
   @Post('refresh')
   @ApiCookieAuth('REFRESH_TOKEN')
   @ApiOperation({
@@ -95,7 +97,8 @@ export class AuthController {
     return this.authService.refreshAccessToken(refreshToken, res);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthenticatedGuard)
+  @ApiBearerAuth()
   @Post('logout')
   @ApiOperation({
     summary: 'logout the user and destroy session',
@@ -164,23 +167,8 @@ export class AuthController {
     description: 'redirection to auth callback for 42',
   })
   @UseGuards(AuthGuard('42'))
-  // eslint-disable-next-line @typescript-eslint/no-empty-function
   Login42() {}
-  //
-  // // Facebook auth
-  // @Get('facebook')
-  // @UseGuards(AuthGuard('facebook'))
-  // // eslint-disable-next-line @typescript-eslint/no-empty-function
-  // facebookLogin() {}
-  //
-  // @Get('facebook/callback')
-  // @UseGuards(AuthGuard('facebook'))
-  // facebookLoginCallback(@Request() req) {
-  //   return this.authService.signInWithOauth(req, req.user);
-  // }
-  //
 
-  //
   @Get('42/callback')
   @UseGuards(AuthGuard('42'))
   @ApiOperation({
@@ -200,10 +188,10 @@ export class AuthController {
     type: LoginDataDto,
   })
   api42LoginCallback(
-      @Request() req,
-      @Response({ passthrough: true }) res,
+    @Request() req,
+    @Response({ passthrough: true }) res,
   ): Promise<ILoginData> {
-    return this.authService.signInWithOauth(res, req, req.user);
+    return this.authService.signInWithOauth(req, res, req.user);
   }
   //
   // // Two-factor auth
@@ -219,6 +207,19 @@ export class AuthController {
   })
   @Get('pizza')
   async getPizza() {
-    return "Free pizza";
+    return 'Free pizza';
   }
+
+  // // Facebook auth
+  // @Get('facebook')
+  // @UseGuards(AuthGuard('facebook'))
+  // // eslint-disable-next-line @typescript-eslint/no-empty-function
+  // facebookLogin() {}
+  //
+  // @Get('facebook/callback')
+  // @UseGuards(AuthGuard('facebook'))
+  // facebookLoginCallback(@Request() req) {
+  //   return this.authService.signInWithOauth(req, req.user);
+  // }
+  //
 }
