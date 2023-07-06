@@ -11,12 +11,16 @@ import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { LoginDataDto, LoginDto, RefreshDataDto, SignupDto } from './dto';
 import { ILoginData } from './interfaces';
-import { ApiCookieAuth, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiCookieAuth, ApiOperation, ApiResponse, ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { LocalAuthGuard } from "./guards/local-auth.guard";
+import { AuthenticatedGuard } from "./guards";
 
+@ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}
 
+  @UseGuards(LocalAuthGuard)
   @Post('login')
   @ApiOperation({
     summary: 'login the user',
@@ -39,12 +43,12 @@ export class AuthController {
     @Response({ passthrough: true }) res,
     @Body() loginDto: LoginDto,
   ): Promise<ILoginData> {
-    return this.authService.signInLocalUser(req, res, loginDto);
+    return this.authService.loginAndRefreshTokens(req, res, req.user);
   }
 
   @Post('signup')
   @ApiOperation({
-    summary: 'create an account',
+    summary: 'manually create an account',
     description: `
       - send access token, and user info: { accessToken, user }
       - if the user already exists, will return a 403 status code
@@ -67,6 +71,8 @@ export class AuthController {
     return this.authService.signUpLocal(req, res, signUpDto);
   }
 
+  @UseGuards(AuthenticatedGuard)
+  @ApiBearerAuth()
   @Post('refresh')
   @ApiCookieAuth('REFRESH_TOKEN')
   @ApiOperation({
@@ -91,7 +97,8 @@ export class AuthController {
     return this.authService.refreshAccessToken(refreshToken, res);
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(AuthenticatedGuard)
+  @ApiBearerAuth()
   @Post('logout')
   @ApiOperation({
     summary: 'logout the user and destroy session',
@@ -148,7 +155,61 @@ export class AuthController {
   ): Promise<ILoginData> {
     return this.authService.signInWithOauth(req, res, req.user);
   }
+
+  // 42 Auth
+  @Get('42')
+  @ApiOperation({
+    summary: '42 auth entry request route',
+    description: 'Will make a call to4 2, and redirect',
+  })
+  @ApiResponse({
+    status: 302,
+    description: 'redirection to auth callback for 42',
+  })
+  @UseGuards(AuthGuard('42'))
+  Login42() {}
+
+  @Get('42/callback')
+  @UseGuards(AuthGuard('42'))
+  @ApiOperation({
+    summary: '42 Auth callback route',
+    description: `
+      - Will receive tokens from 42
+      - Profile data will be load and user found or created
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: `
+    - return the jwt access token and user data
+    - create a new session in the database
+    - create a REFRESH_TOKEN in the cookies
+    `,
+    type: LoginDataDto,
+  })
+  api42LoginCallback(
+    @Request() req,
+    @Response({ passthrough: true }) res,
+  ): Promise<ILoginData> {
+    return this.authService.signInWithOauth(req, res, req.user);
+  }
   //
+  // // Two-factor auth
+  // @Post('twofactor/verify')
+  // async verifyTwoFactorAuth(@Request() req, @Body('token') token: string) {
+  //   return this.authService.checkTwoFactor(req, req.user);
+  // }
+
+  @UseGuards(AuthenticatedGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Test of a protected route for a logged in user',
+  })
+  @Get('pizza')
+  async getPizza() {
+    return 'Free pizza';
+  }
+
   // // Facebook auth
   // @Get('facebook')
   // @UseGuards(AuthGuard('facebook'))
@@ -161,21 +222,4 @@ export class AuthController {
   //   return this.authService.signInWithOauth(req, req.user);
   // }
   //
-  // // 42 auth
-  // @Get('42')
-  // @UseGuards(AuthGuard('42'))
-  // // eslint-disable-next-line @typescript-eslint/no-empty-function
-  // api42Login() {}
-  //
-  // @Get('42/callback')
-  // @UseGuards(AuthGuard('42'))
-  // api42LoginCallback(@Request() req) {
-  //   return this.authService.signInWithOauth(req, req.user);
-  // }
-  //
-  // // Two-factor auth
-  // @Post('twofactor/verify')
-  // async verifyTwoFactorAuth(@Request() req, @Body('token') token: string) {
-  //   return this.authService.checkTwoFactor(req, req.user);
-  // }
 }
