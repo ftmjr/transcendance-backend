@@ -175,7 +175,7 @@ export class AuthController {
       url:
         'https://' +
         this.configService.get<string>('URL') +
-        '/dashboard?' +
+        '/auth?' +
         JSON.stringify(loginData),
       statusCode: 302,
     };
@@ -226,7 +226,7 @@ export class AuthController {
       url:
         'https://' +
         this.configService.get<string>('URL') +
-        '/dashboard?' +
+        '/auth?' +
         JSON.stringify(loginData),
       statusCode: 302,
     };
