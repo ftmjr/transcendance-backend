@@ -8,6 +8,7 @@ import { CompetitionModule } from './competition/competition.module';
 import { UsersModule } from './users/users.module';
 import { ChatRealtimeModule } from './chatRealtime/chatRealtime.module';
 import { GameRealtimeModule } from './gameRealtime/gameRealtime.module';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { GameRealtimeModule } from './gameRealtime/gameRealtime.module';
     CompetitionModule,
     ChatRealtimeModule,
     GameRealtimeModule,
+    CacheModule.register(),
   ],
   controllers: [],
   providers: [],

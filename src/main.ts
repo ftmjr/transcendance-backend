@@ -4,12 +4,17 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { PrismaClientExceptionFilter } from 'nestjs-prisma';
 import * as cookieParser from 'cookie-parser';
+import * as compression from 'compression';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const { httpAdapter } = app.get(HttpAdapterHost);
+  app.enableCors({
+    origin: 'https://localhost',
+  });
   app.useGlobalFilters(new PrismaClientExceptionFilter(httpAdapter));
   app.use(cookieParser());
+  app.use(compression());
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
