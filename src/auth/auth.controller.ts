@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   UseGuards,
+  Redirect,
   Request,
   Response,
   Body,
@@ -10,15 +11,24 @@ import {
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
 import { LoginDataDto, LoginDto, RefreshDataDto, SignupDto } from './dto';
-import { ILoginData } from './interfaces';
-import { ApiCookieAuth, ApiOperation, ApiResponse, ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { LocalAuthGuard } from "./guards/local-auth.guard";
-import { AuthenticatedGuard } from "./guards";
+import {
+  ApiCookieAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiTags,
+} from '@nestjs/swagger';
+import { LocalAuthGuard } from './guards/local-auth.guard';
+import { AuthenticatedGuard } from './guards';
+import { ConfigService } from '@nestjs/config';
 
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(
+    private authService: AuthService,
+    private readonly configService: ConfigService,
+  ) {}
 
   @UseGuards(LocalAuthGuard)
   @Post('login')
@@ -42,10 +52,23 @@ export class AuthController {
     @Request() req,
     @Response({ passthrough: true }) res,
     @Body() loginDto: LoginDto,
-  ): Promise<ILoginData> {
-    return this.authService.loginAndRefreshTokens(req, res, req.user);
+  ) {
+    const loginData = this.authService.loginAndRefreshTokens(
+      req,
+      res,
+      req.user,
+    );
+    return {
+      url:
+        'https://' +
+        this.configService.get<string>('URL') +
+        '/dashboard?' +
+        JSON.stringify(loginData),
+      statusCode: 302,
+    };
   }
 
+  @Redirect()
   @Post('signup')
   @ApiOperation({
     summary: 'manually create an account',
@@ -67,8 +90,16 @@ export class AuthController {
     @Request() req,
     @Response({ passthrough: true }) res,
     @Body() signUpDto: SignupDto,
-  ): Promise<ILoginData> {
-    return this.authService.signUpLocal(req, res, signUpDto);
+  ) {
+    const loginData = await this.authService.signUpLocal(req, res, signUpDto);
+    return {
+      url:
+        'https://' +
+        this.configService.get<string>('URL') +
+        '/dashboard?' +
+        JSON.stringify(loginData),
+      statusCode: 302,
+    };
   }
 
   @UseGuards(AuthenticatedGuard)
@@ -131,6 +162,7 @@ export class AuthController {
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   googleLogin() {}
 
+  @Redirect()
   @Get('google/callback')
   @ApiOperation({
     summary: 'Google Auth callback route',
@@ -149,11 +181,23 @@ export class AuthController {
     type: LoginDataDto,
   })
   @UseGuards(AuthGuard('google'))
-  googleLoginCallback(
+  async googleLoginCallback(
     @Request() req,
     @Response({ passthrough: true }) res,
-  ): Promise<ILoginData> {
-    return this.authService.signInWithOauth(req, res, req.user);
+  ) {
+    const loginData = await this.authService.signInWithOauth(
+      req,
+      res,
+      req.user,
+    );
+    return {
+      url:
+        'https://' +
+        this.configService.get<string>('URL') +
+        '/dashboard?' +
+        JSON.stringify(loginData),
+      statusCode: 302,
+    };
   }
 
   // 42 Auth
@@ -169,6 +213,7 @@ export class AuthController {
   @UseGuards(AuthGuard('42'))
   Login42() {}
 
+  @Redirect()
   @Get('42/callback')
   @UseGuards(AuthGuard('42'))
   @ApiOperation({
@@ -187,11 +232,23 @@ export class AuthController {
     `,
     type: LoginDataDto,
   })
-  api42LoginCallback(
+  async api42LoginCallback(
     @Request() req,
     @Response({ passthrough: true }) res,
-  ): Promise<ILoginData> {
-    return this.authService.signInWithOauth(req, res, req.user);
+  ) {
+    const loginData = await this.authService.signInWithOauth(
+      req,
+      res,
+      req.user,
+    );
+    return {
+      url:
+        'https://' +
+        this.configService.get<string>('URL') +
+        '/dashboard?' +
+        JSON.stringify(loginData),
+      statusCode: 302,
+    };
   }
   //
   // // Two-factor auth

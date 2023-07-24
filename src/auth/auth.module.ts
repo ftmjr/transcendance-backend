@@ -8,6 +8,7 @@ import { UsersModule } from '../users/users.module';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 import { Strategy42 } from './strategies/42.strategy';
+import { ConfigModule } from "@nestjs/config";
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { Strategy42 } from './strategies/42.strategy';
     JtwStrategy,
     GoogleStrategy,
     Strategy42,
+    ConfigModule,
   ],
 })
 export class AuthModule {}
