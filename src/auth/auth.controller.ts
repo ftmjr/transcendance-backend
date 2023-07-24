@@ -21,6 +21,7 @@ import {
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { AuthenticatedGuard } from './guards';
 import { ConfigService } from '@nestjs/config';
+import { ILoginData } from "./interfaces";
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -48,24 +49,12 @@ export class AuthController {
     `,
     type: LoginDataDto,
   })
-  async login(
+  login(
     @Request() req,
     @Response({ passthrough: true }) res,
     @Body() loginDto: LoginDto,
   ) {
-    const loginData = this.authService.loginAndRefreshTokens(
-      req,
-      res,
-      req.user,
-    );
-    return {
-      url:
-        'https://' +
-        this.configService.get<string>('URL') +
-        '/dashboard?' +
-        JSON.stringify(loginData),
-      statusCode: 302,
-    };
+    return this.authService.loginAndRefreshTokens(req, res, req.user);
   }
 
   @Redirect()
@@ -90,16 +79,8 @@ export class AuthController {
     @Request() req,
     @Response({ passthrough: true }) res,
     @Body() signUpDto: SignupDto,
-  ) {
-    const loginData = await this.authService.signUpLocal(req, res, signUpDto);
-    return {
-      url:
-        'https://' +
-        this.configService.get<string>('URL') +
-        '/dashboard?' +
-        JSON.stringify(loginData),
-      statusCode: 302,
-    };
+  ): Promise<ILoginData> {
+    return this.authService.signUpLocal(req, res, signUpDto);
   }
 
   @UseGuards(AuthenticatedGuard)
