@@ -10,7 +10,8 @@ import {
 import { Server, Socket } from 'socket.io';
 import { GameRealtimeService } from './gameRealtime.service';
 import { GAME_EVENTS, GameSession } from './interfaces';
-import { JoinGameEvent } from './dto';
+import { JoinGameEvent, JoinGameResponse } from './dto';
+import { GameActionDto } from './dto/gameAction.dto';
 
 @WebSocketGateway({ namespace: 'game' })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -31,29 +32,22 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   async handleJoinGame(
     @MessageBody() joinGameEvent: JoinGameEvent,
     @ConnectedSocket() client: Socket,
-  ) {
-    console.log('Received join game event', joinGameEvent);
-    let gameSession: GameSession | undefined;
-    if (joinGameEvent.roomId === 0) {
-      const game = await this.gameRealtimeService.addPlayerInWaitingRoom(
-        joinGameEvent.user.userId,
+  ): Promise<JoinGameResponse> {
+    console.log('JoinGame received from client', client.id);
+    console.log(joinGameEvent);
+    try {
+      const gameSession = await this.gameRealtimeService.handleJoiningAGame(
+        joinGameEvent,
       );
-      gameSession = this.gameRealtimeService.getGameSession(game.id);
-    } else {
-      const game = await this.gameRealtimeService.addPlayerToGame(
-        joinGameEvent.roomId,
-        joinGameEvent.user.userId,
-      );
-      gameSession = this.gameRealtimeService.getGameSession(game.id);
-    }
-    if (gameSession) {
-      client.join(gameSession.gameId.toString());
-      client.emit(GAME_EVENTS.JoinGame, {
+      await client.join(gameSession.gameId.toString());
+      this.handleGameEvents(gameSession);
+      return {
+        worked: true,
         roomId: gameSession.gameId,
-      });
-      client.emit(GAME_EVENTS.PlayerAdded, {
-        players: gameSession.participantIds,
-      });
+      };
+    } catch (error) {
+      console.log(`Error handling JoinGame: ${error.message}`);
+      return { worked: false, roomId: 0 };
     }
   }
 
@@ -61,9 +55,81 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   handleGameAction(
     @MessageBody() data: string,
     @ConnectedSocket() client: Socket,
-  ): string {
+  ) {
     console.log('gameAction received from client', client.id);
+    console.log('room', client.rooms);
     console.log(data);
-    return 'oh an action';
+  }
+
+  // Handle pad move
+  @SubscribeMessage(GAME_EVENTS.PadMoved)
+  async handlePadMove(client: Socket, gameAction: GameActionDto) {
+    const { roomId, user, isIA, actionData } = gameAction;
+    // Your logic here
+    // Example:
+    console.log('PadMoved received from client', {
+      client: client.id,
+      roomId,
+      user,
+      isIA,
+      actionData,
+    });
+  }
+
+  // Handle ball serve
+  @SubscribeMessage(GAME_EVENTS.BallServed)
+  async handleBallServe(client: Socket, gameAction: GameActionDto) {
+    const { roomId, user, isIA, actionData } = gameAction;
+    // Your logic here
+    // Example:
+    console.log('BallServed received from client', {
+      client: client.id,
+      roomId,
+      user,
+      isIA,
+      actionData,
+    });
+  }
+
+  // Handle game state change
+  @SubscribeMessage(GAME_EVENTS.GameStateChanged)
+  async handleGameStateChange(client: Socket, gameAction: GameActionDto) {
+    const { roomId, user, isIA, actionData } = gameAction;
+    // Your logic here
+    // Example:
+    console.log('GameStateChanged received from client', {
+      client: client.id,
+      roomId,
+      user,
+      isIA,
+      actionData,
+    });
+  }
+
+  // Handle game end
+  @SubscribeMessage(GAME_EVENTS.GameResult)
+  async handleGameEnd(client: Socket, gameAction: GameActionDto) {
+    const { roomId, user, isIA, actionData } = gameAction;
+    // Your logic here
+    // Example:
+    console.log('GameResult received from client', {
+      client: client.id,
+      roomId,
+      user,
+      isIA,
+      actionData,
+    });
+  }
+
+  private handleGameEvents(gameSession: GameSession) {
+    const room = gameSession.gameId.toString();
+    gameSession.events.forEach((eventObj) => {
+      const { event, data } = eventObj;
+      if (this.server.to(room).emit(event, data)) {
+        console.log(`Emitted ${event} to room ${gameSession.gameId}`);
+      }
+    });
+    // after emitting events, clear the events array
+    gameSession.events = [];
   }
 }

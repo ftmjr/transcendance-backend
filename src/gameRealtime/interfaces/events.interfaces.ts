@@ -11,3 +11,9 @@ export enum GAME_EVENTS {
   ScoreChanged = 'scoreChanged',
   GameResult = 'gameResult',
 }
+
+export enum GameUserType {
+  Player,
+  Viewer,
+  LocalPlayer,
+}

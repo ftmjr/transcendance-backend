@@ -1,4 +1,5 @@
 import { IsNotEmpty, IsNumber, IsString } from 'class-validator';
+import { GameUserType } from '../interfaces';
 
 export class GameUser {
   @IsNumber()
@@ -13,6 +14,16 @@ export class GameUser {
 
 export class JoinGameEvent {
   user: GameUser;
+  @IsNumber()
+  @IsNotEmpty()
+  roomId: number;
+  @IsNumber()
+  @IsNotEmpty()
+  userType: GameUserType;
+}
+
+export class JoinGameResponse {
+  worked: boolean;
   @IsNumber()
   @IsNotEmpty()
   roomId: number;

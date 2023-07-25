@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { GamesRepository } from './games.repository';
-import { Game, GameHistory, Prisma, User } from '@prisma/client';
-import { GameEvent } from '.prisma/client';
+import { Game, GameHistory, Prisma } from '@prisma/client';
 
 @Injectable()
 export class GamesService {
@@ -14,13 +13,11 @@ export class GamesService {
   }
 
   addParticipant(params: { gameId: number; userId: number }) {
-    const { gameId, userId } = params;
-    return this.repository.createParticipant({ gameId, userId });
+    return this.repository.createParticipant(params);
   }
 
   addObserver(params: { gameId: number; userId: number }) {
-    const { gameId, userId } = params;
-    return this.repository.createObserver({ gameId, userId });
+    return this.repository.createObserver(params);
   }
 
   addHistory(params: {

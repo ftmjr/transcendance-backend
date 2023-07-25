@@ -22,15 +22,13 @@ export class GamesRepository {
 
   createParticipant(params: { gameId: number; userId: number }): Promise<Game> {
     const { gameId, userId } = params;
+    console.log('createParticipant with data', gameId, userId);
     return this.prisma.game.update({
       where: { id: gameId },
       data: {
         participants: {
-          connect: {
-            gameId_userId: {
-              gameId,
-              userId,
-            },
+          create: {
+            userId,
           },
         },
       },
