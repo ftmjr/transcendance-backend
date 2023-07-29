@@ -7,6 +7,10 @@ import {
   Request,
   Response,
   Body,
+  Req,
+  UnauthorizedException,
+  HttpCode,
+  Res,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
@@ -22,6 +26,8 @@ import { LocalAuthGuard } from './guards/local-auth.guard';
 import { AuthenticatedGuard } from './guards';
 import { ConfigService } from '@nestjs/config';
 import { ILoginData } from "./interfaces";
+import { UsersService } from '../users/users.service';
+import { Jwt2faAuthGuard } from './guards/jwt-2fa-auth.guard';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -29,6 +35,7 @@ export class AuthController {
   constructor(
     private authService: AuthService,
     private readonly configService: ConfigService,
+    private readonly usersService: UsersService,
   ) {}
 
   @UseGuards(LocalAuthGuard)
@@ -237,6 +244,48 @@ export class AuthController {
   // async verifyTwoFactorAuth(@Request() req, @Body('token') token: string) {
   //   return this.authService.checkTwoFactor(req, req.user);
   // }
+  @Post('2fa/turn-on')
+  @UseGuards(AuthGuard('42'))
+  async turnOnTwoFactorAuthentication(@Req() request, @Body() body) {
+    const isCodeValid =
+      this.authService.isTwoFactorAuthenticationCodeValid(
+        body.twoFactorAuthenticationCode,
+        request.user,
+      );
+    if (!isCodeValid) {
+      throw new UnauthorizedException('Wrong authentication code');
+    }
+    await this.usersService.turnOnTwoFactorAuthentication(request.user.id);
+  }
+
+  @Post('2fa/authenticate')
+  @HttpCode(200)
+  @UseGuards(Jwt2faAuthGuard)
+  async authenticate(@Request() request, @Body() body) {
+    const isCodeValid = this.authService.isTwoFactorAuthenticationCodeValid(
+      body.twoFactorAuthenticationCode,
+      request.user,
+    );
+
+    if (!isCodeValid) {
+      throw new UnauthorizedException('Wrong authentication code');
+    }
+
+    return this.authService.loginWith2fa(request.user);
+  }
+
+	@Post('2fa/generate')
+	@UseGuards(Jwt2faAuthGuard)
+	async register(@Res() response, @Req() request) {
+		const { otpAuthUrl } =
+			await this.authService.generateTwoFactorAuthenticationSecret(
+				request.user,
+			);
+
+		return response.json(
+			await this.authService.generateQrCodeDataURL(otpAuthUrl),
+		);
+	}
 
   @UseGuards(AuthenticatedGuard)
   @ApiBearerAuth()

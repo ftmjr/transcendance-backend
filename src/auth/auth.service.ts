@@ -11,6 +11,8 @@ import { Request, Response } from 'express';
 import * as argon from 'argon2';
 import { ILoginData, OauthData, Tokens } from './interfaces';
 import { UsersService } from '../users/users.service';
+import { authenticator } from 'otplib';
+import { toDataURL } from 'qrcode';
 
 export interface JwtPayload {
   email: string;
@@ -26,6 +28,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private jwtService: JwtService,
     private usersService: UsersService,
+
   ) {}
 
   async signUpLocal(
@@ -243,6 +246,40 @@ export class AuthService {
     return {
       ip,
       userAgent,
+    };
+  }
+
+  async generateTwoFactorAuthenticationSecret(user: User) {
+    const secret = authenticator.generateSecret();
+    const otpAuthUrl = authenticator.keyuri(user.email, 'FTMJR', secret);
+    await this.usersService.setTwoFactorAuthenticationSecret(secret, user.id);
+    return {
+      secret,
+      otpAuthUrl
+    }
+  }
+
+  async generateQrCodeDataURL(otpAuthUrl: string) {
+    return toDataURL(otpAuthUrl);
+  }
+
+  isTwoFactorAuthenticationCodeValid(twoFactorAuthenticationCode: string, user: User) {
+    return authenticator.verify({
+      token: twoFactorAuthenticationCode,
+      secret: user.twoFactorSecret,
+    });
+  }
+
+  async loginWith2fa(userWithoutPsw: Partial<User>) {
+    const payload = {
+      email: userWithoutPsw.email,
+      twoFactorEnabled: !!userWithoutPsw.twoFactorEnabled,
+      isTwoFactorAuthenticated: true,
+    };
+
+    return {
+      email: payload.email,
+      access_token: this.jwtService.sign(payload),
     };
   }
 }

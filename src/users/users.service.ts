@@ -250,4 +250,12 @@ export class UsersService {
   removesPasswords(users: User[]) {
     return users.map((user) => exclude(user, ['password']));
   }
+
+  async setTwoFactorAuthenticationSecret(secret: string, id: number) {
+    (await this.repository.getByID(id)).twoFactorSecret = secret;
+  }
+
+  async turnOnTwoFactorAuthentication(id: number) {
+    (await this.repository.getByID(id)).twoFactorEnabled = true;
+  }
 }
