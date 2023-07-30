@@ -252,10 +252,20 @@ export class UsersService {
   }
 
   async setTwoFactorAuthenticationSecret(secret: string, id: number) {
-    (await this.repository.getByID(id)).twoFactorSecret = secret;
+    return this.repository.updateUser({
+      where: { id: id },
+      data: {
+        twoFactorSecret: secret,
+      },
+    });
   }
 
   async turnOnTwoFactorAuthentication(id: number) {
-    (await this.repository.getByID(id)).twoFactorEnabled = true;
+    return this.repository.updateUser({
+      where: { id: id },
+      data: {
+        twoFactorEnabled: true,
+      },
+    });
   }
 }
