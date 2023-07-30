@@ -269,17 +269,4 @@ export class AuthService {
       secret: user.twoFactorSecret,
     });
   }
-
-  async loginWith2fa(userWithoutPsw: Partial<User>) {
-    const payload = {
-      email: userWithoutPsw.email,
-      twoFactorEnabled: !!userWithoutPsw.twoFactorEnabled,
-      isTwoFactorAuthenticated: true,
-    };
-
-    return {
-      email: payload.email,
-      access_token: this.jwtService.sign(payload),
-    };
-  }
 }

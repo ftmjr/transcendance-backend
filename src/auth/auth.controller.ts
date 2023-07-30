@@ -276,7 +276,7 @@ export class AuthController {
       throw new UnauthorizedException('Wrong authentication code');
     }
 
-    return this.authService.loginWith2fa(request.user);
+    return true;
   }
 
 	@Post('2fa/generate')
