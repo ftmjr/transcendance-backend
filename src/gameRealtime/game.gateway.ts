@@ -1,17 +1,18 @@
 import {
+  ConnectedSocket,
+  MessageBody,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
   SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
-  OnGatewayConnection,
-  OnGatewayDisconnect,
-  MessageBody,
-  ConnectedSocket,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { GameRealtimeService } from './gameRealtime.service';
-import { GAME_EVENTS, GameSession } from './interfaces';
-import { JoinGameEvent, JoinGameResponse } from './dto';
+import { GAME_EVENTS, GameMonitorState, GameSession } from './interfaces';
+import { GameUser, JoinGameEvent, JoinGameResponse } from './dto';
 import { GameActionDto } from './dto/gameAction.dto';
+import { GAME_STATE } from './interfaces/gameActions.interface';
 
 @WebSocketGateway({ namespace: 'game' })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -61,19 +62,18 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     console.log(data);
   }
 
-  // Handle pad move
   @SubscribeMessage(GAME_EVENTS.PadMoved)
   async handlePadMove(client: Socket, gameAction: GameActionDto) {
     const { roomId, user, isIA, actionData } = gameAction;
     // Your logic here
     // Example:
-    console.log('PadMoved received from client', {
-      client: client.id,
-      roomId,
-      user,
-      isIA,
-      actionData,
-    });
+    // console.log('PadMoved received from client', {
+    //   client: client.id,
+    //   roomId,
+    //   user,
+    //   isIA,
+    //   actionData,
+    // });
   }
 
   // Handle ball serve
@@ -82,28 +82,51 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { roomId, user, isIA, actionData } = gameAction;
     // Your logic here
     // Example:
-    console.log('BallServed received from client', {
-      client: client.id,
-      roomId,
-      user,
-      isIA,
-      actionData,
-    });
+    // console.log('BallServed received from client', {
+    //   client: client.id,
+    //   roomId,
+    //   user,
+    //   isIA,
+    //   actionData,
+    // });
   }
 
   // Handle game state change
   @SubscribeMessage(GAME_EVENTS.GameStateChanged)
   async handleGameStateChange(client: Socket, gameAction: GameActionDto) {
     const { roomId, user, isIA, actionData } = gameAction;
-    // Your logic here
-    // Example:
-    console.log('GameStateChanged received from client', {
-      client: client.id,
-      roomId,
-      user,
-      isIA,
-      actionData,
-    });
+    const data = actionData as GAME_STATE[];
+    const gameSession = this.gameRealtimeService.currentManagedGames.find(
+      (g) => g.gameId === roomId,
+    );
+    if (!gameSession) {
+      console.log(`Game with id ${roomId} does not exist`);
+      return;
+    }
+    switch (data[0]) {
+      case GAME_STATE.waiting:
+        this.gameRealtimeService.handleGameStart(data[0], user, gameSession);
+        break;
+      case GAME_STATE.playing:
+        this.gameRealtimeService.handleGameStart(data[0], user, gameSession);
+        break;
+      case GAME_STATE.ballServing:
+        console.log('GameStateChanged received, ball is serving', gameSession);
+        break;
+      case GAME_STATE.scored:
+        this.gameRealtimeService.handleScoreUpdate(
+          data[0],
+          user,
+          gameSession,
+          isIA,
+        );
+        break;
+      case GAME_STATE.finished:
+        console.log('GameStateChanged received, game is finished', gameSession);
+        break;
+    }
+    // send any game events
+    this.handleGameEvents(gameSession);
   }
 
   // Handle game end
@@ -112,24 +135,24 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { roomId, user, isIA, actionData } = gameAction;
     // Your logic here
     // Example:
-    console.log('GameResult received from client', {
-      client: client.id,
-      roomId,
-      user,
-      isIA,
-      actionData,
-    });
+    // console.log('GameResult received from client', {
+    //   client: client.id,
+    //   roomId,
+    //   user,
+    //   isIA,
+    //   actionData,
+    // });
   }
-
   private handleGameEvents(gameSession: GameSession) {
     const room = gameSession.gameId.toString();
     gameSession.events.forEach((eventObj) => {
       const { event, data } = eventObj;
       if (this.server.to(room).emit(event, data)) {
         console.log(`Emitted ${event} to room ${gameSession.gameId}`);
+        console.log('data', data);
       }
     });
     // after emitting events, clear the events array
-    gameSession.events = [];
+    gameSession.events.splice(0, gameSession.events.length);
   }
 }

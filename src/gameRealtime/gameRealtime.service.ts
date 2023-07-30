@@ -2,13 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { GamesService } from '../games/games.service';
 import { Game } from '@prisma/client';
 import {
+  GAME_EVENTS,
+  GameMonitorState,
   Gamer,
   GameSession,
   GameUserType,
   OnlineGameStates,
-  GAME_EVENTS,
 } from './interfaces';
-import { JoinGameEvent } from './dto';
+import { GameUser, JoinGameEvent } from './dto';
+import { GAME_STATE } from './interfaces/gameActions.interface';
 
 @Injectable()
 export class GameRealtimeService {
@@ -103,12 +105,26 @@ export class GameRealtimeService {
       userId: user.userId,
     });
     gameSession.participants.set(user.userId, user);
+    gameSession.score.set(user.userId, 0);
     gameSession.events.push({
       event: GAME_EVENTS.PlayerAdded,
       data: { id: user.userId, data: user },
     });
+    if (gameSession.participants.size > gameSession.monitors.length) {
+      gameSession.monitors.push(GameMonitorState.Waiting);
+    }
     if (gameSession.participants.size === 2) {
       gameSession.state = OnlineGameStates.Playing;
+      gameSession.events.push({
+        event: GAME_EVENTS.PlayersRetrieved,
+        data: {
+          id: user.userId,
+          data: Array.from(gameSession.participants.values()),
+        },
+      });
+      gameSession.monitors = Array<GameMonitorState>(2).fill(
+        GameMonitorState.Ready,
+      );
     }
     return gameSession;
   }
@@ -118,12 +134,23 @@ export class GameRealtimeService {
     observers: Map<number, Gamer>,
     state: OnlineGameStates,
   ): Promise<GameSession> {
+    const monitors = Array<GameMonitorState>(participants.size).fill(
+      GameMonitorState.Waiting,
+    );
+    if (state === OnlineGameStates.Playing_with_bot) {
+      monitors[0] = GameMonitorState.Ready;
+    }
     const game = await this.createAGame(participants, observers);
+    const score = new Map<number, number>();
+    participants.forEach((p) => score.set(p.userId, 0));
     const gameSession: GameSession = {
       gameId: game.id,
       participants,
+      hostId: participants.keys().next().value, // first participant is the host
+      score,
       observers,
       state,
+      monitors,
       events: [
         {
           event: GAME_EVENTS.PlayersRetrieved,
@@ -162,6 +189,85 @@ export class GameRealtimeService {
             },
           }
         : undefined,
+    });
+  }
+
+  // starting game event syncronization
+  handleGameStart(state: GAME_STATE, user: GameUser, gameSession: GameSession) {
+    // we need to move each player monitor to InitGame state
+    if (state === GAME_STATE.waiting) {
+      // update monitor states to ready depending on userId index
+      const userIds = Array.from(gameSession.participants.keys());
+      const userIndex = userIds.indexOf(user.userId);
+      gameSession.monitors[userIndex] = GameMonitorState.InitGame;
+      this.syncGameEventToStart(gameSession);
+    }
+    if (state === GAME_STATE.playing) {
+      const userIds = Array.from(gameSession.participants.keys());
+      const userIndex = userIds.indexOf(user.userId);
+      gameSession.monitors[userIndex] = GameMonitorState.PlayingSceneLoaded;
+      this.syncGameEventToStart(gameSession);
+    }
+  }
+
+  syncGameEventToStart(gameSession: GameSession) {
+    if (gameSession.monitors.every((m) => m === GameMonitorState.InitGame)) {
+      if (gameSession.state === OnlineGameStates.Playing_with_bot) {
+        // 0 as userId for bot
+        gameSession.score.set(0, 0);
+      }
+      // message will set all of them to InitGame state
+      gameSession.events.push({
+        event: GAME_EVENTS.GameMonitorStateChanged,
+        data: { id: gameSession.gameId, data: GameMonitorState.InitGame },
+      });
+      gameSession.events.push({
+        event: GAME_EVENTS.HostChanged,
+        data: { id: gameSession.gameId, data: gameSession.hostId },
+      });
+    }
+    // if all monitors are in PlayingSceneLoaded state, we can start the game
+    if (
+      gameSession.monitors.every(
+        (m) => m === GameMonitorState.PlayingSceneLoaded,
+      )
+    ) {
+      // message will set all of them to PlayingSceneLoaded state
+      gameSession.events.push({
+        event: GAME_EVENTS.GameMonitorStateChanged,
+        data: {
+          id: gameSession.gameId,
+          data: GameMonitorState.PlayingSceneLoaded,
+        },
+      });
+    }
+  }
+  handleScoreUpdate(
+    state: GAME_STATE,
+    user: GameUser,
+    gameSession: GameSession,
+    isBot = false,
+  ) {
+    if (state !== GAME_STATE.scored) {
+      return;
+    }
+    if (isBot) {
+      gameSession.score.set(0, gameSession.score.get(0) + 1);
+    } else {
+      const userId = user.userId;
+      const score = gameSession.score.get(userId);
+      gameSession.score.set(userId, score + 1);
+    }
+    const data = {
+      id: gameSession.gameId,
+      data: Array.from(gameSession.score.keys()).map((id) => ({
+        userId: id,
+        score: gameSession.score.get(id),
+      })),
+    };
+    gameSession.events.push({
+      event: GAME_EVENTS.ScoreChanged,
+      data,
     });
   }
 }
