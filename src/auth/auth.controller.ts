@@ -249,6 +249,10 @@ export class AuthController {
   @Post('2fa/turn-on')
   @UseGuards(AuthenticatedGuard)
   @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Enables Google Authenticator 2FA',
+    description: 'Set "two"twoFactorEnabled" to true,',
+  })
   async turnOnTwoFactorAuthentication(@Req() request, @Body() body : TwoFaDto ) {
     const isCodeValid =
       this.authService.isTwoFactorAuthenticationCodeValid(
@@ -266,6 +270,10 @@ export class AuthController {
   @HttpCode(200)
   @UseGuards(AuthenticatedGuard)
   @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Verify Google Authenticator 2FA code',
+    description: 'code is valid => return true | code is not valid => Exception',
+  })
   async authenticate(@Request() request, @Body() body) {
     const isCodeValid = this.authService.isTwoFactorAuthenticationCodeValid(
       body.twoFactorAuthenticationCode,
@@ -282,6 +290,10 @@ export class AuthController {
 	@Post('2fa/generate')
 	@UseGuards(AuthenticatedGuard)
   @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Generates QRcode for Google Authenticator 2FA registry',
+    description: 'Set "twoFactorSecret"',
+  })
 	async register(@Res() response, @Req() request) {
 		const { otpAuthUrl } =
 			await this.authService.generateTwoFactorAuthenticationSecret(
