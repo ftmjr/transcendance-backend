@@ -1,4 +1,5 @@
 import { GAME_EVENTS } from './events.interfaces';
+import { PAD_DIRECTION } from './gameActions.interface';
 
 export interface Gamer {
   userId: number;
@@ -30,4 +31,14 @@ export interface GameSession {
   state: OnlineGameStates;
   monitors: Array<GameMonitorState>;
   events: { event: GAME_EVENTS; data: { id: number; data: unknown } }[];
+}
+
+export interface BallServedData {
+  userId: number;
+  position: { x: number; y: number };
+  velocity: { x: number; y: number };
+}
+export interface PadMovedData {
+  userId: number;
+  direction: PAD_DIRECTION;
 }

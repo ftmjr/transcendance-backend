@@ -9,10 +9,15 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { GameRealtimeService } from './gameRealtime.service';
-import { GAME_EVENTS, GameMonitorState, GameSession } from './interfaces';
+import {
+  GAME_EVENTS,
+  GameMonitorState,
+  GameSession,
+  PadMovedData,
+} from './interfaces';
 import { GameUser, JoinGameEvent, JoinGameResponse } from './dto';
 import { GameActionDto } from './dto/gameAction.dto';
-import { GAME_STATE } from './interfaces/gameActions.interface';
+import { GAME_STATE, PAD_DIRECTION } from './interfaces/gameActions.interface';
 
 @WebSocketGateway({ namespace: 'game' })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -63,32 +68,36 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage(GAME_EVENTS.PadMoved)
-  async handlePadMove(client: Socket, gameAction: GameActionDto) {
+  async handlePadMove(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() gameAction: GameActionDto,
+  ) {
     const { roomId, user, isIA, actionData } = gameAction;
-    // Your logic here
-    // Example:
-    // console.log('PadMoved received from client', {
-    //   client: client.id,
-    //   roomId,
-    //   user,
-    //   isIA,
-    //   actionData,
-    // });
+    const info: PadMovedData = {
+      userId: isIA ? 0 : user.userId,
+      direction: actionData[0] as PAD_DIRECTION,
+    };
+    const sended = client.to(roomId.toString()).emit(GAME_EVENTS.PadMoved, {
+      id: roomId,
+      data: info,
+    });
   }
 
   // Handle ball serve
   @SubscribeMessage(GAME_EVENTS.BallServed)
-  async handleBallServe(client: Socket, gameAction: GameActionDto) {
+  async handleBallServe(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() gameAction: GameActionDto,
+  ) {
     const { roomId, user, isIA, actionData } = gameAction;
-    // Your logic here
-    // Example:
-    // console.log('BallServed received from client', {
-    //   client: client.id,
-    //   roomId,
-    //   user,
-    //   isIA,
-    //   actionData,
-    // });
+    client.to(roomId.toString()).emit(GAME_EVENTS.BallServed, {
+      id: roomId,
+      data: {
+        userId: isIA ? 0 : user.userId,
+        position: actionData[0],
+        direction: actionData[1],
+      },
+    });
   }
 
   // Handle game state change

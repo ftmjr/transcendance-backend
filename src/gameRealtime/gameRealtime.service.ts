@@ -2,15 +2,17 @@ import { Injectable } from '@nestjs/common';
 import { GamesService } from '../games/games.service';
 import { Game } from '@prisma/client';
 import {
+  BallServedData,
   GAME_EVENTS,
   GameMonitorState,
   Gamer,
   GameSession,
   GameUserType,
   OnlineGameStates,
+  PadMovedData,
 } from './interfaces';
 import { GameUser, JoinGameEvent } from './dto';
-import { GAME_STATE } from './interfaces/gameActions.interface';
+import { GAME_STATE, PAD_DIRECTION } from './interfaces/gameActions.interface';
 
 @Injectable()
 export class GameRealtimeService {
@@ -268,6 +270,48 @@ export class GameRealtimeService {
     gameSession.events.push({
       event: GAME_EVENTS.ScoreChanged,
       data,
+    });
+  }
+
+  handlePadMove(
+    dir: PAD_DIRECTION,
+    user: GameUser,
+    gameSession: GameSession,
+    isBot = false,
+  ) {
+    if (dir !== PAD_DIRECTION.none) {
+      return;
+    }
+    const info: PadMovedData = {
+      userId: isBot ? 0 : user.userId,
+      direction: dir,
+    };
+    gameSession.events.push({
+      event: GAME_EVENTS.PadMoved,
+      data: {
+        id: gameSession.gameId,
+        data: info,
+      },
+    });
+  }
+
+  handleBallServed(
+    ball: { x: number; y: number }[],
+    user: GameUser,
+    gameSession: GameSession,
+    isBot = false,
+  ) {
+    const info: BallServedData = {
+      userId: isBot ? 0 : user.userId,
+      position: ball[0],
+      velocity: ball[1],
+    };
+    gameSession.events.push({
+      event: GAME_EVENTS.BallServed,
+      data: {
+        id: gameSession.gameId,
+        data: info,
+      },
     });
   }
 }
