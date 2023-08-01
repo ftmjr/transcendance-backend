@@ -34,8 +34,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() joinGameEvent: JoinGameEvent,
     @ConnectedSocket() client: Socket,
   ): Promise<JoinGameResponse> {
-    console.log('JoinGame received from client', client.id);
-    console.log(joinGameEvent);
     try {
       const gameSession = await this.gameRealtimeService.handleJoiningAGame(
         joinGameEvent,
@@ -53,16 +51,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
-  @SubscribeMessage('gameAction')
-  handleGameAction(
-    @MessageBody() data: string,
-    @ConnectedSocket() client: Socket,
-  ) {
-    console.log('gameAction received from client', client.id);
-    console.log('room', client.rooms);
-    console.log(data);
-  }
-
   @SubscribeMessage(GAME_EVENTS.PadMoved)
   async handlePadMove(
     @ConnectedSocket() client: Socket,
@@ -73,7 +61,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       userId: isIA ? 0 : user.userId,
       direction: actionData[0] as PAD_DIRECTION,
     };
-    const sended = client.to(roomId.toString()).emit(GAME_EVENTS.PadMoved, {
+    client.to(roomId.toString()).emit(GAME_EVENTS.PadMoved, {
       id: roomId,
       data: info,
     });
@@ -134,7 +122,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const { event, data } = eventObj;
       if (this.server.to(room).emit(event, data)) {
         console.log(`Emitted ${event} to room ${gameSession.gameId}`);
-        console.log('data', data);
       }
     });
     // after emitting events, clear the events array
