@@ -1,103 +1,98 @@
 import { Injectable } from '@nestjs/common';
+import {
+  Game as PrismaGame,
+  GameObservation,
+  GameParticipation,
+  GameHistory,
+  Prisma,
+  Competition,
+} from '@prisma/client';
 import { GamesRepository } from './games.repository';
-import { Game, GameHistory, Prisma } from '@prisma/client';
+
+export interface Game extends PrismaGame {
+  competition?: Competition;
+}
 
 @Injectable()
 export class GamesService {
-  constructor(private repository: GamesRepository) {}
-  create(data: Prisma.GameCreateInput, include?: Prisma.GameInclude) {
-    return this.repository.createGame({
+  constructor(private gamesRepository: GamesRepository) {}
+
+  async createGame(data: Prisma.GameCreateInput): Promise<Game> {
+    return this.gamesRepository.createGame({
       data,
-      include,
+      include: { competition: true },
     });
   }
 
-  addParticipant(params: { gameId: number; userId: number }) {
-    return this.repository.createParticipant(params);
+  async addParticipant(gameId: number, userId: number): Promise<Game> {
+    return this.gamesRepository.createParticipant({ gameId, userId });
   }
 
-  addObserver(params: { gameId: number; userId: number }) {
-    return this.repository.createObserver(params);
+  async removeParticipant(gameId: number, userId: number): Promise<void> {
+    await this.gamesRepository.removeParticipant({ gameId, userId });
   }
 
-  addHistory(params: {
-    gameId: GameHistory[`gameId`];
-    userId: GameHistory[`userId`];
-    event: GameHistory[`event`];
-  }) {
-    const { gameId, userId, event } = params;
-    return this.repository.createGameHistory({
-      data: {
-        event,
-        game: {
-          connect: {
-            id: gameId,
-          },
-        },
-        user: {
-          connect: {
-            id: userId,
-          },
-        },
-      },
-    });
+  async addObserver(gameId: number, userId: number): Promise<Game> {
+    return this.gamesRepository.createObserver({ gameId, userId });
   }
 
-  findAll() {
-    return this.repository.getGames({});
+  async removeObserver(gameId: number, userId: number): Promise<void> {
+    await this.gamesRepository.removeObserver({ gameId, userId });
   }
 
-  getPaginatedGames(params: {
-    skip?: number;
-    take?: number;
-    cursor?: Game[`id`];
-    where?: Prisma.GameWhereInput;
-    orderBy?: Prisma.GameOrderByWithRelationInput;
-  }) {
-    const { skip, take, cursor, where, orderBy } = params;
-    return this.repository.getGames({
-      skip,
-      take,
-      cursor: { id: cursor },
-      where,
-      orderBy,
-      include: {
-        competition: true,
-        participants: true,
-        observers: true,
-      },
-    });
+  async addGameToCompetition(
+    gameId: number,
+    competitionId: number,
+  ): Promise<Game> {
+    return this.gamesRepository.addGameToCompetition({ gameId, competitionId });
   }
 
-  findOne(id: Game[`id`]) {
-    return this.repository.getGame({
-      where: { id },
-      include: {
-        competition: true,
-        participants: true,
-        observers: true,
-      },
-    });
-  }
-  getParticipants(id: Game[`id`]) {
-    return this.repository.getParticipants(id);
+  async removeGameFromCompetition(gameId: number): Promise<Game> {
+    return this.gamesRepository.removeGameFromCompetition(gameId);
   }
 
-  getObservers(id: Game[`id`]) {
-    return this.repository.getObservers(id);
+  async findOneGame(where: Prisma.GameWhereUniqueInput): Promise<Game | null> {
+    return this.gamesRepository.getGame({ where });
   }
 
-  update(params: { id: Game[`id`]; data: Prisma.GameUpdateInput }) {
-    const { id, data } = params;
-    return this.repository.updateGame({
-      where: { id },
-      data,
-    });
+  async getGameObservers(gameId: number): Promise<GameObservation[]> {
+    return this.gamesRepository.getObservers(gameId);
   }
 
-  remove(id: Game[`id`]) {
-    return this.repository.deleteGame({
-      where: { id },
-    });
+  async getGameParticipants(gameId: number): Promise<GameParticipation[]> {
+    return this.gamesRepository.getParticipants(gameId);
+  }
+
+  async getCompetitionFromGame(gameId: number): Promise<Competition | null> {
+    const game = (await this.gamesRepository.getGame({
+      where: { id: gameId },
+      include: { competition: true },
+    })) as Game;
+    return game?.competition || null;
+  }
+
+  async getGamesFromCompetition(competitionId: number): Promise<Game[]> {
+    return this.gamesRepository.getGames({ where: { competitionId } });
+  }
+
+  async getUserGameHistories(userId: number): Promise<GameHistory[]> {
+    return this.gamesRepository.getGameHistories({ where: { userId } });
+  }
+
+  async getGameHistories(gameId: number): Promise<GameHistory[]> {
+    return this.gamesRepository.getGameHistories({ where: { gameId } });
+  }
+
+  async addHistoryToGame(
+    data: Prisma.GameHistoryCreateInput,
+  ): Promise<GameHistory> {
+    return this.gamesRepository.createGameHistory({ data });
+  }
+
+  async updateGame(params: {
+    where: Prisma.GameWhereUniqueInput;
+    data: Prisma.GameUpdateInput;
+  }): Promise<Game> {
+    return this.gamesRepository.updateGame(params);
   }
 }

@@ -13,7 +13,6 @@ export enum GAME_EVENTS {
   GameMonitorStateChanged = 'gameMonitorStateChanged',
   HostChanged = 'hostChanged',
   ScoreChanged = 'scoreChanged',
-  GameResult = 'gameResult',
 }
 
 export enum GameUserType {

@@ -20,6 +20,8 @@ export class JoinGameEvent {
   @IsNumber()
   @IsNotEmpty()
   userType: GameUserType;
+  @IsNumber()
+  competitionId?: number;
 }
 
 export class JoinGameResponse {

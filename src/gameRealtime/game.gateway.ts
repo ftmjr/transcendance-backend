@@ -9,13 +9,8 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { GameRealtimeService } from './gameRealtime.service';
-import {
-  GAME_EVENTS,
-  GameMonitorState,
-  GameSession,
-  PadMovedData,
-} from './interfaces';
-import { GameUser, JoinGameEvent, JoinGameResponse } from './dto';
+import { GAME_EVENTS, GameSession, PadMovedData } from './interfaces';
+import { JoinGameEvent, JoinGameResponse } from './dto';
 import { GameActionDto } from './dto/gameAction.dto';
 import { GAME_STATE, PAD_DIRECTION } from './interfaces/gameActions.interface';
 
@@ -53,6 +48,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       };
     } catch (error) {
       console.log(`Error handling JoinGame: ${error.message}`);
+      console.error(error);
       return { worked: false, roomId: 0 };
     }
   }
@@ -119,9 +115,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       case GAME_STATE.playing:
         this.gameRealtimeService.handleGameStart(data[0], user, gameSession);
         break;
-      case GAME_STATE.ballServing:
-        console.log('GameStateChanged received, ball is serving', gameSession);
-        break;
       case GAME_STATE.scored:
         this.gameRealtimeService.handleScoreUpdate(
           data[0],
@@ -130,28 +123,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
           isIA,
         );
         break;
-      case GAME_STATE.finished:
-        console.log('GameStateChanged received, game is finished', gameSession);
-        break;
     }
     // send any game events
     this.handleGameEvents(gameSession);
   }
 
-  // Handle game end
-  @SubscribeMessage(GAME_EVENTS.GameResult)
-  async handleGameEnd(client: Socket, gameAction: GameActionDto) {
-    const { roomId, user, isIA, actionData } = gameAction;
-    // Your logic here
-    // Example:
-    // console.log('GameResult received from client', {
-    //   client: client.id,
-    //   roomId,
-    //   user,
-    //   isIA,
-    //   actionData,
-    // });
-  }
   private handleGameEvents(gameSession: GameSession) {
     const room = gameSession.gameId.toString();
     gameSession.events.forEach((eventObj) => {

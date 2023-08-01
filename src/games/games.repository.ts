@@ -22,7 +22,6 @@ export class GamesRepository {
 
   createParticipant(params: { gameId: number; userId: number }): Promise<Game> {
     const { gameId, userId } = params;
-    console.log('createParticipant with data', gameId, userId);
     return this.prisma.game.update({
       where: { id: gameId },
       data: {
@@ -37,6 +36,16 @@ export class GamesRepository {
         observers: true,
         competition: true,
       },
+    });
+  }
+
+  async removeParticipant(params: {
+    gameId: number;
+    userId: number;
+  }): Promise<GameParticipation> {
+    const { gameId, userId } = params;
+    return this.prisma.gameParticipation.delete({
+      where: { gameId_userId: { gameId, userId } },
     });
   }
 
@@ -59,6 +68,16 @@ export class GamesRepository {
         observers: true,
         competition: true,
       },
+    });
+  }
+
+  async removeObserver(params: {
+    gameId: number;
+    userId: number;
+  }): Promise<GameObservation> {
+    const { gameId, userId } = params;
+    return this.prisma.gameObservation.delete({
+      where: { gameId_userId: { gameId, userId } },
     });
   }
 
@@ -115,7 +134,8 @@ export class GamesRepository {
     const { where, include } = params;
     return this.prisma.game.findUnique({ where, include: include });
   }
-  getGameHistory(params: {
+
+  getGameHistories(params: {
     skip?: number;
     take?: number;
     cursor?: Prisma.GameHistoryWhereUniqueInput;
@@ -133,11 +153,42 @@ export class GamesRepository {
       include,
     });
   }
+
   createGameHistory(params: {
     data: Prisma.GameHistoryCreateInput;
     include?: Prisma.GameHistoryInclude;
   }): Promise<GameHistory> {
     const { data, include } = params;
     return this.prisma.gameHistory.create({ data, include });
+  }
+
+  getGameCompetition(params: {
+    where: Prisma.CompetitionWhereUniqueInput;
+    include?: Prisma.CompetitionInclude;
+  }) {
+    const { where, include } = params;
+    return this.prisma.competition.findUnique({ where, include: include });
+  }
+
+  async addGameToCompetition(params: {
+    gameId: number;
+    competitionId: number;
+  }): Promise<Game> {
+    const { gameId, competitionId } = params;
+    return this.prisma.game.update({
+      where: { id: gameId },
+      data: {
+        competitionId,
+      },
+    });
+  }
+
+  async removeGameFromCompetition(gameId: number): Promise<Game> {
+    return this.prisma.game.update({
+      where: { id: gameId },
+      data: {
+        competitionId: null,
+      },
+    });
   }
 }

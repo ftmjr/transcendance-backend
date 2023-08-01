@@ -5,14 +5,15 @@ export interface Gamer {
   userId: number;
   username: string;
   avatar?: string;
+  isHost?: boolean;
 }
 
 export enum GameMonitorState {
-  Waiting,
+  Waiting, // waiting for players to join
   Ready, // all players are ready, waiting for users to click on start
   InitGame, // players have accepted to start, server allowing the game scene to start
-  PlayingSceneLoaded, // scene is running
-  Ended,
+  PlayingSceneLoaded, // playing scene loading finished on all clients
+  Ended, // game ended by server or by a player (disconnection)
 }
 
 export enum OnlineGameStates {
@@ -31,6 +32,10 @@ export interface GameSession {
   state: OnlineGameStates;
   monitors: Array<GameMonitorState>;
   events: { event: GAME_EVENTS; data: { id: number; data: unknown } }[];
+  rules: {
+    maxScore: number;
+    maxTime: number;
+  };
 }
 
 export interface BallServedData {

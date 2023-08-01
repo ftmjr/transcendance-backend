@@ -1,18 +1,16 @@
 import { Injectable } from '@nestjs/common';
-import { GamesService } from '../games/games.service';
-import { Game } from '@prisma/client';
+import { GamesService, Game } from '../games/games.service';
+import { GameEvent, GameHistory } from '@prisma/client';
 import {
-  BallServedData,
   GAME_EVENTS,
   GameMonitorState,
   Gamer,
   GameSession,
   GameUserType,
   OnlineGameStates,
-  PadMovedData,
 } from './interfaces';
 import { GameUser, JoinGameEvent } from './dto';
-import { GAME_STATE, PAD_DIRECTION } from './interfaces/gameActions.interface';
+import { GAME_STATE } from './interfaces/gameActions.interface';
 
 @Injectable()
 export class GameRealtimeService {
@@ -50,7 +48,7 @@ export class GameRealtimeService {
       return await this.addPlayerToExistingGameSession(gameSession, data.user);
     }
     return await this.createAGameSession(
-      new Map([[data.user.userId, data.user]]),
+      new Map([[data.user.userId, { ...data.user, isHost: true }]]),
       new Map(),
       data.userType === GameUserType.Player
         ? OnlineGameStates.Waiting
@@ -68,11 +66,7 @@ export class GameRealtimeService {
     }
 
     if (!gameSession.observers.has(data.user.userId)) {
-      await this.gameService.addObserver({
-        gameId: gameSession.gameId,
-        userId: data.user.userId,
-      });
-
+      await this.gameService.addObserver(gameSession.gameId, data.user.userId);
       gameSession.observers.set(data.user.userId, data.user);
       gameSession.events.push({
         event: GAME_EVENTS.ViewerAdded,
@@ -102,11 +96,16 @@ export class GameRealtimeService {
     gameSession: GameSession,
     user: Gamer,
   ): Promise<GameSession> {
-    await this.gameService.addParticipant({
-      gameId: gameSession.gameId,
-      userId: user.userId,
+    await this.gameService.addParticipant(gameSession.gameId, user.userId);
+    gameSession.participants.set(user.userId, {
+      ...user,
+      isHost: false,
     });
-    gameSession.participants.set(user.userId, user);
+    this.writeGameHistory(
+      GameEvent.PLAYER_JOINED,
+      user.userId,
+      gameSession.gameId,
+    );
     gameSession.score.set(user.userId, 0);
     gameSession.events.push({
       event: GAME_EVENTS.PlayerAdded,
@@ -135,6 +134,7 @@ export class GameRealtimeService {
     participants: Map<number, Gamer>,
     observers: Map<number, Gamer>,
     state: OnlineGameStates,
+    competitionId?: number,
   ): Promise<GameSession> {
     const monitors = Array<GameMonitorState>(participants.size).fill(
       GameMonitorState.Waiting,
@@ -142,9 +142,13 @@ export class GameRealtimeService {
     if (state === OnlineGameStates.Playing_with_bot) {
       monitors[0] = GameMonitorState.Ready;
     }
-    const game = await this.createAGame(participants, observers);
+    const game = await this.createAGame(participants, observers, competitionId);
+    const rules = await this.getGameRules(game);
     const score = new Map<number, number>();
-    participants.forEach((p) => score.set(p.userId, 0));
+    participants.forEach((p) => {
+      score.set(p.userId, 0);
+      this.writeGameHistory(GameEvent.PLAYER_JOINED, p.userId, game.id);
+    });
     const gameSession: GameSession = {
       gameId: game.id,
       participants,
@@ -163,6 +167,7 @@ export class GameRealtimeService {
           data: { id: game.id, data: Array.from(observers.values()) },
         },
       ],
+      rules,
     };
     this.currentManagedGames.push(gameSession);
     return gameSession;
@@ -171,10 +176,11 @@ export class GameRealtimeService {
   async createAGame(
     participants: Map<number, Gamer>,
     observers: Map<number, Gamer>,
+    competitionId?: number,
   ): Promise<Game> {
     const participantsData = Array.from(participants.values());
     const observersData = Array.from(observers.values());
-    return await this.gameService.create({
+    return await this.gameService.createGame({
       name: '',
       description: '',
       participants: participantsData.length
@@ -191,7 +197,32 @@ export class GameRealtimeService {
             },
           }
         : undefined,
+      competition: competitionId
+        ? {
+            connect: {
+              id: competitionId,
+            },
+          }
+        : undefined,
     });
+  }
+
+  async getGameRules(
+    game: Game,
+  ): Promise<{ maxScore: number; maxTime: number }> {
+    if (game.competition) {
+      // const maxScore = game.competition.rules.maxScore ?? 5;
+      // const maxTime = game.competition.rules.maxTime ?? 1000;
+      // return {
+      //   maxScore,
+      //   maxTime,
+      // };
+    } else {
+      return {
+        maxScore: 2,
+        maxTime: 1000,
+      };
+    }
   }
 
   // starting game event syncronization
@@ -242,8 +273,17 @@ export class GameRealtimeService {
           data: GameMonitorState.PlayingSceneLoaded,
         },
       });
+      // write history game stared for all participants
+      gameSession.participants.forEach((p) => {
+        this.writeGameHistory(
+          GameEvent.GAME_STARTED,
+          p.userId,
+          gameSession.gameId,
+        );
+      });
     }
   }
+
   handleScoreUpdate(
     state: GAME_STATE,
     user: GameUser,
@@ -271,47 +311,82 @@ export class GameRealtimeService {
       event: GAME_EVENTS.ScoreChanged,
       data,
     });
+    const rule = this.checkCompetitionRules(gameSession);
+    if (rule.needToFinish) {
+      this.gameEnded(gameSession, rule);
+    }
   }
 
-  handlePadMove(
-    dir: PAD_DIRECTION,
-    user: GameUser,
-    gameSession: GameSession,
-    isBot = false,
+  async writeGameHistory(
+    event: GameEvent,
+    userId: GameHistory[`userId`],
+    gameId: number,
   ) {
-    if (dir !== PAD_DIRECTION.none) {
-      return;
+    try {
+      this.gameService.addHistoryToGame({
+        event: event,
+        user: {
+          connect: {
+            id: userId,
+          },
+        },
+        game: {
+          connect: {
+            id: gameId,
+          },
+        },
+      });
+    } catch (e) {
+      console.log('error writing game history');
     }
-    const info: PadMovedData = {
-      userId: isBot ? 0 : user.userId,
-      direction: dir,
-    };
+  }
+
+  checkCompetitionRules(gameSession: GameSession) {
+    let needToFinish = false;
+    let winnerId = 0;
+    if (gameSession.rules.maxScore > 0) {
+      let maxScored = 0;
+      gameSession.score.forEach((score, userId) => {
+        if (score >= gameSession.rules.maxScore) {
+          needToFinish = true;
+        }
+        if (score > maxScored) {
+          maxScored = score;
+          winnerId = userId;
+        }
+      });
+    }
+    return { needToFinish, winnerId };
+  }
+
+  async gameEnded(
+    gameSession: GameSession,
+    gameRule?: { needToFinish: boolean; winnerId: number },
+  ) {
     gameSession.events.push({
-      event: GAME_EVENTS.PadMoved,
+      event: GAME_EVENTS.GameMonitorStateChanged,
       data: {
         id: gameSession.gameId,
-        data: info,
+        data: GameMonitorState.Ended,
       },
     });
-  }
-
-  handleBallServed(
-    ball: { x: number; y: number }[],
-    user: GameUser,
-    gameSession: GameSession,
-    isBot = false,
-  ) {
-    const info: BallServedData = {
-      userId: isBot ? 0 : user.userId,
-      position: ball[0],
-      velocity: ball[1],
-    };
-    gameSession.events.push({
-      event: GAME_EVENTS.BallServed,
-      data: {
-        id: gameSession.gameId,
-        data: info,
-      },
+    gameSession.participants.forEach((p) => {
+      this.writeGameHistory(GameEvent.GAME_ENDED, p.userId, gameSession.gameId);
+      if (gameRule) {
+        if (p.userId === gameRule.winnerId) {
+          this.writeGameHistory(
+            GameEvent.MATCH_WON,
+            p.userId,
+            gameSession.gameId,
+          );
+        } else {
+          this.writeGameHistory(
+            GameEvent.MATCH_LOST,
+            p.userId,
+            gameSession.gameId,
+          );
+        }
+      }
     });
   }
 }
