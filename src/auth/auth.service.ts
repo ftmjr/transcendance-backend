@@ -28,7 +28,6 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private jwtService: JwtService,
     private usersService: UsersService,
-
   ) {}
 
   async signUpLocal(
@@ -255,15 +254,18 @@ export class AuthService {
     await this.usersService.setTwoFactorAuthenticationSecret(secret, user.id);
     return {
       secret,
-      otpAuthUrl
-    }
+      otpAuthUrl,
+    };
   }
 
   async generateQrCodeDataURL(otpAuthUrl: string) {
     return toDataURL(otpAuthUrl);
   }
 
-  isTwoFactorAuthenticationCodeValid(twoFactorAuthenticationCode: string, user: User) {
+  isTwoFactorAuthenticationCodeValid(
+    twoFactorAuthenticationCode: string,
+    user: User,
+  ) {
     return authenticator.verify({
       token: twoFactorAuthenticationCode,
       secret: user.twoFactorSecret,
