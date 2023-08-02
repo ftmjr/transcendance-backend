@@ -3,6 +3,6 @@ import { CompetitionService } from './competition.service';
 import { CompetitionResolver } from './competition.resolver';
 
 @Module({
-  providers: [CompetitionResolver, CompetitionService]
+  providers: [CompetitionResolver, CompetitionService],
 })
 export class CompetitionModule {}
