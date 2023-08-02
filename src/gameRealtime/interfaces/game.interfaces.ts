@@ -4,6 +4,7 @@ import { PAD_DIRECTION } from './gameActions.interface';
 export interface Gamer {
   userId: number;
   username: string;
+  clientId: string;
   avatar?: string;
   isHost?: boolean;
 }
@@ -36,6 +37,7 @@ export interface GameSession {
     maxScore: number;
     maxTime: number;
   };
+  toBeDeleted?: boolean;
 }
 
 export interface BallServedData {

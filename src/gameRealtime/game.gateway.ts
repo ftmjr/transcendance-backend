@@ -9,7 +9,12 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { GameRealtimeService } from './gameRealtime.service';
-import { GAME_EVENTS, GameSession, PadMovedData } from './interfaces';
+import {
+  GAME_EVENTS,
+  GameSession,
+  JoinGameData,
+  PadMovedData,
+} from './interfaces';
 import { JoinGameEvent, JoinGameResponse } from './dto';
 import { GameActionDto } from './dto/gameAction.dto';
 import { GAME_STATE, PAD_DIRECTION } from './interfaces/gameActions.interface';
@@ -22,11 +27,21 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   handleConnection(client: Socket, ...args: any[]) {
     console.log('New client connected', client.id);
-    console.log(args);
   }
 
   handleDisconnect(client: Socket) {
-    console.log('Client disconnected', client.id);
+    try {
+      this.gameRealtimeService
+        .handleDisconnect(client.id)
+        .then((gameSession) => {
+          this.handleGameEvents(gameSession);
+        })
+        .catch((e) => {
+          console.log(e);
+        });
+    } catch (e) {
+      console.log(e);
+    }
   }
 
   @SubscribeMessage(GAME_EVENTS.JoinGame)
@@ -35,8 +50,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
   ): Promise<JoinGameResponse> {
     try {
+      const gamer = {
+        ...joinGameEvent.user,
+        clientId: client.id,
+      };
+      const data: JoinGameData = { ...joinGameEvent, user: gamer };
       const gameSession = await this.gameRealtimeService.handleJoiningAGame(
-        joinGameEvent,
+        data,
       );
       await client.join(gameSession.gameId.toString());
       this.handleGameEvents(gameSession);

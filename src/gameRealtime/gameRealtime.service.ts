@@ -7,9 +7,10 @@ import {
   Gamer,
   GameSession,
   GameUserType,
+  JoinGameData,
   OnlineGameStates,
 } from './interfaces';
-import { GameUser, JoinGameEvent } from './dto';
+import { GameUser } from './dto';
 import { GAME_STATE } from './interfaces/gameActions.interface';
 
 @Injectable()
@@ -18,7 +19,7 @@ export class GameRealtimeService {
 
   constructor(private gameService: GamesService) {}
 
-  async handleJoiningAGame(data: JoinGameEvent): Promise<GameSession> {
+  async handleJoiningAGame(data: JoinGameData): Promise<GameSession> {
     if (data.roomId === 0) {
       return this.handleJoiningAWaitingGame(data);
     }
@@ -39,7 +40,7 @@ export class GameRealtimeService {
     }
   }
 
-  async handleJoiningAWaitingGame(data: JoinGameEvent): Promise<GameSession> {
+  async handleJoiningAWaitingGame(data: JoinGameData): Promise<GameSession> {
     const gameSession = this.currentManagedGames.find(
       (g) => g.state === OnlineGameStates.Waiting,
     );
@@ -56,7 +57,7 @@ export class GameRealtimeService {
     );
   }
 
-  async handleJoiningAsObserver(data: JoinGameEvent): Promise<GameSession> {
+  async handleJoiningAsObserver(data: JoinGameData): Promise<GameSession> {
     const gameSession = this.currentManagedGames.find(
       (g) => g.gameId === data.roomId,
     );
@@ -101,7 +102,7 @@ export class GameRealtimeService {
       ...user,
       isHost: false,
     });
-    this.writeGameHistory(
+    await this.writeGameHistory(
       GameEvent.PLAYER_JOINED,
       user.userId,
       gameSession.gameId,
@@ -243,7 +244,7 @@ export class GameRealtimeService {
     }
   }
 
-  syncGameEventToStart(gameSession: GameSession) {
+  async syncGameEventToStart(gameSession: GameSession) {
     if (gameSession.monitors.every((m) => m === GameMonitorState.InitGame)) {
       if (gameSession.state === OnlineGameStates.Playing_with_bot) {
         // 0 as userId for bot
@@ -259,13 +260,11 @@ export class GameRealtimeService {
         data: { id: gameSession.gameId, data: gameSession.hostId },
       });
     }
-    // if all monitors are in PlayingSceneLoaded state, we can start the game
     if (
       gameSession.monitors.every(
         (m) => m === GameMonitorState.PlayingSceneLoaded,
       )
     ) {
-      // message will set all of them to PlayingSceneLoaded state
       gameSession.events.push({
         event: GAME_EVENTS.GameMonitorStateChanged,
         data: {
@@ -273,38 +272,39 @@ export class GameRealtimeService {
           data: GameMonitorState.PlayingSceneLoaded,
         },
       });
-      // write history game stared for all participants
-      gameSession.participants.forEach((p) => {
-        this.writeGameHistory(
+      for (const userId of gameSession.participants.keys()) {
+        await this.writeGameHistory(
           GameEvent.GAME_STARTED,
-          p.userId,
+          userId,
           gameSession.gameId,
         );
-      });
+      }
     }
   }
 
-  handleScoreUpdate(
+  async handleScoreUpdate(
     state: GAME_STATE,
     user: GameUser,
     gameSession: GameSession,
     isBot = false,
   ) {
-    if (state !== GAME_STATE.scored) {
-      return;
-    }
+    if (state !== GAME_STATE.scored) return;
     if (isBot) {
       gameSession.score.set(0, gameSession.score.get(0) + 1);
     } else {
-      const userId = user.userId;
-      const score = gameSession.score.get(userId);
-      gameSession.score.set(userId, score + 1);
+      const score = gameSession.score.get(user.userId) ?? 0;
+      gameSession.score.set(user.userId, score + 1);
+      await this.writeGameHistory(
+        GameEvent.ACTION_PERFORMED,
+        user.userId,
+        gameSession.gameId,
+      );
     }
     const data = {
       id: gameSession.gameId,
-      data: Array.from(gameSession.score.keys()).map((id) => ({
-        userId: id,
-        score: gameSession.score.get(id),
+      data: Array.from(gameSession.score.entries()).map(([userId, score]) => ({
+        userId,
+        score,
       })),
     };
     gameSession.events.push({
@@ -313,31 +313,7 @@ export class GameRealtimeService {
     });
     const rule = this.checkCompetitionRules(gameSession);
     if (rule.needToFinish) {
-      this.gameEnded(gameSession, rule);
-    }
-  }
-
-  async writeGameHistory(
-    event: GameEvent,
-    userId: GameHistory[`userId`],
-    gameId: number,
-  ) {
-    try {
-      this.gameService.addHistoryToGame({
-        event: event,
-        user: {
-          connect: {
-            id: userId,
-          },
-        },
-        game: {
-          connect: {
-            id: gameId,
-          },
-        },
-      });
-    } catch (e) {
-      console.log('error writing game history');
+      await this.gameEnded(gameSession, rule);
     }
   }
 
@@ -370,23 +346,83 @@ export class GameRealtimeService {
         data: GameMonitorState.Ended,
       },
     });
-    gameSession.participants.forEach((p) => {
-      this.writeGameHistory(GameEvent.GAME_ENDED, p.userId, gameSession.gameId);
+    for (const userId of gameSession.participants.keys()) {
       if (gameRule) {
-        if (p.userId === gameRule.winnerId) {
-          this.writeGameHistory(
+        if (userId === gameRule.winnerId) {
+          await this.writeGameHistory(
             GameEvent.MATCH_WON,
-            p.userId,
+            userId,
             gameSession.gameId,
           );
         } else {
-          this.writeGameHistory(
+          await this.writeGameHistory(
             GameEvent.MATCH_LOST,
-            p.userId,
+            userId,
             gameSession.gameId,
           );
         }
       }
+      await this.writeGameHistory(
+        GameEvent.GAME_ENDED,
+        userId,
+        gameSession.gameId,
+      );
+    }
+    gameSession.toBeDeleted = true;
+  }
+
+  async handleDisconnect(clientId: string) {
+    const index = this.currentManagedGames.findIndex((g) => {
+      const participants = Array.from(g.participants.values());
+      return participants.findIndex((p) => p.clientId === clientId) > -1;
     });
+    if (index === -1) throw new Error('Game session not found');
+    const gameSession = this.currentManagedGames[index];
+    for (const [userId, gamer] of gameSession.participants.entries()) {
+      if (gamer.clientId === clientId) {
+        await this.writeGameHistory(
+          GameEvent.PLAYER_LEFT,
+          userId,
+          gameSession.gameId,
+        );
+        await this.writeGameHistory(
+          GameEvent.GAME_ENDED,
+          userId,
+          gameSession.gameId,
+        );
+      }
+    }
+    gameSession.events.push({
+      event: GAME_EVENTS.GameMonitorStateChanged,
+      data: {
+        id: gameSession.gameId,
+        data: GameMonitorState.Ended,
+      },
+    });
+    return gameSession;
+  }
+
+  async writeGameHistory(
+    event: GameEvent,
+    userId: GameHistory[`userId`],
+    gameId: number,
+  ) {
+    try {
+      await this.gameService.addHistoryToGame({
+        event: event,
+        user: {
+          connect: {
+            id: userId,
+          },
+        },
+        game: {
+          connect: {
+            id: gameId,
+          },
+        },
+      });
+    } catch (e) {
+      console.log('error writing game history');
+    }
   }
 }

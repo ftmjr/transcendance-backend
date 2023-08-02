@@ -1,3 +1,5 @@
+import { Gamer } from './game.interfaces';
+
 export enum GAME_EVENTS {
   ViewGame = 'view-game',
   showViewer = 'reloadViewersList',
@@ -19,4 +21,11 @@ export enum GameUserType {
   Player,
   Viewer,
   LocalPlayer,
+}
+
+export interface JoinGameData {
+  user: Gamer;
+  roomId: number;
+  userType: GameUserType;
+  competitionId?: number;
 }
