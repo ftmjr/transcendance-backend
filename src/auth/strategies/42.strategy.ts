@@ -35,8 +35,7 @@ export class Strategy42 extends PassportStrategy(Strategy, '42') {
       },
       from: '42',
     };
-    console.log(profile);
-    //  const user = await this.authService.createOrFindUserWithOauthData(data);
-    done(null, null);
+    const user = await this.authService.createOrFindUserWithOauthData(data);
+    done(null, user);
   }
 }
