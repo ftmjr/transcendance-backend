@@ -17,9 +17,7 @@ import {
 } from './interfaces/chat.interface';
 import { ChatService } from './chat.service';
 
-@WebSocketGateway({ cors: {
-  origin: 'https://localhost',
-  }, namespace: 'chat' })
+@WebSocketGateway({ namespace: 'chat' })
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(private chatService: ChatService) {}
   @WebSocketServer() server: Server = new Server<
