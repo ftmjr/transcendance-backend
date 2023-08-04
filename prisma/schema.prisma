@@ -53,6 +53,8 @@ model User {
   gameHistories        GameHistory[]
   contacts             Contact[]             @relation("UserToContact")
   contactedBy          Contact[]             @relation("ContactToUser")
+  sentContactRequests  ContactRequest[] @relation("SentContactRequests")
+  receivedContactRequests  ContactRequest[] @relation("ReceivedContactRequests")
   googleId             String?               @unique
   facebookId           String?               @unique
   api42Id              String?               @unique
@@ -60,12 +62,16 @@ model User {
   twoFactorEnabled     Boolean               @default(false) // to be changed to true
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
+  chatRooms            ChatRoomMember[]      @relation("ChatRoomMember")
+  sentMessages         PrivateMessage[]      @relation("sentMessages")
+  receivedMessages     PrivateMessage[]      @relation("receivedMessages")
 }
 
 model Profile {
   id      Int     @id @default(autoincrement())
   userId  Int     @unique
-  user    User    @relation(fields: [userId], references: [id])
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  username  String
   name    String
   lastname String
   avatar  String?
@@ -73,6 +79,45 @@ model Profile {
   oauth   Json?
   awards  ProfileAward[]
 }
+
+model ChatRoom {
+  id        Int                 @id @default(autoincrement())
+  name      String
+  members   ChatRoomMember[]    @relation("ChatRoomMembers")
+  messages  ChatroomMessage[]   @relation("ChatRoomMessages")
+  createdAt DateTime            @default(now())
+}
+
+model ChatRoomMember {
+  id            Int                 @id @default(autoincrement())
+  memberId      Int
+  member        User                @relation(name: "ChatRoomMember", fields: [memberId], references: [id], onDelete: Cascade)
+  chatroomId    Int
+  chatroom      ChatRoom            @relation(name: "ChatRoomMembers", fields: [chatroomId], references: [id], onDelete: Cascade)
+  messages      ChatroomMessage[]   @relation("ChatRoomMessage")
+  createdAt     DateTime            @default(now())
+}
+
+model ChatroomMessage {
+  id         Int      @id @default(autoincrement())
+  chatroomId Int
+  chatroom   ChatRoom @relation(name: "ChatRoomMessages", fields: [chatroomId], references: [id], onDelete: Cascade)
+  memberId   Int
+  member     ChatRoomMember    @relation(name: "ChatRoomMessage", fields: [memberId], references: [id], onDelete: Cascade)
+  content    String
+  timestamp  DateTime @default(now())
+}
+
+model PrivateMessage {
+  id         Int    @id @default(autoincrement())
+  text       String
+  sender     User   @relation(name: "sentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User   @relation(name: "receivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  senderId   Int
+  receiverId Int
+  timestamp  DateTime @default(now())
+}
+
 
 model Award {
   id          Int            @id @default(autoincrement())
@@ -84,19 +129,30 @@ model Award {
 
 model ProfileAward {
   profileId Int
-  profile   Profile @relation(fields: [profileId], references: [id])
+  profile   Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
   awardId   Int
-  award     Award   @relation(fields: [awardId], references: [id])
+  award     Award   @relation(fields: [awardId], references: [id], onDelete: Cascade)
 
   @@id([profileId, awardId])
+}
+
+model ContactRequest {
+  id         Int      @id @default(autoincrement())
+  senderId   Int
+  sender     User     @relation("SentContactRequests", fields: [senderId], references: [id])
+  receiverId Int
+  receiver   User     @relation("ReceivedContactRequests", fields: [receiverId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@unique([senderId, receiverId])
 }
 
 model Contact {
   id          Int    @id @default(autoincrement())
   userId      Int
-  user        User   @relation("UserToContact", fields: [userId], references: [id])
+  user        User   @relation("UserToContact", fields: [userId], references: [id], onDelete: Cascade)
   contactId   Int
-  contact     User   @relation("ContactToUser", fields: [contactId], references: [id])
+  contact     User   @relation("ContactToUser", fields: [contactId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now())
 
   @@unique([userId, contactId])
@@ -127,9 +183,9 @@ model Game {
   description   String
   visibility    Visibility          @default(PUBLIC)
   competitionId Int?
-  competition   Competition?        @relation(fields: [competitionId], references: [id])
+  competition   Competition?        @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   winnerId      Int?
-  winner        User?               @relation(fields: [winnerId], references: [id])
+  winner        User?               @relation(fields: [winnerId], references: [id], onDelete: Cascade)
   histories     GameHistory[]
   participants  GameParticipation[]
   observers     GameObservation[]
@@ -137,27 +193,27 @@ model Game {
 
 model GameParticipation {
   gameId Int
-  game   Game @relation(fields: [gameId], references: [id])
+  game   Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
   userId Int
-  user   User @relation(fields: [userId], references: [id])
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([gameId, userId])
 }
 
 model GameObservation {
   gameId Int
-  game   Game @relation(fields: [gameId], references: [id])
+  game   Game @relation(fields: [gameId], references: [id], onDelete: Cascade)
   userId Int
-  user   User @relation(fields: [userId], references: [id])
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([gameId, userId])
 }
 
 model CompetitionParticipation {
   competitionId Int
-  competition   Competition @relation(fields: [competitionId], references: [id])
+  competition   Competition @relation(fields: [competitionId], references: [id], onDelete: Cascade)
   userId        Int
-  user          User        @relation(fields: [userId], references: [id])
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@id([competitionId, userId])
 }
 
@@ -165,7 +221,7 @@ model CompetitionParticipation {
 model Session {
   id         Int      @id @default(autoincrement())
   userId     Int
-  user       User     @relation(fields: [userId], references: [id])
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   token      String
   expiresAt  DateTime
   ipAddress  String?
@@ -176,9 +232,9 @@ model Session {
 model GameHistory {
   id      Int       @id @default(autoincrement())
   gameId  Int
-  game    Game      @relation(fields: [gameId], references: [id])
+  game    Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
   event   GameEvent
   userId  Int
-  user    User     @relation(fields: [userId], references: [id])
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   timestamp DateTime @default(now())
 }

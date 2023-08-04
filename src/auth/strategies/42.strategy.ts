@@ -7,10 +7,11 @@ import { OauthData } from '../interfaces';
 @Injectable()
 export class Strategy42 extends PassportStrategy(Strategy, '42') {
   constructor(private authService: AuthService) {
+    const callback = 'https://' + process.env.URL + '/api/auth/42/callback';
     super({
       clientID: process.env.API42_CLIENT_ID,
       clientSecret: process.env.API42_CLIENT_SECRET,
-      callbackURL: process.env.BACKEND_URL + '/auth/42/callback',
+      callbackURL: callback,
     });
   }
 

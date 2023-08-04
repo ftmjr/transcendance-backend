@@ -82,6 +82,7 @@ export class UsersService {
         facebookId: providerChecker(params.provider, 'facebook'),
         profile: {
           create: {
+            username: params.username,
             name: params.name,
             lastname: params.lastName,
             avatar: params.avatar ?? getRandomSpiderManAvatarUrl(),
@@ -217,6 +218,7 @@ export class UsersService {
   async getSessionById(id: Session[`id`]) {
     return this.repository.getSession({ where: { id } });
   }
+
   async updateSession(
     sessionId: Session[`id`],
     refreshToken: Session[`token`],
@@ -249,6 +251,33 @@ export class UsersService {
   // util function to remove all the hashed password fields on users
   removesPasswords(users: User[]) {
     return users.map((user) => exclude(user, ['password']));
+  }
+
+  getFriends(id: number) {
+    return this.repository.getFriends(id);
+  }
+  addFriend(userId: number, friendId: number) {
+    return this.repository.addFriend(userId, friendId);
+  }
+  removeFriend(userId: number, friendId: number) {
+    return this.repository.removeFriend(userId, friendId);
+  }
+  sendFriendRequest(userId: number, friendId: number) {
+    return this.repository.addPendingContactRequest(userId, friendId);
+  }
+  allSentFriendRequests(userId: number) {
+    return this.repository.allSentFriendRequests(userId);
+  }
+
+  receivedFriendRequests(userId: number) {
+    return this.repository.receivedFriendRequests(userId);
+  }
+
+  cancelFriendRequest(requestId: number) {
+    return this.repository.cancelFriendRequest(requestId);
+  }
+  approveFriendRequest(requestId: number) {
+    return this.repository.approveFriendRequest(requestId);
   }
 
   async setTwoFactorAuthenticationSecret(secret: string, id: number) {

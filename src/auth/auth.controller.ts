@@ -25,7 +25,6 @@ import {
 } from '@nestjs/swagger';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { AuthenticatedGuard } from './guards';
-import { ConfigService } from '@nestjs/config';
 import { ILoginData } from './interfaces';
 import { UsersService } from '../users/users.service';
 import { TwoFaDto } from './dto/twoFa.dto';
@@ -35,8 +34,7 @@ import { TwoFaDto } from './dto/twoFa.dto';
 export class AuthController {
   constructor(
     private authService: AuthService,
-    private readonly configService: ConfigService,
-    private readonly usersService: UsersService,
+    private usersService: UsersService,
   ) {}
 
   @UseGuards(LocalAuthGuard)
@@ -65,7 +63,6 @@ export class AuthController {
     return this.authService.loginAndRefreshTokens(req, res, req.user);
   }
 
-  @Redirect()
   @Post('signup')
   @ApiOperation({
     summary: 'manually create an account',
@@ -179,12 +176,9 @@ export class AuthController {
       res,
       req.user,
     );
+    const localUrl: string = process.env.URL;
     return {
-      url:
-        'https://' +
-        this.configService.get<string>('URL') +
-        '/auth?' +
-        JSON.stringify(loginData),
+      url: `https://${localUrl}/auth-state-2?token=${loginData.accessToken}`,
       statusCode: 302,
     };
   }
@@ -230,12 +224,9 @@ export class AuthController {
       res,
       req.user,
     );
+    const localUrl: string = process.env.URL;
     return {
-      url:
-        'https://' +
-        this.configService.get<string>('URL') +
-        '/auth?' +
-        JSON.stringify(loginData),
+      url: `https://${localUrl}/auth-state-2?token=${loginData.accessToken}`,
       statusCode: 302,
     };
   }
@@ -307,10 +298,21 @@ export class AuthController {
   @UseGuards(AuthenticatedGuard)
   @ApiBearerAuth()
   @ApiOperation({
+    summary: 'Return my info',
+  })
+  @Get('me')
+  async getMe(@Request() request) {
+    return request.user;
+  }
+
+  @UseGuards(AuthenticatedGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
     summary: 'Test of a protected route for a logged in user',
   })
   @Get('pizza')
-  async getPizza() {
+  async getPizza(@Request() req) {
+    console.log(req.user);
     return 'Free pizza';
   }
 
