@@ -1,11 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { Room, User } from './interfaces/chat.interface';
-import { ChatRepository } from "./chat.repository";
+import { ChatRepository } from './chat.repository';
 
 @Injectable()
 export class ChatService {
-
-  constructor (private chatRepository: ChatRepository) {}
+  constructor(private chatRepository: ChatRepository) {}
   private rooms: Room[] = [];
 
   async addRoom(roomName: string, host: User) {
@@ -24,11 +23,11 @@ export class ChatService {
 
   async getRoomHost(hostName: string): Promise<User> {
     const roomIndex = await this.getRoomByName(hostName);
-    return this.rooms[roomIndex].host
+    return this.rooms[roomIndex].host;
   }
 
   async getRoomByName(roomName: string): Promise<number> {
-    const roomIndex = this.rooms.findIndex((room) => room?.name === roomName)
+    const roomIndex = this.rooms.findIndex((room) => room?.name === roomName);
     return roomIndex;
   }
 
@@ -64,7 +63,9 @@ export class ChatService {
 
   async removeUserFromRoom(socketId: string, roomName: string): Promise<void> {
     const room = await this.getRoomByName(roomName);
-    this.rooms[room].users = this.rooms[room].users.filter((user) => user.socketId !== socketId)
+    this.rooms[room].users = this.rooms[room].users.filter(
+      (user) => user.socketId !== socketId,
+    );
     if (this.rooms[room].users.length === 0) {
       await this.removeRoom(roomName);
     }

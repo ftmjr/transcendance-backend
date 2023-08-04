@@ -10,7 +10,6 @@ export interface User {
   socketId: string;
 }
 
-
 export interface Message {
   user: User;
   timeSent: string;
@@ -32,6 +31,5 @@ export interface ServerToClientEvents {
 // Interface for when clients emit events to the server.
 export interface ClientToServerEvents {
   chat: (e: Message) => void;
-  join_room: (e: { user: User; roomName: string }) => void
-
+  join_room: (e: { user: User; roomName: string }) => void;
 }

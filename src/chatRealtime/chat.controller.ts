@@ -1,4 +1,4 @@
-import { ApiTags , ApiOperation } from '@nestjs/swagger';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
 import { Controller, Get, Param, Post } from '@nestjs/common';
 import { NewRoom, Room, User } from './interfaces/chat.interface';
 import { ChatService } from './chat.service';
