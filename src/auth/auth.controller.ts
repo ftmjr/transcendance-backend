@@ -7,6 +7,10 @@ import {
   Request,
   Response,
   Body,
+  Req,
+  UnauthorizedException,
+  HttpCode,
+  Res,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { AuthService } from './auth.service';
@@ -17,10 +21,14 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiTags,
+  ApiProperty,
 } from '@nestjs/swagger';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { AuthenticatedGuard } from './guards';
 import { ILoginData } from "./interfaces";
+import { UsersService } from '../users/users.service';
+import { TwoFaDto } from './dto/twoFa.dto';
+
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -224,6 +232,64 @@ export class AuthController {
   // async verifyTwoFactorAuth(@Request() req, @Body('token') token: string) {
   //   return this.authService.checkTwoFactor(req, req.user);
   // }
+  @Post('2fa/turn-on')
+  @UseGuards(AuthenticatedGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Enables Google Authenticator 2FA',
+    description: 'Set "two"twoFactorEnabled" to true,',
+  })
+  async turnOnTwoFactorAuthentication(@Req() request, @Body() body : TwoFaDto ) {
+    const isCodeValid =
+      this.authService.isTwoFactorAuthenticationCodeValid(
+        body.twoFactorAuthenticationCode,
+        request.user,
+      );
+    if (!isCodeValid) {
+      throw new UnauthorizedException('Wrong authentication code');
+    }
+
+    await this.usersService.turnOnTwoFactorAuthentication(request.user.id);
+  }
+
+  @Post('2fa/authenticate')
+  @HttpCode(200)
+  @UseGuards(AuthenticatedGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Verify Google Authenticator 2FA code',
+    description: 'code is valid => return true | code is not valid => Exception',
+  })
+  async authenticate(@Request() request, @Body() body) {
+    const isCodeValid = this.authService.isTwoFactorAuthenticationCodeValid(
+      body.twoFactorAuthenticationCode,
+      request.user,
+    );
+
+    if (!isCodeValid) {
+      throw new UnauthorizedException('Wrong authentication code');
+    }
+
+    return true;
+  }
+
+	@Post('2fa/generate')
+	@UseGuards(AuthenticatedGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Generates QRcode for Google Authenticator 2FA registry',
+    description: 'Set "twoFactorSecret"',
+  })
+	async register(@Res() response, @Req() request) {
+		const { otpAuthUrl } =
+			await this.authService.generateTwoFactorAuthenticationSecret(
+				request.user,
+			);
+
+		return response.json(
+			await this.authService.generateQrCodeDataURL(otpAuthUrl),
+		);
+	}
 
   @UseGuards(AuthenticatedGuard)
   @ApiBearerAuth()
