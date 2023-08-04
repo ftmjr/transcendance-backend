@@ -25,15 +25,17 @@ import {
 } from '@nestjs/swagger';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { AuthenticatedGuard } from './guards';
-import { ILoginData } from "./interfaces";
+import { ILoginData } from './interfaces';
 import { UsersService } from '../users/users.service';
 import { TwoFaDto } from './dto/twoFa.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(private authService: AuthService
-      private usersService: UsersService) {}
+  constructor(
+    private authService: AuthService,
+    private usersService: UsersService,
+  ) {}
 
   @UseGuards(LocalAuthGuard)
   @Post('login')
@@ -250,7 +252,7 @@ export class AuthController {
       throw new UnauthorizedException('Wrong authentication code');
     }
 
-    await this.authService.turnOnTwoFactorAuthentication(request.user.id);
+    await this.usersService.turnOnTwoFactorAuthentication(request.user.id);
   }
 
   @Post('2fa/authenticate')
