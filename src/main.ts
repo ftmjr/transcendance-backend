@@ -5,17 +5,16 @@ import { ValidationPipe } from '@nestjs/common';
 import { PrismaClientExceptionFilter } from 'nestjs-prisma';
 import * as cookieParser from 'cookie-parser';
 import * as compression from 'compression';
-import { ConfigService } from '@nestjs/config';
-
+import helmet from 'helmet'
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  const configService = app.get(ConfigService);
-  const frontendUrl = 'https://' + configService.get<string>('URL');
+  const app = await NestFactory.create(AppModule, { cors: true });
+  const frontendUrl = 'https://' + process.env.URL;
   const { httpAdapter } = app.get(HttpAdapterHost);
   app.enableCors({
     origin: frontendUrl,
   });
+  app.use(helmet());
   app.useGlobalFilters(new PrismaClientExceptionFilter(httpAdapter));
   app.use(cookieParser());
   app.use(compression());

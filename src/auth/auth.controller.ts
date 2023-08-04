@@ -25,19 +25,15 @@ import {
 } from '@nestjs/swagger';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { AuthenticatedGuard } from './guards';
-import { ConfigService } from '@nestjs/config';
-import { ILoginData } from './interfaces';
+import { ILoginData } from "./interfaces";
 import { UsersService } from '../users/users.service';
 import { TwoFaDto } from './dto/twoFa.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(
-    private authService: AuthService,
-    private readonly configService: ConfigService,
-    private readonly usersService: UsersService,
-  ) {}
+  constructor(private authService: AuthService
+      private usersService: UsersService) {}
 
   @UseGuards(LocalAuthGuard)
   @Post('login')
@@ -254,7 +250,7 @@ export class AuthController {
       throw new UnauthorizedException('Wrong authentication code');
     }
 
-    await this.usersService.turnOnTwoFactorAuthentication(request.user.id);
+    await this.authService.turnOnTwoFactorAuthentication(request.user.id);
   }
 
   @Post('2fa/authenticate')
@@ -313,7 +309,8 @@ export class AuthController {
     summary: 'Test of a protected route for a logged in user',
   })
   @Get('pizza')
-  async getPizza() {
+  async getPizza(@Request() req) {
+    console.log(req.user);
     return 'Free pizza';
   }
 
