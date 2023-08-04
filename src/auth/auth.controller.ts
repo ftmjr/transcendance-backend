@@ -25,7 +25,6 @@ import {
 } from '@nestjs/swagger';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { AuthenticatedGuard } from './guards';
-import { ConfigService } from '@nestjs/config';
 import { ILoginData } from "./interfaces";
 import { UsersService } from '../users/users.service';
 import { TwoFaDto } from './dto/twoFa.dto';
@@ -34,11 +33,7 @@ import { TwoFaDto } from './dto/twoFa.dto';
 @ApiTags('Authentication')
 @Controller('auth')
 export class AuthController {
-  constructor(
-    private authService: AuthService,
-    private readonly configService: ConfigService,
-    private readonly usersService: UsersService,
-  ) {}
+  constructor(private authService: AuthService) {}
 
   @UseGuards(LocalAuthGuard)
   @Post('login')
@@ -66,7 +61,6 @@ export class AuthController {
     return this.authService.loginAndRefreshTokens(req, res, req.user);
   }
 
-  @Redirect()
   @Post('signup')
   @ApiOperation({
     summary: 'manually create an account',
@@ -181,11 +175,7 @@ export class AuthController {
       req.user,
     );
     return {
-      url:
-        'https://' +
-        this.configService.get<string>('URL') +
-        '/auth?' +
-        JSON.stringify(loginData),
+      url: 'https://' + process.env.URL + '/auth?' + JSON.stringify(loginData),
       statusCode: 302,
     };
   }
@@ -232,11 +222,7 @@ export class AuthController {
       req.user,
     );
     return {
-      url:
-        'https://' +
-        this.configService.get<string>('URL') +
-        '/auth?' +
-        JSON.stringify(loginData),
+      url: 'https://' + process.env.URL + '/auth?' + JSON.stringify(loginData),
       statusCode: 302,
     };
   }
@@ -311,7 +297,8 @@ export class AuthController {
     summary: 'Test of a protected route for a logged in user',
   })
   @Get('pizza')
-  async getPizza() {
+  async getPizza(@Request() req) {
+    console.log(req.user);
     return 'Free pizza';
   }
 

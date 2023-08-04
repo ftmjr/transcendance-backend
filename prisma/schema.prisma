@@ -53,6 +53,8 @@ model User {
   gameHistories        GameHistory[]
   contacts             Contact[]             @relation("UserToContact")
   contactedBy          Contact[]             @relation("ContactToUser")
+  sentContactRequests  ContactRequest[] @relation("SentContactRequests")
+  receivedContactRequests  ContactRequest[] @relation("ReceivedContactRequests")
   googleId             String?               @unique
   facebookId           String?               @unique
   api42Id              String?               @unique
@@ -66,6 +68,7 @@ model Profile {
   id      Int     @id @default(autoincrement())
   userId  Int     @unique
   user    User    @relation(fields: [userId], references: [id])
+  username  String
   name    String
   lastname String
   avatar  String?
@@ -89,6 +92,17 @@ model ProfileAward {
   award     Award   @relation(fields: [awardId], references: [id])
 
   @@id([profileId, awardId])
+}
+
+model ContactRequest {
+  id         Int      @id @default(autoincrement())
+  senderId   Int
+  sender     User     @relation("SentContactRequests", fields: [senderId], references: [id])
+  receiverId Int
+  receiver   User     @relation("ReceivedContactRequests", fields: [receiverId], references: [id])
+  createdAt  DateTime @default(now())
+
+  @@unique([senderId, receiverId])
 }
 
 model Contact {
