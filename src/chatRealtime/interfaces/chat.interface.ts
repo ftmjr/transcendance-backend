@@ -1,8 +1,15 @@
+export interface NewRoom {
+  name: string;
+  password: string | null;
+  private: boolean;
+}
+
 export interface User {
   userId: string;
   userName: string;
   socketId: string;
 }
+
 
 export interface Message {
   user: User;

@@ -1,8 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Room, User } from './interfaces/chat.interface';
+import { ChatRepository } from "./chat.repository";
 
 @Injectable()
 export class ChatService {
+
+  constructor (private chatRepository: ChatRepository) {}
   private rooms: Room[] = [];
 
   async addRoom(roomName: string, host: User) {
@@ -69,5 +72,9 @@ export class ChatService {
 
   async getRooms(): Promise<Room[]> {
     return this.rooms;
+  }
+
+  async createRoom() {
+    return this.chatRepository.createRoom();
   }
 }

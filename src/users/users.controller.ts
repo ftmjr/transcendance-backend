@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, UseGuards, Param } from '@nestjs/common';
+import {Controller, Get, Post, Body, UseGuards, Param, Request} from '@nestjs/common';
 import { UsersService } from './users.service';
 import {
   ApiOperation,
@@ -14,6 +14,9 @@ import { AuthenticatedGuard } from '../auth/guards';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  /**
+   * @todo pagination
+   */
   @ApiBearerAuth()
   // @UseGuards(AuthenticatedGuard)
   @Get()
@@ -27,6 +30,7 @@ export class UsersController {
   getUsers() {
     return this.usersService.getUsers();
   }
+
   // @ApiBearerAuth()
   // // @UseGuards(AuthenticatedGuard)
   // @Get('addContact/:id')

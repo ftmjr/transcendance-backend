@@ -10,7 +10,7 @@ export class Strategy42 extends PassportStrategy(Strategy, '42') {
         super({
             clientID: process.env.API42_CLIENT_ID,
             clientSecret: process.env.API42_CLIENT_SECRET,
-            callbackURL:'https://localhost/api/auth/42/callback',
+            callbackURL:'https://10.18.200.130/api/auth/42/callback',
         });
     }
 
