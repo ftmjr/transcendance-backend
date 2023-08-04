@@ -13,6 +13,9 @@ import { AuthenticatedGuard } from '../auth/guards';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  /**
+   * @todo pagination
+   */
   @ApiBearerAuth()
   // @UseGuards(AuthenticatedGuard)
   @Get()

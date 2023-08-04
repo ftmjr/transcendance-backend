@@ -278,7 +278,8 @@ export class UsersService {
   }
   approveFriendRequest(requestId: number) {
     return this.repository.approveFriendRequest(requestId);
-    
+  }
+
   async setTwoFactorAuthenticationSecret(secret: string, id: number) {
     return this.repository.updateUser({
       where: { id: id },
