@@ -60,6 +60,7 @@ export class AuthController {
     @Response({ passthrough: true }) res,
     @Body() loginDto: LoginDto,
   ) {
+
     return this.authService.loginAndRefreshTokens(req, res, req.user);
   }
 

@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import {Logger, UseGuards} from '@nestjs/common';
 import {
   SubscribeMessage,
   WebSocketGateway,
@@ -11,27 +11,30 @@ import {
 import { Server, Socket } from 'socket.io';
 import {
   User,
+    NewRoom,
   Message,
   ServerToClientEvents,
   ClientToServerEvents,
 } from './interfaces/chat.interface';
-import { ChatService } from './chat.service';
+import { ChatRealtimeService } from './chatRealtime.service';
+import {AuthenticatedGuard} from "../auth/guards";
+import {ApiBearerAuth} from "@nestjs/swagger";
 
 @WebSocketGateway({ namespace: 'chat' })
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
-  constructor(private chatService: ChatService) {}
+export class ChatRealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect {
+  constructor(private chatService: ChatRealtimeService) {}
   @WebSocketServer() server: Server = new Server<
     ServerToClientEvents,
     ClientToServerEvents
   >();
-  private logger = new Logger('ChatGateway');
+  private logger = new Logger('ChatRealtimeGateway');
 
   handleConnection(client: Socket, ...args: any[]) {
     this.logger.log(`Socket connected: ${client.id}`);
   }
 
   async handleDisconnect(client: Socket) {
-    await this.chatService.removeUserFromAllRooms(client.id);
+    // await this.chatService.removeUserFromAllRooms(client.id);
     this.logger.log(`Client disconnected : ${client.id}`);
   }
 
@@ -55,20 +58,21 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return payload;
   }
 
-  @SubscribeMessage('join_room')
-  async handleSetClientDataEvent(
-    @MessageBody()
-    payload: {
-      roomName: string;
-      user: User;
-    },
-  ) {
-    if (payload.user.socketId) {
-      this.logger.log(
-        `${payload.user.socketId} is joining ${payload.roomName}`,
-      );
-      await this.server.in(payload.user.socketId).socketsJoin(payload.roomName);
-      await this.chatService.addUserToRoom(payload.roomName, payload.user);
-    }
+  @SubscribeMessage('updateRooms')
+  async updateRoom(@MessageBody() payload: NewRoom) {
+    this.logger.log(payload);
+    this.logger.log('add this new room');
+    this.server.emit('updateRooms', payload); // broadcast messages
+  }
+
+  @SubscribeMessage('createRoom')
+  async createRoom(@MessageBody() payload: NewRoom) {
+    this.logger.log(payload);
+    this.logger.log('trying to create a room');
+    this.chatService.createRoom(payload);
+  }
+  @SubscribeMessage('joinRoom')
+  async joinRoom() {
+    this.logger.log('trying to join a room');
   }
 }

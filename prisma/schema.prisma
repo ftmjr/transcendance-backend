@@ -9,6 +9,7 @@ datasource db {
 
 enum Role {
   USER
+  OWNER
   ADMIN
   SUPER_MODERATOR
 }
@@ -82,9 +83,12 @@ model Profile {
 
 model ChatRoom {
   id        Int                 @id @default(autoincrement())
-  name      String
+  name      String              @unique
   members   ChatRoomMember[]    @relation("ChatRoomMembers")
   messages  ChatroomMessage[]   @relation("ChatRoomMessages")
+  private   Boolean             @default(false)
+  protected Boolean             @default(false)
+  password  String
   createdAt DateTime            @default(now())
 }
 
@@ -95,6 +99,7 @@ model ChatRoomMember {
   chatroomId    Int
   chatroom      ChatRoom            @relation(name: "ChatRoomMembers", fields: [chatroomId], references: [id], onDelete: Cascade)
   messages      ChatroomMessage[]   @relation("ChatRoomMessage")
+  role          Role
   createdAt     DateTime            @default(now())
 }
 
