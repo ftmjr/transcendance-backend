@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { ChatRealtimeRepository } from './chatRealtime.repository';
 import { CreateRoomDto } from './dto/createRoom.dto';
-import { ChatRoom, Prisma, User } from '@prisma/client';
+import { Status, Prisma, User } from '@prisma/client';
 import { NewRoom } from './interfaces/chat.interface';
 import { JoinRoomDto } from './dto/joinRoom.dto';
+import { ChatRealtimeGateway } from './chatRealtime.gateway';
 
 function exclude<ChatRoom, Key extends keyof ChatRoom>(
   room: ChatRoom,
@@ -17,7 +18,10 @@ function exclude<ChatRoom, Key extends keyof ChatRoom>(
 
 @Injectable()
 export class ChatRealtimeService {
-  constructor(private repository: ChatRealtimeRepository) {}
+  constructor(
+    private repository: ChatRealtimeRepository,
+    private gateway: ChatRealtimeGateway,
+  ) {}
 
   async getRooms() {
     const rooms = await this.repository.getRooms({
@@ -47,5 +51,9 @@ export class ChatRealtimeService {
   }
   async joinRoom(data: JoinRoomDto) {
     return await this.repository.joinRoom(data);
+  }
+
+  async setOnline(user: User, status: Status) {
+    return await this.repository.updateStatus(user, status);
   }
 }

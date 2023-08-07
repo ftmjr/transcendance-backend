@@ -14,6 +14,13 @@ enum Role {
   SUPER_MODERATOR
 }
 
+enum Status {
+    Online
+    Offline
+    Away
+    Busy
+}
+
 enum Visibility {
   PUBLIC
   PRIVATE
@@ -100,6 +107,7 @@ model ChatRoomMember {
   chatroom      ChatRoom            @relation(name: "ChatRoomMembers", fields: [chatroomId], references: [id], onDelete: Cascade)
   messages      ChatroomMessage[]   @relation("ChatRoomMessage")
   role          Role
+  status        Status              @default(Offline)
   createdAt     DateTime            @default(now())
 }
 

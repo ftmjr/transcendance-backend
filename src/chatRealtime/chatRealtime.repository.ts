@@ -1,5 +1,5 @@
 import {ForbiddenException, Injectable, NotFoundException} from '@nestjs/common';
-import { Prisma, ChatRoom, ChatRoomMember, User, Role } from '@prisma/client';
+import { Prisma, ChatRoom, ChatRoomMember, User, Role, Status } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateRoomDto } from './dto/createRoom.dto';
 import { JoinRoomDto } from './dto/joinRoom.dto';
@@ -131,5 +131,16 @@ export class ChatRealtimeRepository {
       },
     });
     return newMember;
+  }
+
+  async updateStatus(user: User, status: Status) {
+    return await this.prisma.chatRoomMember.updateMany({
+      where: {
+        memberId: user.id,
+      },
+      data: {
+        status: status,
+      },
+    });
   }
 }
