@@ -33,6 +33,7 @@ export class ChatRealtimeGateway
 
   handleConnection(client: Socket, ...args: any[]) {
     this.logger.log(`Socket connected: ${client.id}`);
+    this.server.in(client.id).socketsJoin('General');
   }
 
   async handleDisconnect(client: Socket) {
@@ -83,9 +84,17 @@ export class ChatRealtimeGateway
     this.chatService.createRoom(payload);
   }
   @SubscribeMessage('joinRoom')
-  async joinRoom(@MessageBody() payload: { roomName: string; userSocketId: any }) {
-    if (payload.userSocketId) {
-      await this.server.in(payload.userSocketId).socketsJoin(payload.roomName);
+  async joinRoom(@MessageBody() payload: { roomName: string }, @ConnectedSocket() client: Socket) {
+    if (client.id) {
+      await this.server.in(client.id).socketsJoin(payload.roomName);
+    }
+  }
+  @SubscribeMessage('leaveRoom')
+  async leaveRoom(
+    @MessageBody() payload: { roomName: string }, @ConnectedSocket() client: Socket
+  ) {
+    if (client.id) {
+      await this.server.in(client.id).socketsLeave(payload.roomName);
     }
   }
 }

@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import {ForbiddenException, Injectable, NotFoundException} from '@nestjs/common';
 import { Prisma, ChatRoom, ChatRoomMember, User, Role } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateRoomDto } from './dto/createRoom.dto';
+import { JoinRoomDto } from './dto/joinRoom.dto';
 
 @Injectable()
 export class ChatRealtimeRepository {
@@ -32,18 +33,13 @@ export class ChatRealtimeRepository {
     const { data } = params;
     const createdRoom = await this.prisma.chatRoom.create({ data });
 
-    const ownerMember: ChatRoomMember = await this.prisma.chatRoomMember.create(
-      {
-        data: {
-          memberId: ownerId,
-          chatroomId: createdRoom.id,
-          role: Role.OWNER,
-        },
+    await this.prisma.chatRoomMember.create({
+      data: {
+        memberId: ownerId,
+        chatroomId: createdRoom.id,
+        role: Role.OWNER,
       },
-    );
-    if (!ownerMember) {
-      // delete room & throw error
-    }
+    });
     return createdRoom;
   }
   getChatRoomMember(userId: number, roomId: number) {
@@ -112,11 +108,28 @@ export class ChatRealtimeRepository {
       await this.updateOwner(newOwner.id);
     }
   }
-  async getRoomId(roomName: string) {
+  async getRoom(roomName: string) {
     return await this.prisma.chatRoom.findUnique({
       where: {
         name: roomName,
       },
     });
+  }
+  async joinRoom(data: JoinRoomDto) {
+    const room = await this.getRoom(data.roomName);
+    if (!room) {
+      throw new NotFoundException('already exists');
+    } else if (room.password !== data.password) {
+      throw new ForbiddenException('Invalid Password');
+    }
+
+    const newMember = await this.prisma.chatRoomMember.create({
+      data: {
+        memberId: data.userId,
+        chatroomId: room.id,
+        role: Role.USER,
+      },
+    });
+    return newMember;
   }
 }
