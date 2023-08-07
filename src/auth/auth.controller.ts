@@ -115,9 +115,7 @@ export class AuthController {
     return this.authService.refreshAccessToken(refreshToken, res);
   }
 
-  @UseGuards(AuthenticatedGuard)
-  @ApiBearerAuth()
-  @Post('logout')
+  @Get('logout')
   @ApiOperation({
     summary: 'logout the user and destroy session',
     description: `
