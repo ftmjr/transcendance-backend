@@ -112,4 +112,11 @@ export class ChatRealtimeRepository {
       await this.updateOwner(newOwner.id);
     }
   }
+  async getRoomId(roomName: string) {
+    return await this.prisma.chatRoom.findUnique({
+      where: {
+        name: roomName,
+      },
+    });
+  }
 }

@@ -19,6 +19,7 @@ import { AuthenticatedGuard } from '../auth/guards';
 
 import { CreateRoomDto } from './dto/createRoom.dto';
 import { AvailableRoomsDto } from './dto/availableRooms.dto';
+import {IsNotEmpty} from "class-validator";
 
 @ApiTags('ChatActions')
 @Controller('chat')
@@ -57,6 +58,24 @@ export class ChatRealtimeController {
   async leaveRoom(@Request() req, @Param('id') id: string) {
     const roomId = parseInt(id);
     return await this.service.leaveRoom(req.user, roomId);
+  }
+
+  @Post('room')
+  @ApiOperation({
+    summary: 'Create a chat room',
+    description: `
+      - Returns the created chat room
+      - returns 403 if chatroom exist
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: `
+    - Chatroom created',
+    `,
+  })
+  async createRoom(@Body() createRoomDto: CreateRoomDto) {
+    return await this.service.createRoom(createRoomDto);
   }
 
   // @UseGuards(AuthenticatedGuard)

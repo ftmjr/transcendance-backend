@@ -1,4 +1,4 @@
-import {Logger, UseGuards} from '@nestjs/common';
+import { Logger, UseGuards } from '@nestjs/common';
 import {
   SubscribeMessage,
   WebSocketGateway,
@@ -11,17 +11,19 @@ import {
 import { Server, Socket } from 'socket.io';
 import {
   User,
-    NewRoom,
+  NewRoom,
   Message,
   ServerToClientEvents,
   ClientToServerEvents,
 } from './interfaces/chat.interface';
 import { ChatRealtimeService } from './chatRealtime.service';
-import {AuthenticatedGuard} from "../auth/guards";
-import {ApiBearerAuth} from "@nestjs/swagger";
+import { AuthenticatedGuard } from '../auth/guards';
+import { ApiBearerAuth } from '@nestjs/swagger';
 
 @WebSocketGateway({ namespace: 'chat' })
-export class ChatRealtimeGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class ChatRealtimeGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
   constructor(private chatService: ChatRealtimeService) {}
   @WebSocketServer() server: Server = new Server<
     ServerToClientEvents,
@@ -65,6 +67,15 @@ export class ChatRealtimeGateway implements OnGatewayConnection, OnGatewayDiscon
     this.server.emit('updateRooms', payload); // broadcast messages
   }
 
+  @SubscribeMessage('getAllRooms')
+  async retrieveAllRooms() {
+    this.logger.log('add this new room');
+    const fakeRoom = {
+      name: 'hello',
+    };
+    this.server.emit('allRooms', fakeRoom); // broadcast messages
+  }
+
   @SubscribeMessage('createRoom')
   async createRoom(@MessageBody() payload: NewRoom) {
     this.logger.log(payload);
@@ -72,7 +83,9 @@ export class ChatRealtimeGateway implements OnGatewayConnection, OnGatewayDiscon
     this.chatService.createRoom(payload);
   }
   @SubscribeMessage('joinRoom')
-  async joinRoom() {
-    this.logger.log('trying to join a room');
+  async joinRoom(@MessageBody() payload: { roomName: string; userSocketId: any }) {
+    if (payload.userSocketId) {
+      await this.server.in(payload.userSocketId).socketsJoin(payload.roomName);
+    }
   }
 }

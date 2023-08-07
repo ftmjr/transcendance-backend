@@ -26,7 +26,7 @@ export class ChatRealtimeService {
     return rooms.map((room) => exclude(room, ['password', 'private']));
   }
 
-  async createRoom(newRoom: NewRoom) {
+  async createRoom(newRoom: CreateRoomDto) {
     const data: Prisma.ChatRoomCreateInput = {
       name: newRoom.name,
       private: newRoom.private,
@@ -36,11 +36,14 @@ export class ChatRealtimeService {
     if (newRoom.protected) {
       data.password = newRoom.password;
     }
-    return this.repository.createRoom({ data }, newRoom.ownerId);
+    return await this.repository.createRoom({ data }, newRoom.ownerId);
   }
 
   async leaveRoom(user: User, roomId: number) {
     return await this.repository.leaveRoom(user, roomId);
+  }
+  async getRoomId(roomName: string) {
+    return await this.repository.getRoomId(roomName);
   }
 
   // async joinRoom(owner: User, joinRoom: JoinRoomDto) {
