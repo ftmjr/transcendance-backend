@@ -1,7 +1,9 @@
 export interface NewRoom {
   name: string;
   password: string | null;
+  protected: boolean;
   private: boolean;
+  ownerId: number;
 }
 
 export interface User {
