@@ -1,5 +1,16 @@
-import {ForbiddenException, Injectable, NotFoundException} from '@nestjs/common';
-import { Prisma, ChatRoom, ChatRoomMember, User, Role, Status } from '@prisma/client';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import {
+  Prisma,
+  ChatRoom,
+  ChatRoomMember,
+  User,
+  Role,
+  Status,
+} from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateRoomDto } from './dto/createRoom.dto';
 import { JoinRoomDto } from './dto/joinRoom.dto';

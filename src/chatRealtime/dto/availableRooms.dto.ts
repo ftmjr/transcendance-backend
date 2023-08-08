@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { RoomDto } from "./room.dto";
+import { RoomDto } from './room.dto';
 
 export class AvailableRoomsDto {
-  @ApiProperty({type: () => RoomDto })
+  @ApiProperty({ type: () => RoomDto })
   rooms?: RoomDto[];
 }
