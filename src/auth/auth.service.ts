@@ -204,13 +204,14 @@ export class AuthService {
   setCookieForRefreshToken(refreshToken: string, res: Response) {
     res.cookie('REFRESH_TOKEN', refreshToken, {
       httpOnly: true,
+      sameSite: 'lax',
     });
   }
 
-  // TODO Verify with 42 api, res.cookie not a function
   destroyCookieForRefreshToken(res: Response) {
     res.cookie('REFRESH_TOKEN', '', {
       httpOnly: true,
+      sameSite: 'lax',
       expires: new Date(0),
     });
   }
