@@ -9,7 +9,10 @@ export class CompetitionResolver {
   constructor(private readonly competitionService: CompetitionService) {}
 
   @Mutation(() => Competition)
-  createCompetition(@Args('createCompetitionInput') createCompetitionInput: CreateCompetitionInput) {
+  createCompetition(
+    @Args('createCompetitionInput')
+    createCompetitionInput: CreateCompetitionInput,
+  ) {
     return this.competitionService.create(createCompetitionInput);
   }
 
@@ -24,8 +27,14 @@ export class CompetitionResolver {
   }
 
   @Mutation(() => Competition)
-  updateCompetition(@Args('updateCompetitionInput') updateCompetitionInput: UpdateCompetitionInput) {
-    return this.competitionService.update(updateCompetitionInput.id, updateCompetitionInput);
+  updateCompetition(
+    @Args('updateCompetitionInput')
+    updateCompetitionInput: UpdateCompetitionInput,
+  ) {
+    return this.competitionService.update(
+      updateCompetitionInput.id,
+      updateCompetitionInput,
+    );
   }
 
   @Mutation(() => Competition)

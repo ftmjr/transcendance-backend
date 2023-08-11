@@ -28,7 +28,6 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private jwtService: JwtService,
     private usersService: UsersService,
-
   ) {}
 
   async signUpLocal(
@@ -205,13 +204,14 @@ export class AuthService {
   setCookieForRefreshToken(refreshToken: string, res: Response) {
     res.cookie('REFRESH_TOKEN', refreshToken, {
       httpOnly: true,
+      sameSite: 'lax',
     });
   }
 
-  // TODO Verify with 42 api, res.cookie not a function
   destroyCookieForRefreshToken(res: Response) {
     res.cookie('REFRESH_TOKEN', '', {
       httpOnly: true,
+      sameSite: 'lax',
       expires: new Date(0),
     });
   }
@@ -255,15 +255,18 @@ export class AuthService {
     await this.usersService.setTwoFactorAuthenticationSecret(secret, user.id);
     return {
       secret,
-      otpAuthUrl
-    }
+      otpAuthUrl,
+    };
   }
 
   async generateQrCodeDataURL(otpAuthUrl: string) {
     return toDataURL(otpAuthUrl);
   }
 
-  isTwoFactorAuthenticationCodeValid(twoFactorAuthenticationCode: string, user: User) {
+  isTwoFactorAuthenticationCodeValid(
+    twoFactorAuthenticationCode: string,
+    user: User,
+  ) {
     return authenticator.verify({
       token: twoFactorAuthenticationCode,
       secret: user.twoFactorSecret,

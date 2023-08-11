@@ -60,7 +60,6 @@ export class AuthController {
     @Response({ passthrough: true }) res,
     @Body() loginDto: LoginDto,
   ) {
-
     return this.authService.loginAndRefreshTokens(req, res, req.user);
   }
 
@@ -89,9 +88,7 @@ export class AuthController {
     return this.authService.signUpLocal(req, res, signUpDto);
   }
 
-  @UseGuards(AuthenticatedGuard)
-  @ApiBearerAuth()
-  @Post('refresh')
+  @Get('refresh')
   @ApiCookieAuth('REFRESH_TOKEN')
   @ApiOperation({
     summary: 'refresh access token',
@@ -177,7 +174,7 @@ export class AuthController {
     );
     const localUrl: string = process.env.URL;
     return {
-      url: `https://${localUrl}/auth-state-2?token=${loginData.accessToken}`,
+      url: `https://${localUrl}/auth/oauth-auth?token=${loginData.accessToken}`,
       statusCode: 302,
     };
   }
@@ -225,7 +222,7 @@ export class AuthController {
     );
     const localUrl: string = process.env.URL;
     return {
-      url: `https://${localUrl}/auth-state-2?token=${loginData.accessToken}`,
+      url: `https://${localUrl}/auth/oauth-auth?token=${loginData.accessToken}`,
       statusCode: 302,
     };
   }
@@ -314,17 +311,4 @@ export class AuthController {
     console.log(req.user);
     return 'Free pizza';
   }
-
-  // // Facebook auth
-  // @Get('facebook')
-  // @UseGuards(AuthGuard('facebook'))
-  // // eslint-disable-next-line @typescript-eslint/no-empty-function
-  // facebookLogin() {}
-  //
-  // @Get('facebook/callback')
-  // @UseGuards(AuthGuard('facebook'))
-  // facebookLoginCallback(@Request() req) {
-  //   return this.authService.signInWithOauth(req, req.user);
-  // }
-  //
 }

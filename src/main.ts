@@ -5,7 +5,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { PrismaClientExceptionFilter } from 'nestjs-prisma';
 import * as cookieParser from 'cookie-parser';
 import * as compression from 'compression';
-import helmet from 'helmet'
+import helmet from 'helmet';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { cors: true });

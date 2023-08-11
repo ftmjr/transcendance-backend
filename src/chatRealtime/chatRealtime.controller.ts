@@ -23,7 +23,6 @@ import { JoinRoomDto } from './dto/joinRoom.dto';
 import { ChatRealtimeGateway } from './chatRealtime.gateway';
 import { Status } from '@prisma/client';
 
-
 @ApiTags('ChatActions')
 @Controller('chat')
 export class ChatRealtimeController {
@@ -56,7 +55,7 @@ export class ChatRealtimeController {
 
     const room = await this.service.createRoom(createRoomDto);
     if (room) {
-      this.gateway.updateRooms(room, "add");
+      this.gateway.updateRooms(room, 'add');
     }
     return room;
   }

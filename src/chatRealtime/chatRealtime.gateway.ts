@@ -19,7 +19,7 @@ import {
 import { ChatRealtimeService } from './chatRealtime.service';
 import { AuthenticatedGuard } from '../auth/guards';
 import { ApiBearerAuth } from '@nestjs/swagger';
-import { ChatRoom } from "@prisma/client";
+import { ChatRoom } from '@prisma/client';
 
 @WebSocketGateway({ namespace: 'chat' })
 export class ChatRealtimeGateway
@@ -62,14 +62,18 @@ export class ChatRealtimeGateway
     }
   }
   @SubscribeMessage('joinRoom')
-  async joinRoom(@MessageBody() payload: { roomName: string }, @ConnectedSocket() client: Socket) {
+  async joinRoom(
+    @MessageBody() payload: { roomName: string },
+    @ConnectedSocket() client: Socket,
+  ) {
     if (client.id) {
       await this.server.in(client.id).socketsJoin(payload.roomName);
     }
   }
   @SubscribeMessage('leaveRoom')
   async leaveRoom(
-    @MessageBody() payload: { roomName: string }, @ConnectedSocket() client: Socket
+    @MessageBody() payload: { roomName: string },
+    @ConnectedSocket() client: Socket,
   ) {
     if (client.id) {
       await this.server.in(client.id).socketsLeave(payload.roomName);
