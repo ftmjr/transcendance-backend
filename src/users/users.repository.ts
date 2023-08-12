@@ -307,4 +307,18 @@ export class UsersRepository {
       },
     });
   }
+  async deleteFriendRequest(userId: number, blockedUserId: number) {
+    await this.prisma.contactRequest.deleteMany({
+      where: {
+        senderId: userId,
+        receiverId: blockedUserId,
+      }
+    });
+    await this.prisma.contactRequest.deleteMany({
+      where: {
+        senderId: blockedUserId,
+        receiverId: userId,
+      },
+    });
+  }
 }

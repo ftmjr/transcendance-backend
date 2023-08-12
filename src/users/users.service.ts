@@ -173,6 +173,12 @@ export class UsersService {
     return users.map((user) => exclude(user, ['password']));
   }
   async blockUser(userId: number, blockedUserId: number): Promise<BlockedUser> {
+    try {
+      await this.repository.deleteFriendRequest(userId, blockedUserId);
+      await this.repository.removeFriend(userId, blockedUserId)
+    } catch (e) {
+      // Nothing to be done if there was an error
+    }
     return this.repository.blockUser(userId, blockedUserId);
   }
   async unblockUser(
