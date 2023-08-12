@@ -8,6 +8,7 @@ datasource db {
 }
 
 enum Role {
+  BAN
   USER
   OWNER
   ADMIN
@@ -86,6 +87,7 @@ model Profile {
   bio     String?
   oauth   Json?
   awards  ProfileAward[]
+  status  Status   @default(Offline)
 }
 
 model ChatRoom {
@@ -107,7 +109,6 @@ model ChatRoomMember {
   chatroom      ChatRoom            @relation(name: "ChatRoomMembers", fields: [chatroomId], references: [id], onDelete: Cascade)
   messages      ChatroomMessage[]   @relation("ChatRoomMessage")
   role          Role
-  status        Status              @default(Offline)
   createdAt     DateTime            @default(now())
 }
 

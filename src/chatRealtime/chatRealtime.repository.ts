@@ -14,6 +14,7 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateRoomDto } from './dto/createRoom.dto';
 import { JoinRoomDto } from './dto/joinRoom.dto';
+import {UserActionDto} from "./dto/userAction.dto";
 
 @Injectable()
 export class ChatRealtimeRepository {
@@ -151,6 +152,52 @@ export class ChatRealtimeRepository {
       },
       data: {
         status: status,
+      },
+    });
+  }
+  async findBanFrom(userId: number) {
+    return await this.prisma.ChatRoomMember.findMany({
+      where: {
+        memberId: userId,
+        role: Role.BAN,
+      },
+    });
+  }
+  async findMember(userId: number, roomId: number) {
+    return await this.prisma.ChatRoomMember.findFirst({
+      where: {
+        memberId: userId,
+        chatroomId: roomId,
+      },
+    });
+  }
+  async getRoomMembers(roomId: number) {
+    return await this.prisma.ChatRoomMember.findMany({
+      where: {
+        chatroomId: roomId,
+      },
+      orderBy: {
+        member: {
+          status: 'desc',
+          username: 'asc',
+        },
+      },
+    });
+  }
+  async getRoomMessages(roomId: number) {
+    return await this.prisma.ChatRoomMessages.findMany({
+      where: {
+        chatroomId: roomId,
+      },
+      orderBy: {
+        date: 'asc',
+      },
+    });
+  }
+  async kickChatRoomMember(chatRoomMemberId: number) {
+    return await this.prisma.chatRoomMember.delete({
+      where: {
+        id: chatRoomMemberId,
       },
     });
   }
