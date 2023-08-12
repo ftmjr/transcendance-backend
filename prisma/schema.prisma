@@ -45,6 +45,15 @@ model UserSettings {
     refresh_token       String
 }
 
+model BlockedUser {
+  id                   Int                  @id @default(autoincrement())
+  userId               Int
+  user                 User                 @relation("UserToBlocked", fields: [userId], references: [id], onDelete: Cascade)
+  blockedUserId        Int
+  blockedUser          User                 @relation("BlockedToUser", fields: [blockedUserId], references: [id], onDelete: Cascade)
+  createdAt            DateTime             @default(now())
+}
+
 model User {
   id                   Int                   @id @default(autoincrement())
   username             String                @unique
@@ -73,13 +82,14 @@ model User {
   chatRooms            ChatRoomMember[]      @relation("ChatRoomMember")
   sentMessages         PrivateMessage[]      @relation("sentMessages")
   receivedMessages     PrivateMessage[]      @relation("receivedMessages")
+  blockedUsers         BlockedUser[]         @relation("UserToBlocked")
+  blockedFrom          BlockedUser[]         @relation("BlockedToUser")
 }
 
 model Profile {
   id      Int     @id @default(autoincrement())
   userId  Int     @unique
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  username  String
   name    String
   lastname String
   avatar  String?

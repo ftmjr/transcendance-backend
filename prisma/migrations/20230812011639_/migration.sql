@@ -1,5 +1,8 @@
 -- CreateEnum
-CREATE TYPE "Role" AS ENUM ('USER', 'ADMIN', 'SUPER_MODERATOR');
+CREATE TYPE "Role" AS ENUM ('USER', 'OWNER', 'ADMIN', 'SUPER_MODERATOR');
+
+-- CreateEnum
+CREATE TYPE "Status" AS ENUM ('Online', 'Offline', 'Away', 'Busy');
 
 -- CreateEnum
 CREATE TYPE "Visibility" AS ENUM ('PUBLIC', 'PRIVATE');
@@ -17,6 +20,16 @@ CREATE TABLE "UserSettings" (
     "refresh_token" TEXT NOT NULL,
 
     CONSTRAINT "UserSettings_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "BlockedUser" (
+    "id" SERIAL NOT NULL,
+    "userId" INTEGER NOT NULL,
+    "blockedUserId" INTEGER NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "BlockedUser_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -41,7 +54,6 @@ CREATE TABLE "User" (
 CREATE TABLE "Profile" (
     "id" SERIAL NOT NULL,
     "userId" INTEGER NOT NULL,
-    "username" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "lastname" TEXT NOT NULL,
     "avatar" TEXT,
@@ -55,6 +67,9 @@ CREATE TABLE "Profile" (
 CREATE TABLE "ChatRoom" (
     "id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
+    "private" BOOLEAN NOT NULL DEFAULT false,
+    "protected" BOOLEAN NOT NULL DEFAULT false,
+    "password" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ChatRoom_pkey" PRIMARY KEY ("id")
@@ -65,6 +80,8 @@ CREATE TABLE "ChatRoomMember" (
     "id" SERIAL NOT NULL,
     "memberId" INTEGER NOT NULL,
     "chatroomId" INTEGER NOT NULL,
+    "role" "Role" NOT NULL,
+    "status" "Status" NOT NULL DEFAULT 'Offline',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ChatRoomMember_pkey" PRIMARY KEY ("id")
@@ -243,6 +260,9 @@ CREATE UNIQUE INDEX "User_api42Id_key" ON "User"("api42Id");
 CREATE UNIQUE INDEX "Profile_userId_key" ON "Profile"("userId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "ChatRoom_name_key" ON "ChatRoom"("name");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "ContactRequest_senderId_receiverId_key" ON "ContactRequest"("senderId", "receiverId");
 
 -- CreateIndex
@@ -253,6 +273,12 @@ CREATE UNIQUE INDEX "_GroupToUser_AB_unique" ON "_GroupToUser"("A", "B");
 
 -- CreateIndex
 CREATE INDEX "_GroupToUser_B_index" ON "_GroupToUser"("B");
+
+-- AddForeignKey
+ALTER TABLE "BlockedUser" ADD CONSTRAINT "BlockedUser_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "BlockedUser" ADD CONSTRAINT "BlockedUser_blockedUserId_fkey" FOREIGN KEY ("blockedUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Profile" ADD CONSTRAINT "Profile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

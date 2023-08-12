@@ -2,8 +2,10 @@ import {
   Controller,
   Delete,
   Get,
+  NotFoundException,
   Param,
   Post,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -15,17 +17,14 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { AuthenticatedGuard } from '../auth/guards';
+import { PaginationQuery } from './dto/pagination-query.dto';
 
 @ApiTags('UserActions')
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
-
-  /**
-   * @todo pagination
-   */
   @ApiBearerAuth()
-  // @UseGuards(AuthenticatedGuard)
+  @UseGuards(AuthenticatedGuard)
   @Get()
   @ApiOperation({
     summary: 'get all users',
@@ -34,8 +33,61 @@ export class UsersController {
     `,
   })
   @ApiResponse({ status: 200, description: 'return an array of users' })
-  getUsers() {
-    return this.usersService.getUsers();
+  getUsers(@Query() queryParams: PaginationQuery) {
+    const skip: number = parseInt(queryParams.skip);
+    const take: number = parseInt(queryParams.take);
+    return this.usersService.getUsers({
+      skip,
+      take,
+      include: { profile: true, sessions: false, gameHistories: true },
+      where: {
+        blockedFrom: { none: {} },
+        blockedUsers: { none: {} },
+      },
+    });
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Get('block')
+  @ApiOperation({
+    summary: 'get all blocked users',
+    description: `
+      - fetch all blocked users from the database
+    `,
+  })
+  @ApiResponse({ status: 200, description: 'return an array of blocked users' })
+  async getBlockedUsers(@Request() req) {
+    return await this.usersService.getBlockedUsers(req.user.id);
+  }
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Post('block/:id')
+  @ApiOperation({
+    summary: 'block a user',
+    description: `
+      - block a user
+    `,
+  })
+  @ApiResponse({ status: 200, description: 'return the blocked user' })
+  async blockUser(@Request() req, @Param('id') id: string) {
+    const blockUserId: number = parseInt(id);
+    return await this.usersService.blockUser(req.user.id, blockUserId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Delete('block/:id')
+  @ApiOperation({
+    summary: 'remove a user from blocked users',
+    description: `
+      - remove a user from the blocked list
+    `,
+  })
+  @ApiResponse({ status: 200, description: 'return  the unblocked user' })
+  unblockUser(@Request() req, @Param('id') id: string) {
+    const blockUserId: number = parseInt(id);
+    return this.usersService.unblockUser(req.user.id, blockUserId);
   }
 
   @ApiBearerAuth()
