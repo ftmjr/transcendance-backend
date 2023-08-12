@@ -33,16 +33,19 @@ export class UsersController {
     `,
   })
   @ApiResponse({ status: 200, description: 'return an array of users' })
-  getUsers(@Query() queryParams: PaginationQuery) {
+  getUsers(@Request() req, @Query() queryParams: PaginationQuery) {
     const skip: number = parseInt(queryParams.skip);
     const take: number = parseInt(queryParams.take);
+    const id: number = req.user.id;
     return this.usersService.getUsers({
       skip,
       take,
       include: { profile: true, sessions: false, gameHistories: true },
       where: {
-        blockedFrom: { none: {} },
-        blockedUsers: { none: {} },
+        OR: [
+          {blockedUsers: {none: {blockedUserId: id}}}, // Users who have blocked the current user
+          {blockedFrom: {none: {userId: id}}}, // Users who are blocked by the current user
+        ],
       },
     });
   }
