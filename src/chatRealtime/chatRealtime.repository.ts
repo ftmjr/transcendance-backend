@@ -14,11 +14,14 @@ import {
 import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateRoomDto } from './dto/createRoom.dto';
 import { JoinRoomDto } from './dto/joinRoom.dto';
-import {UserActionDto} from "./dto/userAction.dto";
+import { UserActionDto } from "./dto/userAction.dto";
+import { UsersService } from "../users/users.service";
 
 @Injectable()
 export class ChatRealtimeRepository {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private usersService: UsersService) {}
 
   async getRooms(params: {
     skip?: number;
@@ -146,9 +149,9 @@ export class ChatRealtimeRepository {
   }
 
   async updateStatus(user: User, status: Status) {
-    return await this.prisma.chatRoomMember.updateMany({
+    return await this.usersService.updateProfile({
       where: {
-        memberId: user.id,
+        userId: user.id,
       },
       data: {
         status: status,
@@ -156,7 +159,7 @@ export class ChatRealtimeRepository {
     });
   }
   async findBanFrom(userId: number) {
-    return await this.prisma.ChatRoomMember.findMany({
+    return await this.prisma.chatRoomMember.findMany({
       where: {
         memberId: userId,
         role: Role.BAN,
@@ -164,7 +167,7 @@ export class ChatRealtimeRepository {
     });
   }
   async findMember(userId: number, roomId: number) {
-    return await this.prisma.ChatRoomMember.findFirst({
+    return await this.prisma.chatRoomMember.findFirst({
       where: {
         memberId: userId,
         chatroomId: roomId,
@@ -172,25 +175,27 @@ export class ChatRealtimeRepository {
     });
   }
   async getRoomMembers(roomId: number) {
-    return await this.prisma.ChatRoomMember.findMany({
+    return await this.prisma.chatRoomMember.findMany({
       where: {
         chatroomId: roomId,
       },
       orderBy: {
         member: {
-          status: 'desc',
           username: 'asc',
+          profile: {
+            status: 'desc',
+          },
         },
       },
     });
   }
   async getRoomMessages(roomId: number) {
-    return await this.prisma.ChatRoomMessages.findMany({
+    return await this.prisma.chatRoomMessage.findMany({
       where: {
         chatroomId: roomId,
       },
       orderBy: {
-        date: 'asc',
+        timestamp: 'asc',
       },
     });
   }

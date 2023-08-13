@@ -118,6 +118,12 @@ export class UsersService {
   }): Promise<User | null> {
     return this.repository.updateUser(params);
   }
+  async updateProfile(params: {
+    where: Prisma.ProfileWhereUniqueInput;
+    data: Prisma.ProfileUpdateInput;
+  }): Promise<Profile | null> {
+    return this.repository.updateProfile(params);
+  }
 
   async updateUserProviderId(
     user: User,

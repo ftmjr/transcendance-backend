@@ -31,7 +31,7 @@ export class ChatRealtimeService {
       where: {
         private: false,
         id: {
-          NOT: {
+          not: {
             in: banRoomIds,
           },
         },

@@ -148,28 +148,28 @@ export class ChatRealtimeController {
     //   this.gateway.updateMembers();
     }
   }
-  @ApiBearerAuth()
-  @UseGuards(AuthenticatedGuard)
-  @ApiOperation({ summary: 'ban a user from a room' })
-  @ApiResponse({ status: 200 })
-  @Get('ban')
-  async banUser(
-    @Request() req,
-    @Query() queryParams: PaginationQuery,
-    @Body() userActionDto: UserActionDto,
-  ) {
-    return await this.service.banChatRoomMember(req.user.id, userActionDto);
-  }
-  @ApiBearerAuth()
-  @UseGuards(AuthenticatedGuard)
-  @ApiOperation({ summary: 'mute a user from a room' })
-  @ApiResponse({ status: 200 })
-  @Get('mute')
-  async muteUnmuteUser(
-    @Request() req,
-    @Query() queryParams: PaginationQuery,
-    @Body() userActionDto: UserActionDto,
-  ) {
-    return await this.service.muteUnmuteChatRoomMember(req.user.id, userActionDto);
-  }
+  // @ApiBearerAuth()
+  // @UseGuards(AuthenticatedGuard)
+  // @ApiOperation({ summary: 'ban a user from a room' })
+  // @ApiResponse({ status: 200 })
+  // @Get('ban')
+  // async banUser(
+  //   @Request() req,
+  //   @Query() queryParams: PaginationQuery,
+  //   @Body() userActionDto: UserActionDto,
+  // ) {
+  //   return await this.service.banChatRoomMember(req.user.id, userActionDto);
+  // }
+  // @ApiBearerAuth()
+  // @UseGuards(AuthenticatedGuard)
+  // @ApiOperation({ summary: 'mute a user from a room' })
+  // @ApiResponse({ status: 200 })
+  // @Get('mute')
+  // async muteUnmuteUser(
+  //   @Request() req,
+  //   @Query() queryParams: PaginationQuery,
+  //   @Body() userActionDto: UserActionDto,
+  // ) {
+  //   return await this.service.muteUnmuteChatRoomMember(req.user.id, userActionDto);
+  // }
 }

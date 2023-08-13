@@ -72,6 +72,7 @@ model User {
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   chatRooms            ChatRoomMember[]      @relation("ChatRoomMember")
+  chatRoomsMessages    ChatRoomMessage[]     @relation("ChatRoomMessage")
   sentMessages         PrivateMessage[]      @relation("sentMessages")
   receivedMessages     PrivateMessage[]      @relation("receivedMessages")
 }
@@ -94,7 +95,7 @@ model ChatRoom {
   id        Int                 @id @default(autoincrement())
   name      String              @unique
   members   ChatRoomMember[]    @relation("ChatRoomMembers")
-  messages  ChatroomMessage[]   @relation("ChatRoomMessages")
+  messages  ChatRoomMessage[]   @relation("ChatRoomMessages")
   private   Boolean             @default(false)
   protected Boolean             @default(false)
   password  String
@@ -107,17 +108,16 @@ model ChatRoomMember {
   member        User                @relation(name: "ChatRoomMember", fields: [memberId], references: [id], onDelete: Cascade)
   chatroomId    Int
   chatroom      ChatRoom            @relation(name: "ChatRoomMembers", fields: [chatroomId], references: [id], onDelete: Cascade)
-  messages      ChatroomMessage[]   @relation("ChatRoomMessage")
   role          Role
   createdAt     DateTime            @default(now())
 }
 
-model ChatroomMessage {
+model ChatRoomMessage {
   id         Int      @id @default(autoincrement())
   chatroomId Int
   chatroom   ChatRoom @relation(name: "ChatRoomMessages", fields: [chatroomId], references: [id], onDelete: Cascade)
   memberId   Int
-  member     ChatRoomMember    @relation(name: "ChatRoomMessage", fields: [memberId], references: [id], onDelete: Cascade)
+  member     User    @relation(name: "ChatRoomMessage", fields: [memberId], references: [id], onDelete: Cascade)
   content    String
   timestamp  DateTime @default(now())
 }
