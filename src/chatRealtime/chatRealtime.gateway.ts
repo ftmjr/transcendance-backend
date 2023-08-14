@@ -42,12 +42,11 @@ export class ChatRealtimeGateway
   }
   @SubscribeMessage('chat')
   async handleEvent(
-    @MessageBody()
-    payload: Message,
-  ): Promise<Message> {
+    @ConnectedSocket() client: Socket,
+    @MessageBody() message: string,
+  ) {
     // this.logger.log(payload);
-    this.server.to(payload.roomName).emit('chat', payload); // broadcast messages
-    return payload;
+    this.server.to(client.data.roomName).emit('chat', message); // broadcast messages
   }
 
   @SubscribeMessage('updateRooms')
@@ -68,6 +67,7 @@ export class ChatRealtimeGateway
   ) {
     if (client.id) {
       await this.server.in(client.id).socketsJoin(payload.roomName);
+      client.data.room = payload.roomName;
     }
   }
   @SubscribeMessage('leaveRoom')
@@ -76,7 +76,10 @@ export class ChatRealtimeGateway
     @ConnectedSocket() client: Socket,
   ) {
     if (client.id) {
-      await this.server.in(client.id).socketsLeave(payload.roomName);
+      if (client.data.roomName) {
+        await this.server.in(client.id).socketsLeave(client.data.roomName);
+      }
+      client.data.room = null;
     }
   }
 }

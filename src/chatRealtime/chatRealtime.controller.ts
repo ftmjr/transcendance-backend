@@ -25,7 +25,7 @@ import { ChatRealtimeGateway } from './chatRealtime.gateway';
 import { Status } from '@prisma/client';
 import { PaginationQuery } from '../users/dto/pagination-query.dto';
 import { AuthGuard } from '@nestjs/passport';
-import {UserActionDto} from "./dto/userAction.dto";
+import { UserActionDto } from "./dto/userAction.dto";
 
 @ApiTags('ChatActions')
 @Controller('chat')
@@ -35,7 +35,7 @@ export class ChatRealtimeController {
     private gateway: ChatRealtimeGateway,
   ) {}
 
-  // @UseGuards(AuthenticatedGuard)
+  @UseGuards(AuthenticatedGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Retrieve all public and protected rooms' })
   @ApiResponse({ status: 200, type: AvailableRoomsDto })
