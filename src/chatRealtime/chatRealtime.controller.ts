@@ -145,7 +145,7 @@ export class ChatRealtimeController {
       userActionDto,
     );
     if (kickedUser) {
-    //   this.gateway.updateMembers();
+      this.gateway.updateRoomMembers();
     }
   }
   // @ApiBearerAuth()

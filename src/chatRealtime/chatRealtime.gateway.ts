@@ -33,11 +33,9 @@ export class ChatRealtimeGateway
 
   handleConnection(client: Socket, ...args: any[]) {
     this.logger.log(`Socket connected: ${client.id}`);
-    this.server.in(client.id).socketsJoin('General');
   }
 
   async handleDisconnect(client: Socket) {
-    // await this.chatService.removeUserFromAllRooms(client.id);
     this.logger.log(`Client disconnected : ${client.id}`);
   }
   @SubscribeMessage('chat')
@@ -50,15 +48,13 @@ export class ChatRealtimeGateway
   }
 
   @SubscribeMessage('updateRooms')
-  async updateRooms(newRoom: ChatRoom, action: string) {
-    const payload = {
-      action: action,
-      roomName: newRoom.name,
-      protected: newRoom.protected,
-    };
-    if (!newRoom.private) {
-      this.server.emit('updateRooms', payload);
-    }
+  async updateRooms() {
+    this.server.emit('updateRooms');
+  }
+
+  @SubscribeMessage('updateRoomMembers')
+  async updateRoomMembers(@ConnectedSocket() client: Socket) {
+    this.server.to(client.data.roomName).emit('updateRoomMembers');
   }
   @SubscribeMessage('joinRoom')
   async joinRoom(
