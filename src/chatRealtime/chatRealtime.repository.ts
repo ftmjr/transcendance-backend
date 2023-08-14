@@ -16,6 +16,8 @@ import { CreateRoomDto } from './dto/createRoom.dto';
 import { JoinRoomDto } from './dto/joinRoom.dto';
 import { UserActionDto } from "./dto/userAction.dto";
 import { UsersService } from "../users/users.service";
+import { Socket } from 'socket.io';
+
 
 @Injectable()
 export class ChatRealtimeRepository {
@@ -205,5 +207,13 @@ export class ChatRealtimeRepository {
         id: chatRoomMemberId,
       },
     });
+  }
+  async createMessage(
+      client: Socket,
+      params: { data: Prisma.ChatRoomMessageCreateInput },
+  ): Promise<ChatRoom> {
+    const { data } = params;
+    const createdRoom = await this.prisma.chatRoom.create({ data });
+    return createdMessage;
   }
 }
