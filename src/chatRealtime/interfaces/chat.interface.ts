@@ -13,8 +13,6 @@ export interface User {
 }
 
 export interface Message {
-  user: User;
-  timeSent: string;
   message: string;
   roomName: string;
 }
