@@ -13,6 +13,7 @@ import {
   Res,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Status } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { LoginDataDto, LoginDto, RefreshDataDto, SignupDto } from './dto';
 import {
@@ -109,7 +110,11 @@ export class AuthController {
     @Response({ passthrough: true }) res,
   ): Promise<{ accessToken: string }> {
     const refreshToken = req.cookies['REFRESH_TOKEN'] ?? '';
-    return this.authService.refreshAccessToken(refreshToken, res);
+    const token = await this.authService.refreshAccessToken(refreshToken, res);
+    if (!token) {
+      await this.usersService.changeStatus(req.user.id, Status.Offline);
+    }
+    return token;
   }
 
   @Get('logout')
@@ -173,6 +178,7 @@ export class AuthController {
       req.user,
     );
     const localUrl: string = process.env.URL;
+    await this.usersService.changeStatus(req.user.profile.id, Status.Online);
     return {
       url: `https://${localUrl}/auth/oauth-auth?token=${loginData.accessToken}`,
       statusCode: 302,

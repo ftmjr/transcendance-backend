@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, Profile, Session, User } from '@prisma/client';
+import { Prisma, Profile, Session, User, Status } from '@prisma/client';
 import { UsersRepository } from './users.repository';
 import * as argon from 'argon2';
 
@@ -300,6 +300,16 @@ export class UsersService {
       where: { id: id },
       data: {
         twoFactorEnabled: true,
+      },
+    });
+  }
+  async changeStatus(userId: number, status: Status) {
+    await this.repository.updateProfile({
+      where: {
+        userId: userId,
+      },
+      data: {
+        status: status,
       },
     });
   }
