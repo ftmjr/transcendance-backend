@@ -7,6 +7,7 @@ import {
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
@@ -61,10 +62,12 @@ export class ChatRealtimeController {
 
     const room = await this.service.createRoom(createRoomDto);
     if (room) {
-      this.gateway.updateRooms(room, 'add');
+      this.service.emitOn('updateRooms');
     }
     return room;
   }
+  @UseGuards(AuthenticatedGuard)
+  @ApiBearerAuth()
   @Post('join')
   @ApiOperation({
     summary: 'Attempt to join a chat room',
@@ -75,10 +78,15 @@ export class ChatRealtimeController {
   })
   @ApiResponse({ status: 200, description: `- Chatroom joined',` })
   async joinRoom(@Body() joinRoomDto: JoinRoomDto) {
-    // socket emit on updateMembers.to(roomName) Dto with Add / Delete, Status
-    return await this.service.joinRoom(joinRoomDto);
+    const newMember = await this.service.joinRoom(joinRoomDto);
+    if (newMember) {
+      this.service.emitOn('updateRoomMembers');
+    }
+    return newMember;
   }
-  @Post('leave')
+  @UseGuards(AuthenticatedGuard)
+  @ApiBearerAuth()
+  @Delete('leave/:id')
   @ApiOperation({
     summary: 'Leaves a chat room permanently',
     description: `
@@ -86,10 +94,12 @@ export class ChatRealtimeController {
     `,
   })
   @ApiResponse({ status: 200, description: `- Chatroom left',` })
-  async leaveRoom(@Body() leaveRoomDto: JoinRoomDto) {
-    // socket emit on updateMembers.to(roomName)
-    // define LeaveRoomDto
-    // return await this.service.leaveRoom(joinRoomDto);
+  async leaveRoom(@Request() req, @Param('id') id: string) {
+    const roomId = parseInt(id);
+    const oldMember = await this.service.leaveRoom(req.user, roomId);
+    if (oldMember) {
+      this.service.emitOn('updateRoomMembers');
+    }
   }
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
@@ -145,7 +155,7 @@ export class ChatRealtimeController {
       userActionDto,
     );
     if (kickedUser) {
-      this.gateway.updateRoomMembers();
+      this.service.emitOn('updateRoomMembers');
     }
   }
   // @ApiBearerAuth()

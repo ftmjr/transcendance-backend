@@ -1,5 +1,8 @@
 -- CreateEnum
-CREATE TYPE "Role" AS ENUM ('USER', 'ADMIN', 'SUPER_MODERATOR');
+CREATE TYPE "Role" AS ENUM ('BAN', 'USER', 'OWNER', 'ADMIN', 'SUPER_MODERATOR');
+
+-- CreateEnum
+CREATE TYPE "Status" AS ENUM ('Online', 'Offline', 'Away', 'Busy');
 
 -- CreateEnum
 CREATE TYPE "Visibility" AS ENUM ('PUBLIC', 'PRIVATE');
@@ -47,6 +50,7 @@ CREATE TABLE "Profile" (
     "avatar" TEXT,
     "bio" TEXT,
     "oauth" JSONB,
+    "status" "Status" NOT NULL DEFAULT 'Offline',
 
     CONSTRAINT "Profile_pkey" PRIMARY KEY ("id")
 );
@@ -55,6 +59,9 @@ CREATE TABLE "Profile" (
 CREATE TABLE "ChatRoom" (
     "id" SERIAL NOT NULL,
     "name" TEXT NOT NULL,
+    "private" BOOLEAN NOT NULL DEFAULT false,
+    "protected" BOOLEAN NOT NULL DEFAULT false,
+    "password" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ChatRoom_pkey" PRIMARY KEY ("id")
@@ -65,20 +72,21 @@ CREATE TABLE "ChatRoomMember" (
     "id" SERIAL NOT NULL,
     "memberId" INTEGER NOT NULL,
     "chatroomId" INTEGER NOT NULL,
+    "role" "Role" NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ChatRoomMember_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "ChatroomMessage" (
+CREATE TABLE "ChatRoomMessage" (
     "id" SERIAL NOT NULL,
     "chatroomId" INTEGER NOT NULL,
     "memberId" INTEGER NOT NULL,
     "content" TEXT NOT NULL,
     "timestamp" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "ChatroomMessage_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "ChatRoomMessage_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -243,6 +251,9 @@ CREATE UNIQUE INDEX "User_api42Id_key" ON "User"("api42Id");
 CREATE UNIQUE INDEX "Profile_userId_key" ON "Profile"("userId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "ChatRoom_name_key" ON "ChatRoom"("name");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "ContactRequest_senderId_receiverId_key" ON "ContactRequest"("senderId", "receiverId");
 
 -- CreateIndex
@@ -264,10 +275,10 @@ ALTER TABLE "ChatRoomMember" ADD CONSTRAINT "ChatRoomMember_memberId_fkey" FOREI
 ALTER TABLE "ChatRoomMember" ADD CONSTRAINT "ChatRoomMember_chatroomId_fkey" FOREIGN KEY ("chatroomId") REFERENCES "ChatRoom"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ChatroomMessage" ADD CONSTRAINT "ChatroomMessage_chatroomId_fkey" FOREIGN KEY ("chatroomId") REFERENCES "ChatRoom"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ChatRoomMessage" ADD CONSTRAINT "ChatRoomMessage_chatroomId_fkey" FOREIGN KEY ("chatroomId") REFERENCES "ChatRoom"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ChatroomMessage" ADD CONSTRAINT "ChatroomMessage_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "ChatRoomMember"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ChatRoomMessage" ADD CONSTRAINT "ChatRoomMessage_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "PrivateMessage" ADD CONSTRAINT "PrivateMessage_senderId_fkey" FOREIGN KEY ("senderId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

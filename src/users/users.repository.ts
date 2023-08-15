@@ -41,7 +41,7 @@ export class UsersRepository {
     data: Prisma.ProfileUpdateInput;
   }): Promise<Profile> {
     const { where, data } = params;
-    return this.prisma.profile.update({where, data});
+    return this.prisma.profile.update({ where, data });
   }
 
   async deleteUser(params: {

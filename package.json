@@ -63,7 +63,7 @@
     "passport-oauth2": "^1.7.0",
     "passport-session": "^1.0.2",
     "path": "^0.12.7",
-    "prisma": "^4.16.2",
+    "prisma": "^5.1.1",
     "qrcode": "^1.5.3",
     "reflect-metadata": "^0.1.13",
     "rxjs": "^7.2.0",

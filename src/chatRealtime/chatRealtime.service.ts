@@ -2,10 +2,12 @@ import {Injectable, UnauthorizedException} from '@nestjs/common';
 import { ChatRealtimeRepository } from './chatRealtime.repository';
 import { CreateRoomDto } from './dto/createRoom.dto';
 import {Status, Prisma, User, Role} from '@prisma/client';
-import { NewRoom } from './interfaces/chat.interface';
+import {ClientToServerEvents, NewRoom, ServerToClientEvents} from './interfaces/chat.interface';
 import { JoinRoomDto } from './dto/joinRoom.dto';
 import { ChatRealtimeGateway } from './chatRealtime.gateway';
 import {UserActionDto} from "./dto/userAction.dto";
+import {WebSocketServer} from "@nestjs/websockets";
+import {Server} from "socket.io";
 
 function exclude<ChatRoom, Key extends keyof ChatRoom>(
   room: ChatRoom,
@@ -19,10 +21,11 @@ function exclude<ChatRoom, Key extends keyof ChatRoom>(
 
 @Injectable()
 export class ChatRealtimeService {
-  constructor(
-    private repository: ChatRealtimeRepository,
-    private gateway: ChatRealtimeGateway,
-  ) {}
+  @WebSocketServer() server: Server = new Server<
+    ServerToClientEvents,
+    ClientToServerEvents
+  >();
+  constructor(private repository: ChatRealtimeRepository) {}
 
   async getRooms({ skip, take }, userId: number) {
     const banRooms = await this.repository.findBanFrom(userId);
@@ -93,12 +96,11 @@ export class ChatRealtimeService {
   async joinRoom(data: JoinRoomDto) {
     return await this.repository.joinRoom(data);
   }
-
-  async setOnline(user: User, status: Status) {
-    return await this.repository.updateStatus(user, status);
-  }
   async kickChatRoomMember(userId: number, userActionDo: UserActionDto) {
     const user = await this.verifyMember(userId, userActionDo.roomId);
+    if (!user) {
+      throw new UnauthorizedException('User not allowed');
+    }
     const other = await this.repository.findMember(
       userActionDo.memberId,
       userActionDo.roomId,
@@ -107,5 +109,17 @@ export class ChatRealtimeService {
       throw new UnauthorizedException('Action not authorized');
     }
     return await this.repository.kickChatRoomMember(other.id);
+  }
+  emitTo(event, roomName, object) {
+    this.server.to(roomName).emit('chat', object); // broadcast messages
+  }
+  emitOn(event) {
+    this.server.emit(event);
+  }
+  socketJoin(id, roomName) {
+    this.server.in(id).socketsJoin(roomName);
+  }
+  socketLeave(id, roomName) {
+    this.server.in(id).socketsLeave(roomName);
   }
 }

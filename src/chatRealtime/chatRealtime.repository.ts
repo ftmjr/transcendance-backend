@@ -6,7 +6,7 @@ import {
 import {
   Prisma,
   ChatRoom,
-  ChatRoomMember,
+  ChatRoomMessage,
   User,
   Role,
   Status,
@@ -16,14 +16,17 @@ import { CreateRoomDto } from './dto/createRoom.dto';
 import { JoinRoomDto } from './dto/joinRoom.dto';
 import { UserActionDto } from "./dto/userAction.dto";
 import { UsersService } from "../users/users.service";
-import { Socket } from 'socket.io';
+import {Server, Socket} from 'socket.io';
+import {WebSocketServer} from "@nestjs/websockets";
+import {ClientToServerEvents, ServerToClientEvents} from "./interfaces/chat.interface";
 
 
 @Injectable()
 export class ChatRealtimeRepository {
   constructor(
     private prisma: PrismaService,
-    private usersService: UsersService) {}
+    private usersService: UsersService,
+  ) {}
 
   async getRooms(params: {
     skip?: number;
@@ -79,6 +82,7 @@ export class ChatRealtimeRepository {
       return await this.prisma.chatRoomMember.findFirst({
         where: {
           chatroomId: roomId,
+          role: { not: Role.BAN },
         },
       });
     } else {
@@ -98,7 +102,7 @@ export class ChatRealtimeRepository {
   }
 
   async deleteMember(memberId: number) {
-    await this.prisma.chatRoomMember.delete({
+    return await this.prisma.chatRoomMember.delete({
       where: {
         id: memberId,
       },
@@ -114,9 +118,12 @@ export class ChatRealtimeRepository {
   }
   async leaveRoom(user: User, roomId: number) {
     const chatRoomMember = await this.getChatRoomMember(user.id, roomId);
-    await this.deleteMember(chatRoomMember.id);
-    if (chatRoomMember.role != Role.OWNER) {
-      return;
+    if (!chatRoomMember) {
+      throw new NotFoundException('ChatRoom Member not found');
+    }
+    const oldMember = await this.deleteMember(chatRoomMember.id);
+    if (!oldMember || oldMember.role != Role.OWNER) {
+      return chatRoomMember;
     }
     const newOwner = await this.findNewOwner(roomId);
     if (!newOwner) {
@@ -124,6 +131,7 @@ export class ChatRealtimeRepository {
     } else {
       await this.updateOwner(newOwner.id);
     }
+    return chatRoomMember;
   }
   async getRoom(roomName: string) {
     return await this.prisma.chatRoom.findUnique({
@@ -148,17 +156,6 @@ export class ChatRealtimeRepository {
       },
     });
     return newMember;
-  }
-
-  async updateStatus(user: User, status: Status) {
-    return await this.usersService.updateProfile({
-      where: {
-        userId: user.id,
-      },
-      data: {
-        status: status,
-      },
-    });
   }
   async findBanFrom(userId: number) {
     return await this.prisma.chatRoomMember.findMany({
@@ -208,12 +205,8 @@ export class ChatRealtimeRepository {
       },
     });
   }
-  async createMessage(
-      client: Socket,
-      params: { data: Prisma.ChatRoomMessageCreateInput },
-  ): Promise<ChatRoom> {
+  async createMessage(params): Promise<ChatRoomMessage> {
     const { data } = params;
-    const createdRoom = await this.prisma.chatRoom.create({ data });
-    return createdMessage;
+    return await this.prisma.chatRoomMessage.create({ data });
   }
 }
