@@ -205,6 +205,26 @@ export class ChatRealtimeRepository {
       },
     });
   }
+  async banChatRoomMember(chatRoomMemberId: number) {
+    return await this.prisma.chatRoomMember.updateOne({
+      where: {
+        id: chatRoomMemberId,
+      },
+      data: {
+        role: Role.BAN,
+      },
+    });
+  }
+  async muteChatRoomMember(chatRoomMemberId: number) {
+    return await this.prisma.chatRoomMember.updateOne({
+      where: {
+        id: chatRoomMemberId,
+      },
+      data: {
+        role: Role.MUTED,
+      },
+    });
+  }
   async createMessage(params): Promise<ChatRoomMessage> {
     const { data } = params;
     return await this.prisma.chatRoomMessage.create({ data });

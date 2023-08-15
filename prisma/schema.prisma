@@ -9,6 +9,7 @@ datasource db {
 
 enum Role {
   BAN
+  MUTED
   USER
   OWNER
   ADMIN

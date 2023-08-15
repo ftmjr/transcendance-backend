@@ -1,13 +1,17 @@
-import {Injectable, UnauthorizedException} from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ChatRealtimeRepository } from './chatRealtime.repository';
 import { CreateRoomDto } from './dto/createRoom.dto';
-import {Status, Prisma, User, Role} from '@prisma/client';
-import {ClientToServerEvents, NewRoom, ServerToClientEvents} from './interfaces/chat.interface';
+import { Status, Prisma, User, Role } from '@prisma/client';
+import {
+  ClientToServerEvents,
+  NewRoom,
+  ServerToClientEvents,
+} from './interfaces/chat.interface';
 import { JoinRoomDto } from './dto/joinRoom.dto';
 import { ChatRealtimeGateway } from './chatRealtime.gateway';
-import {UserActionDto} from "./dto/userAction.dto";
-import {WebSocketServer} from "@nestjs/websockets";
-import {Server} from "socket.io";
+import { UserActionDto } from './dto/userAction.dto';
+import { WebSocketServer } from '@nestjs/websockets';
+import { Server } from 'socket.io';
 
 function exclude<ChatRoom, Key extends keyof ChatRoom>(
   room: ChatRoom,
@@ -109,6 +113,34 @@ export class ChatRealtimeService {
       throw new UnauthorizedException('Action not authorized');
     }
     return await this.repository.kickChatRoomMember(other.id);
+  }
+  async banChatRoomMember(userId: number, userActionDo: UserActionDto) {
+    const user = await this.verifyMember(userId, userActionDo.roomId);
+    if (!user) {
+      throw new UnauthorizedException('User not allowed');
+    }
+    const other = await this.repository.findMember(
+      userActionDo.memberId,
+      userActionDo.roomId,
+    );
+    if (other.role === Role.ADMIN || other.role === Role.OWNER) {
+      throw new UnauthorizedException('Action not authorized');
+    }
+    return await this.repository.banChatRoomMember(other.id);
+  }
+  async muteChatRoomMember(userId: number, userActionDo: UserActionDto) {
+    const user = await this.verifyMember(userId, userActionDo.roomId);
+    if (!user) {
+      throw new UnauthorizedException('User not allowed');
+    }
+    const other = await this.repository.findMember(
+      userActionDo.memberId,
+      userActionDo.roomId,
+    );
+    if (other.role === Role.ADMIN || other.role === Role.OWNER) {
+      throw new UnauthorizedException('Action not authorized');
+    }
+    return await this.repository.muteChatRoomMember(other.id);
   }
   emitTo(event, roomName, object) {
     this.server.to(roomName).emit('chat', object); // broadcast messages

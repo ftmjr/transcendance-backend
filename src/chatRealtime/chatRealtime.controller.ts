@@ -26,7 +26,7 @@ import { ChatRealtimeGateway } from './chatRealtime.gateway';
 import { Status } from '@prisma/client';
 import { PaginationQuery } from '../users/dto/pagination-query.dto';
 import { AuthGuard } from '@nestjs/passport';
-import { UserActionDto } from "./dto/userAction.dto";
+import { UserActionDto } from './dto/userAction.dto';
 
 @ApiTags('ChatActions')
 @Controller('chat')
@@ -144,7 +144,7 @@ export class ChatRealtimeController {
   @UseGuards(AuthenticatedGuard)
   @ApiOperation({ summary: 'Kick a user from a room' })
   @ApiResponse({ status: 200 })
-  @Get('kick')
+  @Post('kick')
   async kickUser(
     @Request() req,
     @Query() queryParams: PaginationQuery,
@@ -158,28 +158,40 @@ export class ChatRealtimeController {
       this.service.emitOn('updateRoomMembers');
     }
   }
-  // @ApiBearerAuth()
-  // @UseGuards(AuthenticatedGuard)
-  // @ApiOperation({ summary: 'ban a user from a room' })
-  // @ApiResponse({ status: 200 })
-  // @Get('ban')
-  // async banUser(
-  //   @Request() req,
-  //   @Query() queryParams: PaginationQuery,
-  //   @Body() userActionDto: UserActionDto,
-  // ) {
-  //   return await this.service.banChatRoomMember(req.user.id, userActionDto);
-  // }
-  // @ApiBearerAuth()
-  // @UseGuards(AuthenticatedGuard)
-  // @ApiOperation({ summary: 'mute a user from a room' })
-  // @ApiResponse({ status: 200 })
-  // @Get('mute')
-  // async muteUnmuteUser(
-  //   @Request() req,
-  //   @Query() queryParams: PaginationQuery,
-  //   @Body() userActionDto: UserActionDto,
-  // ) {
-  //   return await this.service.muteUnmuteChatRoomMember(req.user.id, userActionDto);
-  // }
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @ApiOperation({ summary: 'Ban a user from a room' })
+  @ApiResponse({ status: 200 })
+  @Post('ban')
+  async banUser(
+    @Request() req,
+    @Query() queryParams: PaginationQuery,
+    @Body() userActionDto: UserActionDto,
+  ) {
+    const kickedUser = await this.service.banChatRoomMember(
+      req.user.id,
+      userActionDto,
+    );
+    if (kickedUser) {
+      this.service.emitOn('updateRoomMembers');
+    }
+  }
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @ApiOperation({ summary: 'Mute a user in a room' })
+  @ApiResponse({ status: 200 })
+  @Post('mute')
+  async muteUser(
+    @Request() req,
+    @Query() queryParams: PaginationQuery,
+    @Body() userActionDto: UserActionDto,
+  ) {
+    const kickedUser = await this.service.muteChatRoomMember(
+      req.user.id,
+      userActionDto,
+    );
+    if (kickedUser) {
+      this.service.emitOn('updateRoomMembers');
+    }
+  }
 }
