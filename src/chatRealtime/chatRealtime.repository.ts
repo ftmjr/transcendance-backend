@@ -206,7 +206,7 @@ export class ChatRealtimeRepository {
     });
   }
   async banChatRoomMember(chatRoomMemberId: number) {
-    return await this.prisma.chatRoomMember.updateOne({
+    return await this.prisma.chatRoomMember.update({
       where: {
         id: chatRoomMemberId,
       },
@@ -216,7 +216,7 @@ export class ChatRealtimeRepository {
     });
   }
   async muteChatRoomMember(chatRoomMemberId: number) {
-    return await this.prisma.chatRoomMember.updateOne({
+    return await this.prisma.chatRoomMember.update({
       where: {
         id: chatRoomMemberId,
       },
