@@ -44,19 +44,21 @@ export class ChatRealtimeGateway
       return null;
     }
   }
-  async handleConnection(client: Socket, ...args: any[]) {
+  async handleConnection(@ConnectedSocket() client, ...args: any[]) {
+    this.logger.log(`Client connected : ${client.id}`);
+    if (!client.handshake.headers.authorization) {
+      return await this.handleDisconnect(client);
+    }
     const token = client.handshake.headers.authorization.split(' ')[1];
     const decodedToken = await this.decodeJwtToken(token);
 
     if (!decodedToken) {
-      await this.handleDisconnect(client);
-      return;
+      return await this.handleDisconnect(client);
     }
     const { userId, sessionId } = decodedToken.sub;
     const user = await this.authService.getUserFromJwt(userId, sessionId);
     if (!user) {
-      await this.handleDisconnect(client);
-      return;
+      return await this.handleDisconnect(client);
     }
     client.data.user = user;
   }

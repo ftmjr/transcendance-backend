@@ -58,8 +58,7 @@ export class ChatRealtimeController {
   })
   @ApiResponse({ status: 200, description: `- Chatroom created',` })
   async createRoom(@Body() createRoomDto: CreateRoomDto) {
-    // socket emit on updateRooms (Add)
-
+    console.log(createRoomDto);
     const room = await this.service.createRoom(createRoomDto);
     if (room) {
       this.service.emitOn('updateRooms');

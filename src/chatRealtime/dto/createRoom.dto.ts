@@ -16,9 +16,8 @@ export class CreateRoomDto {
 
   @ApiProperty()
   @IsNotEmpty()
-  protected: boolean;
-
+  private: boolean;
   @ApiProperty()
   @IsNotEmpty()
-  private: boolean;
+  protected: boolean;
 }
