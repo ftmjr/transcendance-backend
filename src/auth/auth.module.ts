@@ -27,5 +27,6 @@ import { ConfigModule } from '@nestjs/config';
     Strategy42,
     ConfigModule,
   ],
+  exports: [AuthService, JwtModule],
 })
 export class AuthModule {}

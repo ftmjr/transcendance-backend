@@ -7,9 +7,11 @@ import {
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Post,
+  Query,
   Request,
   Response,
   UseGuards,
@@ -22,6 +24,9 @@ import { AvailableRoomsDto } from './dto/availableRooms.dto';
 import { JoinRoomDto } from './dto/joinRoom.dto';
 import { ChatRealtimeGateway } from './chatRealtime.gateway';
 import { Status } from '@prisma/client';
+import { PaginationQuery } from '../users/dto/pagination-query.dto';
+import { AuthGuard } from '@nestjs/passport';
+import { UserActionDto } from './dto/userAction.dto';
 
 @ApiTags('ChatActions')
 @Controller('chat')
@@ -31,13 +36,15 @@ export class ChatRealtimeController {
     private gateway: ChatRealtimeGateway,
   ) {}
 
-  // @UseGuards(AuthenticatedGuard)
+  @UseGuards(AuthenticatedGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Retrieve all public and protected rooms' })
   @ApiResponse({ status: 200, type: AvailableRoomsDto })
   @Get('rooms')
-  async getAllRooms() {
-    return await this.service.getRooms();
+  async getAllRooms(@Request() req, @Query() queryParams: PaginationQuery) {
+    const skip: number = parseInt(queryParams.skip);
+    const take: number = parseInt(queryParams.take);
+    return await this.service.getRooms({ skip, take }, req.user.id);
   }
   @UseGuards(AuthenticatedGuard)
   @ApiBearerAuth()
@@ -51,14 +58,15 @@ export class ChatRealtimeController {
   })
   @ApiResponse({ status: 200, description: `- Chatroom created',` })
   async createRoom(@Body() createRoomDto: CreateRoomDto) {
-    // socket emit on updateRooms (Add)
-
+    console.log(createRoomDto);
     const room = await this.service.createRoom(createRoomDto);
     if (room) {
-      this.gateway.updateRooms(room, 'add');
+      this.service.emitOn('updateRooms');
     }
     return room;
   }
+  @UseGuards(AuthenticatedGuard)
+  @ApiBearerAuth()
   @Post('join')
   @ApiOperation({
     summary: 'Attempt to join a chat room',
@@ -69,10 +77,15 @@ export class ChatRealtimeController {
   })
   @ApiResponse({ status: 200, description: `- Chatroom joined',` })
   async joinRoom(@Body() joinRoomDto: JoinRoomDto) {
-    // socket emit on updateMembers.to(roomName) Dto with Add / Delete, Status
-    return await this.service.joinRoom(joinRoomDto);
+    const newMember = await this.service.joinRoom(joinRoomDto);
+    if (newMember) {
+      this.service.emitOn('updateRoomMembers');
+    }
+    return newMember;
   }
-  @Post('leave')
+  @UseGuards(AuthenticatedGuard)
+  @ApiBearerAuth()
+  @Delete('leave/:id')
   @ApiOperation({
     summary: 'Leaves a chat room permanently',
     description: `
@@ -80,19 +93,104 @@ export class ChatRealtimeController {
     `,
   })
   @ApiResponse({ status: 200, description: `- Chatroom left',` })
-  async leaveRoom(@Body() leaveRoomDto: JoinRoomDto) {
-    // socket emit on updateMembers.to(roomName)
-    // define LeaveRoomDto
-    // return await this.service.leaveRoom(joinRoomDto);
+  async leaveRoom(@Request() req, @Param('id') id: string) {
+    const roomId = parseInt(id);
+    const oldMember = await this.service.leaveRoom(req.user, roomId);
+    if (oldMember) {
+      this.service.emitOn('updateRoomMembers');
+    }
   }
-  @UseGuards(AuthenticatedGuard)
   @ApiBearerAuth()
-  @Get('init')
-  async initChatUser(@Request() req) {
-    await this.service.setOnline(req.user, Status.Online);
-    // const userRooms = await this.service.getUserRooms();
-    // userRooms.forEach((room) => {
-    //   this.gateway.joinRoom({roomName: room.name})
-    // });
+  @UseGuards(AuthenticatedGuard)
+  @ApiOperation({ summary: 'Retrieve all members of a room' })
+  @ApiResponse({ status: 200 })
+  @Get('members/:id')
+  async getRoomMembers(
+    @Request() req,
+    @Query() queryParams: PaginationQuery,
+    @Param('id') id: string,
+  ) {
+    const skip: number = parseInt(queryParams.skip);
+    const take: number = parseInt(queryParams.take);
+    const roomId: number = parseInt(id);
+    return await this.service.getRoomMembers(
+      { skip, take },
+      req.user.id,
+      roomId,
+    );
+  }
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @ApiOperation({ summary: 'Retrieve all members of a room' })
+  @ApiResponse({ status: 200 })
+  @Get('messages/:id')
+  async getRoomMessages(
+    @Request() req,
+    @Query() queryParams: PaginationQuery,
+    @Param('id') id: string,
+  ) {
+    const skip: number = parseInt(queryParams.skip);
+    const take: number = parseInt(queryParams.take);
+    const roomId: number = parseInt(id);
+    return await this.service.getRoomMessages(
+      { skip, take },
+      req.user.id,
+      roomId,
+    );
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @ApiOperation({ summary: 'Kick a user from a room' })
+  @ApiResponse({ status: 200 })
+  @Post('kick')
+  async kickUser(
+    @Request() req,
+    @Query() queryParams: PaginationQuery,
+    @Body() userActionDto: UserActionDto,
+  ) {
+    const kickedUser = await this.service.kickChatRoomMember(
+      req.user.id,
+      userActionDto,
+    );
+    if (kickedUser) {
+      this.service.emitOn('updateRoomMembers');
+    }
+  }
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @ApiOperation({ summary: 'Ban a user from a room' })
+  @ApiResponse({ status: 200 })
+  @Post('ban')
+  async banUser(
+    @Request() req,
+    @Query() queryParams: PaginationQuery,
+    @Body() userActionDto: UserActionDto,
+  ) {
+    const kickedUser = await this.service.banChatRoomMember(
+      req.user.id,
+      userActionDto,
+    );
+    if (kickedUser) {
+      this.service.emitOn('updateRoomMembers');
+    }
+  }
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @ApiOperation({ summary: 'Mute a user in a room' })
+  @ApiResponse({ status: 200 })
+  @Post('mute')
+  async muteUser(
+    @Request() req,
+    @Query() queryParams: PaginationQuery,
+    @Body() userActionDto: UserActionDto,
+  ) {
+    const kickedUser = await this.service.muteChatRoomMember(
+      req.user.id,
+      userActionDto,
+    );
+    if (kickedUser) {
+      this.service.emitOn('updateRoomMembers');
+    }
   }
 }

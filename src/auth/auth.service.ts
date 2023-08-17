@@ -3,7 +3,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { User } from '@prisma/client';
+import {Status, User} from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto, SignupDto } from './dto';
@@ -120,9 +120,10 @@ export class AuthService {
       if (!isValid) {
         throw new UnauthorizedException('Invalid credentials');
       }
-      const { sessionId } = isValid.sub;
+      const { userId, sessionId } = isValid.sub;
       await this.destroySession(sessionId);
       this.destroyCookieForRefreshToken(res);
+      await this.usersService.changeStatus(userId, Status.Offline);
       return {
         message: 'Successfully logged out, bye bye',
       };
@@ -151,6 +152,7 @@ export class AuthService {
     const tokens = await this.getTokens(user.email, user.id, session.id);
     await this.refreshSession(session.id, tokens.refreshToken, res);
     const userWithoutPassword = this.usersService.removePassword(user);
+    await this.usersService.changeStatus(user.id, Status.Online);
     return {
       accessToken: tokens.accessToken,
       user: userWithoutPassword,

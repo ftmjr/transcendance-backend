@@ -126,6 +126,12 @@ export class UsersService {
   }): Promise<User | null> {
     return this.repository.updateUser(params);
   }
+  async updateProfile(params: {
+    where: Prisma.ProfileWhereUniqueInput;
+    data: Prisma.ProfileUpdateInput;
+  }): Promise<Profile | null> {
+    return this.repository.updateProfile(params);
+  }
 
   async updateUserProviderId(
     user: User,
@@ -322,6 +328,16 @@ export class UsersService {
       where: { id: id },
       data: {
         twoFactorEnabled: true,
+      },
+    });
+  }
+  async changeStatus(userId: number, status: Status) {
+    await this.repository.updateProfile({
+      where: {
+        userId: userId,
+      },
+      data: {
+        status: status,
       },
     });
   }

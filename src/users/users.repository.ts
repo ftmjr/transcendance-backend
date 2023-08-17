@@ -43,6 +43,13 @@ export class UsersRepository {
     const { where, data } = params;
     return this.prisma.user.update({ where, data });
   }
+  async updateProfile(params: {
+    where: Prisma.ProfileWhereUniqueInput;
+    data: Prisma.ProfileUpdateInput;
+  }): Promise<Profile> {
+    const { where, data } = params;
+    return this.prisma.profile.update({ where, data });
+  }
 
   async deleteUser(params: {
     where: Prisma.UserWhereUniqueInput;
