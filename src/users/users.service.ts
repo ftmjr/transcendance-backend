@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, Profile, Session, User, Status } from '@prisma/client';
+import { BlockedUser, Prisma, Profile, Session, User } from '@prisma/client';
 import { UsersRepository } from './users.repository';
 import * as argon from 'argon2';
 
@@ -82,7 +82,6 @@ export class UsersService {
         facebookId: providerChecker(params.provider, 'facebook'),
         profile: {
           create: {
-            username: params.username,
             name: params.name,
             lastname: params.lastName,
             avatar: params.avatar ?? getRandomSpiderManAvatarUrl(),
@@ -98,6 +97,15 @@ export class UsersService {
     return this.repository.getUser({ where: { id } });
   }
 
+  async getBlockedUsers(userId: number) {
+    const blockedUsers = await this.repository.getBlockedUsers(userId);
+    const blockedUsersData = blockedUsers.map(
+      (blockedUser) => blockedUser.blockedUser,
+    );
+    return blockedUsersData.map((blockedUser) =>
+      exclude(blockedUser, ['password']),
+    );
+  }
   // Return a user without password if found
   async getUserWithData(params: Partial<User>): Promise<User | null> {
     const user = await this.repository.getUsers({
@@ -158,13 +166,33 @@ export class UsersService {
     return this.repository.getByUserName(username);
   }
 
-  async getUsers() {
-    const users = await this.repository.getUsers({
-      include: { profile: true, sessions: true, gameHistories: true },
-    });
+  async getUsers(params: {
+    skip?: number;
+    take?: number;
+    cursor?: Prisma.UserWhereUniqueInput;
+    where?: Prisma.UserWhereInput;
+    orderBy?: Prisma.UserOrderByWithRelationInput;
+    include?: Prisma.UserInclude;
+  }) {
+    const { skip, take, cursor, where, orderBy, include } = params;
+    const users = await this.repository.getUsers(params);
     return users.map((user) => exclude(user, ['password']));
   }
-
+  async blockUser(userId: number, blockedUserId: number): Promise<BlockedUser> {
+    try {
+      await this.repository.deleteFriendRequest(userId, blockedUserId);
+      await this.repository.removeFriend(userId, blockedUserId)
+    } catch (e) {
+      // Nothing to be done if there was an error
+    }
+    return this.repository.blockUser(userId, blockedUserId);
+  }
+  async unblockUser(
+    userId: number,
+    blockedUserId: number,
+  ): Promise<BlockedUser> {
+    return this.repository.unblockUser(userId, blockedUserId);
+  }
   async getUsersWithProfiles() {
     const users = await this.repository.getUsers({
       include: { profile: true },

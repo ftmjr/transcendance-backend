@@ -1,5 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma, Session, User, Profile, ContactRequest } from '@prisma/client';
+import {
+  Prisma,
+  BlockedUser,
+  Session,
+  User,
+  Profile,
+  ContactRequest,
+} from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
@@ -270,5 +277,55 @@ export class UsersRepository {
     });
 
     return newFriend;
+  }
+  async getBlockUser(userId: number, blockedUserId: number) {
+    return await this.prisma.blockedUser.findFirst({
+      where: {
+        userId: userId,
+        blockedUserId: blockedUserId,
+      },
+    });
+  }
+  async blockUser(userId: number, blockedUserId: number) {
+    return this.prisma.blockedUser.create({
+      data: {
+        userId: userId,
+        blockedUserId: blockedUserId,
+      },
+    });
+  }
+  async unblockUser(userId: number, blockedUserId: number) {
+    const relation = await this.getBlockUser(userId, blockedUserId);
+    if (relation) {
+      return await this.prisma.blockedUser.delete({
+        where: {
+          id: relation.id,
+        },
+      });
+    }
+  }
+  async getBlockedUsers(userId: number) {
+    return await this.prisma.blockedUser.findMany({
+      where: {
+        userId: userId,
+      },
+      include: {
+        blockedUser: true,
+      },
+    });
+  }
+  async deleteFriendRequest(userId: number, blockedUserId: number) {
+    await this.prisma.contactRequest.deleteMany({
+      where: {
+        senderId: userId,
+        receiverId: blockedUserId,
+      }
+    });
+    await this.prisma.contactRequest.deleteMany({
+      where: {
+        senderId: blockedUserId,
+        receiverId: userId,
+      },
+    });
   }
 }
