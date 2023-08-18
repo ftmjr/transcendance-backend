@@ -197,6 +197,9 @@ export class ChatRealtimeRepository {
       orderBy: {
         timestamp: 'asc',
       },
+      include: {
+        user: true,
+      },
       skip: skip,
       take: take,
     });
@@ -205,6 +208,9 @@ export class ChatRealtimeRepository {
     return await this.prisma.generalMessage.findMany({
       orderBy: {
         timestamp: 'asc',
+      },
+      include: {
+        user: true,
       },
       skip: skip,
       take: take,
