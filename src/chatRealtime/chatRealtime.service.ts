@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {Injectable, NotFoundException, UnauthorizedException} from '@nestjs/common';
 import { ChatRealtimeRepository } from './chatRealtime.repository';
 import { CreateRoomDto } from './dto/createRoom.dto';
 import { Status, Prisma, User, Role } from '@prisma/client';
@@ -11,7 +11,8 @@ import { JoinRoomDto } from './dto/joinRoom.dto';
 import { ChatRealtimeGateway } from './chatRealtime.gateway';
 import { UserActionDto } from './dto/userAction.dto';
 import { WebSocketServer } from '@nestjs/websockets';
-import { Server } from 'socket.io';
+import {Server, Socket} from 'socket.io';
+import * as argon from "argon2";
 
 function exclude<ChatRoom, Key extends keyof ChatRoom>(
   room: ChatRoom,
@@ -25,10 +26,6 @@ function exclude<ChatRoom, Key extends keyof ChatRoom>(
 
 @Injectable()
 export class ChatRealtimeService {
-  @WebSocketServer() server: Server = new Server<
-    ServerToClientEvents,
-    ClientToServerEvents
-  >();
   constructor(private repository: ChatRealtimeRepository) {}
 
   async getRooms({ skip, take }, userId: number) {
@@ -64,7 +61,14 @@ export class ChatRealtimeService {
     } else if (userMember.role === Role.BAN) {
       throw new UnauthorizedException('User is Ban');
     }
-    return await this.repository.getRoomMessages(roomId);
+    return await this.repository.getRoomMessages(roomId, { skip, take });
+  }
+  async getGeneralMessages({ skip, take }) {
+    return await this.repository.getGeneralMessages({ skip, take });
+  }
+
+  async getRoomMember(userId: number, roomId: number) {
+    return await this.repository.findMember(userId, roomId);
   }
 
   async createRoom(newRoom: CreateRoomDto) {
@@ -75,7 +79,7 @@ export class ChatRealtimeService {
       password: '',
     };
     if (newRoom.protected) {
-      data.password = newRoom.password;
+      data.password = await argon.hash(newRoom.password);
     }
     return await this.repository.createRoom({ data }, newRoom.ownerId);
   }
@@ -97,14 +101,41 @@ export class ChatRealtimeService {
     }
     return user;
   }
+  async createGeneralMessage(client: Socket, message: string) {
+    return await this.repository.createGeneralMessage({
+      data: {
+        userId: client.data.user.id,
+        content: message,
+      },
+    });
+  }
   async joinRoom(data: JoinRoomDto) {
-    return await this.repository.joinRoom(data);
+    const room = await this.repository.getRoom(data.roomName);
+    if (!room) {
+      throw new NotFoundException("Room doesn't exist");
+    }
+    if (room.protected) {
+      const isValid = await argon.verify(room.password, data.password);
+      if (!isValid) {
+        throw new NotFoundException('Password invalid');
+      }
+    }
+    const member = await this.repository.getChatRoomMember(
+      data.userId,
+      room.id,
+    );
+    if (!member) {
+      return await this.repository.joinRoom(data, room.id);
+    } else if (member.role === Role.BAN) {
+      console.log('hey4');
+
+      throw new NotFoundException('User is ban from room!');
+    } else {
+      return member;
+    }
   }
   async kickChatRoomMember(userId: number, userActionDo: UserActionDto) {
-    const user = await this.verifyMember(userId, userActionDo.roomId);
-    if (!user) {
-      throw new UnauthorizedException('User not allowed');
-    }
+    await this.verifyMember(userId, userActionDo.roomId);
     const other = await this.repository.findMember(
       userActionDo.memberId,
       userActionDo.roomId,
@@ -115,10 +146,7 @@ export class ChatRealtimeService {
     return await this.repository.kickChatRoomMember(other.id);
   }
   async banChatRoomMember(userId: number, userActionDo: UserActionDto) {
-    const user = await this.verifyMember(userId, userActionDo.roomId);
-    if (!user) {
-      throw new UnauthorizedException('User not allowed');
-    }
+    await this.verifyMember(userId, userActionDo.roomId);
     const other = await this.repository.findMember(
       userActionDo.memberId,
       userActionDo.roomId,
@@ -129,10 +157,7 @@ export class ChatRealtimeService {
     return await this.repository.banChatRoomMember(other.id);
   }
   async muteChatRoomMember(userId: number, userActionDo: UserActionDto) {
-    const user = await this.verifyMember(userId, userActionDo.roomId);
-    if (!user) {
-      throw new UnauthorizedException('User not allowed');
-    }
+    await this.verifyMember(userId, userActionDo.roomId);
     const other = await this.repository.findMember(
       userActionDo.memberId,
       userActionDo.roomId,
@@ -141,17 +166,5 @@ export class ChatRealtimeService {
       throw new UnauthorizedException('Action not authorized');
     }
     return await this.repository.muteChatRoomMember(other.id);
-  }
-  emitTo(event, roomName, object) {
-    this.server.to(roomName).emit('chat', object); // broadcast messages
-  }
-  emitOn(event) {
-    this.server.emit(event);
-  }
-  socketJoin(id, roomName) {
-    this.server.in(id).socketsJoin(roomName);
-  }
-  socketLeave(id, roomName) {
-    this.server.in(id).socketsLeave(roomName);
   }
 }

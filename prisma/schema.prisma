@@ -87,6 +87,7 @@ model User {
   receivedMessages     PrivateMessage[]      @relation("receivedMessages")
   blockedUsers         BlockedUser[]         @relation("UserToBlocked")
   blockedFrom          BlockedUser[]         @relation("BlockedToUser")
+  generalMessages      GeneralMessage[]      @relation("GeneralMessage")
 }
 
 model Profile {
@@ -119,7 +120,7 @@ model ChatRoomMember {
   member        User                @relation(name: "ChatRoomMember", fields: [memberId], references: [id], onDelete: Cascade)
   chatroomId    Int
   chatroom      ChatRoom            @relation(name: "ChatRoomMembers", fields: [chatroomId], references: [id], onDelete: Cascade)
-  role          Role
+  role          Role                @default(USER)
   createdAt     DateTime            @default(now())
 }
 
@@ -129,6 +130,14 @@ model ChatRoomMessage {
   chatroom   ChatRoom @relation(name: "ChatRoomMessages", fields: [chatroomId], references: [id], onDelete: Cascade)
   memberId   Int
   member     User    @relation(name: "ChatRoomMessage", fields: [memberId], references: [id], onDelete: Cascade)
+  content    String
+  timestamp  DateTime @default(now())
+}
+
+model GeneralMessage {
+  id         Int      @id @default(autoincrement())
+  userId     Int
+  user       User    @relation(name: "GeneralMessage", fields: [userId], references: [id], onDelete: Cascade)
   content    String
   timestamp  DateTime @default(now())
 }

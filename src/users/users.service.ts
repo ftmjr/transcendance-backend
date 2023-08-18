@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { BlockedUser, Prisma, Profile, Session, User } from '@prisma/client';
+import { BlockedUser, Prisma, Profile, Session, Status, User } from '@prisma/client';
 import { UsersRepository } from './users.repository';
 import * as argon from 'argon2';
 
