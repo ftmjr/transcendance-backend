@@ -86,39 +86,61 @@ export class ChatRealtimeGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() message: string,
   ) {
-    const createdMessage = await this.service.createGeneralMessage(client, message);
-    this.server.emit('message', createdMessage);
+    let createdMessage;
+    if (client.data.room === 'General') {
+      createdMessage = await this.service.createGeneralMessage(client, message);
+    } else {
+      createdMessage = await this.service.createRoomMessage(client, message);
+    }
+    this.server.to(client.data.room).emit('message', createdMessage);
   }
-  //
-  // @SubscribeMessage('updateRooms')
-  // async updateRooms() {
-  //   this.service.emitOn('updateRooms');
-  // }
-  //
-  // @SubscribeMessage('updateRoomMembers')
-  // async updateRoomMembers(@ConnectedSocket() client: Socket) {
-  //   this.service.emitTo('updateRoomMembers', client.data.room.name, null);
-  // }
-  // @SubscribeMessage('joinRoom')
-  // async joinRoom(
-  //   @MessageBody() payload: { roomName: string },
-  //   @ConnectedSocket() client: Socket,
-  // ) {
-  //   if (client.id) {
-  //     const room = await this.repository.getRoom(payload.roomName);
-  //     if (room) {
-  //       client.data.room = room;
-  //       this.service.socketJoin(client.id, room.name);
-  //     }
-  //   }
-  // }
-  // @SubscribeMessage('leaveRoom')
-  // async leaveRoom(@ConnectedSocket() client: Socket) {
-  //   if (client.id) {
-  //     if (client.data.room.name) {
-  //       this.service.socketLeave(client.id, client.data.room.name);
-  //     }
-  //     client.data.room = null;
-  //   }
-  // }
+  @SubscribeMessage('updateRooms')
+  async updateRooms() {
+    this.server.emit('updateRooms');
+  }
+  @SubscribeMessage('updateRoomMembers')
+  async updateRoomMembers(@ConnectedSocket() client: Socket) {
+    this.server.to(client.data.room).emit('updateRoomMembers');
+  }
+  @SubscribeMessage('joinRoom')
+  async joinRoom(
+    @MessageBody() roomName: string,
+    @ConnectedSocket() client: Socket,
+  ) {
+    if (client.data.room) {
+      await this.server.in(client.id).socketsLeave(client.data.room);
+      client.data.room = null;
+    }
+    await this.server.in(client.id).socketsJoin(roomName);
+    client.data.room = roomName;
+  }
+  @SubscribeMessage('kick')
+  async kickMember(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() otherId: number,
+  ) {
+    await this.service.kickChatRoomMember(otherId);
+  }
+  @SubscribeMessage('mute')
+  async muteMember(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() otherId: number,
+  ) {
+    console.log(otherId);
+    await this.service.muteChatRoomMember(otherId);
+  }
+  @SubscribeMessage('unmute')
+  async unmuteMember(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() otherId: number,
+  ) {
+    await this.service.unmuteChatRoomMember(otherId);
+  }
+  @SubscribeMessage('ban')
+  async banMember(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() otherId: number,
+  ) {
+    await this.service.banChatRoomMember(otherId);
+  }
 }

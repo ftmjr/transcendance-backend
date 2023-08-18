@@ -1,5 +1,5 @@
 -- CreateEnum
-CREATE TYPE "Role" AS ENUM ('USER', 'OWNER', 'ADMIN', 'SUPER_MODERATOR');
+CREATE TYPE "Role" AS ENUM ('BAN', 'MUTED', 'USER', 'OWNER', 'ADMIN', 'SUPER_MODERATOR');
 
 -- CreateEnum
 CREATE TYPE "Status" AS ENUM ('Online', 'Offline', 'Away', 'Busy');
@@ -59,6 +59,7 @@ CREATE TABLE "Profile" (
     "avatar" TEXT,
     "bio" TEXT,
     "oauth" JSONB,
+    "status" "Status" NOT NULL DEFAULT 'Offline',
 
     CONSTRAINT "Profile_pkey" PRIMARY KEY ("id")
 );
@@ -81,21 +82,20 @@ CREATE TABLE "ChatRoomMember" (
     "memberId" INTEGER NOT NULL,
     "chatroomId" INTEGER NOT NULL,
     "role" "Role" NOT NULL,
-    "status" "Status" NOT NULL DEFAULT 'Offline',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "ChatRoomMember_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "ChatroomMessage" (
+CREATE TABLE "ChatRoomMessage" (
     "id" SERIAL NOT NULL,
     "chatroomId" INTEGER NOT NULL,
     "memberId" INTEGER NOT NULL,
     "content" TEXT NOT NULL,
     "timestamp" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "ChatroomMessage_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "ChatRoomMessage_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -290,10 +290,10 @@ ALTER TABLE "ChatRoomMember" ADD CONSTRAINT "ChatRoomMember_memberId_fkey" FOREI
 ALTER TABLE "ChatRoomMember" ADD CONSTRAINT "ChatRoomMember_chatroomId_fkey" FOREIGN KEY ("chatroomId") REFERENCES "ChatRoom"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ChatroomMessage" ADD CONSTRAINT "ChatroomMessage_chatroomId_fkey" FOREIGN KEY ("chatroomId") REFERENCES "ChatRoom"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ChatRoomMessage" ADD CONSTRAINT "ChatRoomMessage_chatroomId_fkey" FOREIGN KEY ("chatroomId") REFERENCES "ChatRoom"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ChatroomMessage" ADD CONSTRAINT "ChatroomMessage_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "ChatRoomMember"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ChatRoomMessage" ADD CONSTRAINT "ChatRoomMessage_memberId_fkey" FOREIGN KEY ("memberId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "PrivateMessage" ADD CONSTRAINT "PrivateMessage_senderId_fkey" FOREIGN KEY ("senderId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

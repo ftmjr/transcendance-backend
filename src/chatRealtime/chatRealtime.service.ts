@@ -109,6 +109,16 @@ export class ChatRealtimeService {
       },
     });
   }
+  async createRoomMessage(client: Socket, message: string) {
+    const room = await this.repository.getRoom(client.data.room);
+    return await this.repository.createRoomMessage({
+      data: {
+        chatroomId: room.id,
+        userId: client.data.user.id,
+        content: message,
+      },
+    });
+  }
   async joinRoom(data: JoinRoomDto) {
     const room = await this.repository.getRoom(data.roomName);
     if (!room) {
@@ -134,37 +144,48 @@ export class ChatRealtimeService {
       return member;
     }
   }
-  async kickChatRoomMember(userId: number, userActionDo: UserActionDto) {
-    await this.verifyMember(userId, userActionDo.roomId);
-    const other = await this.repository.findMember(
-      userActionDo.memberId,
-      userActionDo.roomId,
-    );
-    if (other.role === Role.ADMIN || other.role === Role.OWNER) {
-      throw new UnauthorizedException('Action not authorized');
+  async joinGeneral(user: User) {
+    const member = await this.repository.getGeneralMember(user.id);
+    if (!member) {
+      return await this.repository.createGeneralMember(user.id);
     }
-    return await this.repository.kickChatRoomMember(other.id);
+    return member;
   }
-  async banChatRoomMember(userId: number, userActionDo: UserActionDto) {
-    await this.verifyMember(userId, userActionDo.roomId);
-    const other = await this.repository.findMember(
-      userActionDo.memberId,
-      userActionDo.roomId,
-    );
-    if (other.role === Role.ADMIN || other.role === Role.OWNER) {
-      throw new UnauthorizedException('Action not authorized');
-    }
-    return await this.repository.banChatRoomMember(other.id);
+  async kickChatRoomMember(otherId: number) {
+    return await this.repository.kickChatRoomMember(otherId);
   }
-  async muteChatRoomMember(userId: number, userActionDo: UserActionDto) {
-    await this.verifyMember(userId, userActionDo.roomId);
-    const other = await this.repository.findMember(
-      userActionDo.memberId,
-      userActionDo.roomId,
-    );
-    if (other.role === Role.ADMIN || other.role === Role.OWNER) {
-      throw new UnauthorizedException('Action not authorized');
-    }
-    return await this.repository.muteChatRoomMember(other.id);
+  async muteChatRoomMember(otherId: number) {
+    return await this.repository.updateChatRoomMember({
+      where: {
+        id: otherId,
+      },
+      data: {
+        role: Role.MUTED,
+      },
+    });
+  }
+  async unmuteChatRoomMember(otherId: number) {
+    return await this.repository.updateChatRoomMember({
+      where: {
+        id: otherId,
+      },
+      data: {
+        role: Role.USER,
+      },
+    });
+  }
+  async banChatRoomMember(otherId: number) {
+    return await this.repository.updateChatRoomMember({
+      where: {
+        id: otherId,
+      },
+      data: {
+        role: Role.BAN,
+      },
+    });
+  }
+
+  async getGeneralMembers({ skip, take }) {
+    return await this.repository.getGeneralMembers({ skip, take });
   }
 }

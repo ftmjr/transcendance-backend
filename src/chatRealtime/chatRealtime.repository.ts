@@ -178,8 +178,12 @@ export class ChatRealtimeRepository {
       orderBy: {
         member: {
           username: 'asc',
-          profile: {
-            status: 'desc',
+        },
+      },
+      include: {
+        member: {
+          include: {
+            profile: true,
           },
         },
       },
@@ -204,6 +208,36 @@ export class ChatRealtimeRepository {
       },
       skip: skip,
       take: take,
+    });
+  }
+  async getGeneralMembers({ skip, take }) {
+    return await this.prisma.generalMember.findMany({
+      orderBy: {
+        createdAt: 'asc',
+      },
+      skip: skip,
+      take: take,
+      include: {
+        member: {
+          include: {
+            profile: true,
+          },
+        },
+      },
+    });
+  }
+  async getGeneralMember(userId: number) {
+    return await this.prisma.generalMember.findFirst({
+      where: {
+        memberId: userId,
+      },
+    });
+  }
+  async createGeneralMember(userId: number) {
+    return await this.prisma.generalMember.create({
+      data: {
+        memberId: userId,
+      },
     });
   }
   async kickChatRoomMember(chatRoomMemberId: number) {
@@ -233,12 +267,16 @@ export class ChatRealtimeRepository {
       },
     });
   }
-  async createMessage(params): Promise<ChatRoomMessage> {
+  async createRoomMessage(params): Promise<ChatRoomMessage> {
     const { data } = params;
     return await this.prisma.chatRoomMessage.create({ data });
   }
   async createGeneralMessage(params): Promise<GeneralMessage> {
     const { data } = params;
     return await this.prisma.generalMessage.create({ data });
+  }
+  async updateChatRoomMember(params) {
+    const { data, where } = params;
+    return await this.prisma.chatRoomMember.update({ data, where });
   }
 }

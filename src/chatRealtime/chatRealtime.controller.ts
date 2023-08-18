@@ -72,6 +72,9 @@ export class ChatRealtimeController {
   })
   @ApiResponse({ status: 200, description: `- Chatroom joined',` })
   async joinRoom(@Request() req, @Body() joinRoomDto: JoinRoomDto) {
+    if (joinRoomDto.roomName === 'General') {
+      return await this.service.joinGeneral(req.user);
+    }
     return await this.service.joinRoom(joinRoomDto);
   }
   // @UseGuards(AuthenticatedGuard)
@@ -91,25 +94,28 @@ export class ChatRealtimeController {
   //     this.service.emitOn('updateRoomMembers');
   //   }
   // }
-  // @ApiBearerAuth()
-  // @UseGuards(AuthenticatedGuard)
-  // @ApiOperation({ summary: 'Retrieve all members of a room' })
-  // @ApiResponse({ status: 200 })
-  // @Get('members/:id')
-  // async getRoomMembers(
-  //   @Request() req,
-  //   @Query() queryParams: PaginationQuery,
-  //   @Param('id') id: string,
-  // ) {
-  //   const skip: number = parseInt(queryParams.skip);
-  //   const take: number = parseInt(queryParams.take);
-  //   const roomId: number = parseInt(id);
-  //   return await this.service.getRoomMembers(
-  //     { skip, take },
-  //     req.user.id,
-  //     roomId,
-  //   );
-  // }
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @ApiOperation({ summary: 'Retrieve all members of a room' })
+  @ApiResponse({ status: 200 })
+  @Get('members/:id')
+  async getRoomMembers(
+    @Request() req,
+    @Query() queryParams: PaginationQuery,
+    @Param('id') id: string,
+  ) {
+    const skip: number = parseInt(queryParams.skip);
+    const take: number = parseInt(queryParams.take);
+    const roomId: number = parseInt(id);
+    if (roomId === 0) {
+      return await this.service.getGeneralMembers({ skip, take });
+    }
+    return await this.service.getRoomMembers(
+      { skip, take },
+      req.user.id,
+      roomId,
+    );
+  }
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
   @ApiOperation({ summary: 'Retrieve all members of a room' })
@@ -132,7 +138,6 @@ export class ChatRealtimeController {
       roomId,
     );
   }
-  //
   // @ApiBearerAuth()
   // @UseGuards(AuthenticatedGuard)
   // @ApiOperation({ summary: 'Kick a user from a room' })
@@ -143,13 +148,7 @@ export class ChatRealtimeController {
   //   @Query() queryParams: PaginationQuery,
   //   @Body() userActionDto: UserActionDto,
   // ) {
-  //   const kickedUser = await this.service.kickChatRoomMember(
-  //     req.user.id,
-  //     userActionDto,
-  //   );
-  //   if (kickedUser) {
-  //     this.service.emitOn('updateRoomMembers');
-  //   }
+  //   return await this.service.kickChatRoomMember(req.user.id, userActionDto);
   // }
   // @ApiBearerAuth()
   // @UseGuards(AuthenticatedGuard)
