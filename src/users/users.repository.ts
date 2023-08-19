@@ -190,7 +190,7 @@ export class UsersRepository {
       throw new Error('Contact not found');
     }
 
-    return await this.prisma.contact.delete({
+    return this.prisma.contact.delete({
       where: {
         id: contact.id,
       },
@@ -310,7 +310,11 @@ export class UsersRepository {
         userId: userId,
       },
       include: {
-        blockedUser: true,
+        blockedUser: {
+          include: {
+            profile: true,
+          },
+        },
       },
     });
   }

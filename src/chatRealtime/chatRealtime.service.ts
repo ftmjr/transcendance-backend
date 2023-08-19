@@ -27,18 +27,29 @@ function exclude<ChatRoom, Key extends keyof ChatRoom>(
 @Injectable()
 export class ChatRealtimeService {
   constructor(private repository: ChatRealtimeRepository) {}
-
   async getRooms({ skip, take }, userId: number) {
     const banRooms = await this.repository.findBanFrom(userId);
     const banRoomIds = banRooms.map((banRoom) => banRoom.chatroomId);
+    const userMemberships = await this.repository.getMemberRooms(userId);
+    const userMembershipRoomIds = userMemberships.map((membership) => membership.id);
     const rooms = await this.repository.getRooms({
       where: {
-        private: false,
-        id: {
-          not: {
-            in: banRoomIds,
+        OR: [
+          {
+            private: false,
+            id: {
+              not: {
+                in: banRoomIds,
+              },
+            },
           },
-        },
+          {
+            private: true,
+            id: {
+              in: userMembershipRoomIds,
+            },
+          },
+        ],
       },
       skip,
       take,
@@ -181,6 +192,16 @@ export class ChatRealtimeService {
       },
       data: {
         role: Role.BAN,
+      },
+    });
+  }
+  async promoteChatRoomMember(otherId: number) {
+    return await this.repository.updateChatRoomMember({
+      where: {
+        id: otherId,
+      },
+      data: {
+        role: Role.ADMIN,
       },
     });
   }

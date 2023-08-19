@@ -143,4 +143,11 @@ export class ChatRealtimeGateway
   ) {
     await this.service.banChatRoomMember(otherId);
   }
+  @SubscribeMessage('promote')
+  async promoteMember(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() otherId: number,
+  ) {
+    await this.service.promoteChatRoomMember(otherId);
+  }
 }
