@@ -17,6 +17,7 @@ import { ChatRealtimeService } from './chatRealtime.service';
 import { JwtService } from '@nestjs/jwt';
 import { AuthService, JwtPayload } from '../auth/auth.service';
 import { MessageDto } from './dto';
+import {UsersService} from "../users/users.service";
 
 @WebSocketGateway({ namespace: 'chat' })
 export class ChatRealtimeGateway
@@ -30,6 +31,7 @@ export class ChatRealtimeGateway
     private service: ChatRealtimeService,
     private authService: AuthService,
     private jwt: JwtService,
+    private usersService: UsersService,
   ) {}
   private logger = new Logger('ChatRealtimeGateway');
 
@@ -66,20 +68,35 @@ export class ChatRealtimeGateway
   async handleDisconnect(client: Socket) {
     this.logger.log(`Client disconnected : ${client.id}`);
   }
-  // @SubscribeMessage('chat')
-  // async newMessage(
-  //   @ConnectedSocket() client: Socket,
-  //   @MessageBody() message: string,
-  // ) {
-  //   const newMessage = await this.repository.createMessage({
-  //     data: {
-  //       chatroomId: client.data.roomId,
-  //       memberId: client.data.user.id,
-  //       content: message,
-  //     },
-  //   });
-  //   this.service.emitTo('chat', client.data.room.name, newMessage);
-  // }
+  @SubscribeMessage('dm')
+  async newMessage(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() message: string
+  ) {
+    const newMessage = await this.service.createPrivateMessage({
+      data: {
+        senderId: client.data.user.id,
+        receiverId: client.data.receiverId,
+        text: message,
+      },
+    });
+    console.log("receiver username: " + client.data.receiverUsername);
+    this.server.to(client.data.user.username).emit('dm', newMessage);
+    if (client.data.user.username !== client.data.receiverUsername)
+    {
+      this.server.to(client.data.receiverUsername).emit('dm', newMessage);
+    }
+  }
+
+  @SubscribeMessage('addReceiver')
+  async addReceiver(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() receiverId: number,
+  ) {
+    client.data.receiverId = receiverId;
+    const receiver = await this.usersService.getUser({id: receiverId});
+    client.data.receiverUsername = receiver.username;
+  }
 
   @SubscribeMessage('message')
   async newChatMessage(
@@ -142,5 +159,12 @@ export class ChatRealtimeGateway
     @MessageBody() otherId: number,
   ) {
     await this.service.banChatRoomMember(otherId);
+  }
+  @SubscribeMessage('joinUsers')
+  async joinUsers(
+    @ConnectedSocket() client: Socket,
+  ) {
+    console.log("sender username: " + client.data.user.username);
+    await this.server.in(client.id).socketsJoin(client.data.user.username);
   }
 }

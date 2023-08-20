@@ -188,4 +188,8 @@ export class ChatRealtimeService {
   async getGeneralMembers({ skip, take }) {
     return await this.repository.getGeneralMembers({ skip, take });
   }
+
+  async createPrivateMessage({ data }) {
+    return await this.repository.createPrivateMessage({ data });
+  }
 }
