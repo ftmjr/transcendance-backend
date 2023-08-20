@@ -63,7 +63,7 @@ export class ChatRealtimeGateway
       return await this.handleDisconnect(client);
     }
     client.data.user = user;
-    console.log(client.data.user.blockedFrom);
+    client.data.user.username = user.username;
   }
 
   async handleDisconnect(client: Socket) {
@@ -81,10 +81,8 @@ export class ChatRealtimeGateway
         text: message,
       },
     });
-    console.log("receiver username: " + client.data.receiverUsername);
     this.server.to(client.data.user.username).emit('dm', newMessage);
-    if (client.data.user.username !== client.data.receiverUsername)
-    {
+    if (client.data.user.username !== client.data.receiverUsername) {
       this.server.to(client.data.receiverUsername).emit('dm', newMessage);
     }
   }
