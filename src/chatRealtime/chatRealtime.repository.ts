@@ -190,6 +190,17 @@ export class ChatRealtimeRepository {
       },
     });
   }
+  async getMemberRooms(userId: number) {
+    return await this.prisma.chatRoom.findMany({
+      where: {
+        members: {
+          some: {
+            memberId: userId,
+          },
+        },
+      },
+    });
+  }
   async getRoomMessages(roomId: number, { skip, take }) {
     return await this.prisma.chatRoomMessage.findMany({
       where: {

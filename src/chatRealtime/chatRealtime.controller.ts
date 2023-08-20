@@ -77,6 +77,20 @@ export class ChatRealtimeController {
     }
     return await this.service.joinRoom(joinRoomDto);
   }
+  @UseGuards(AuthenticatedGuard)
+  @ApiBearerAuth()
+  @Post('leave/:id')
+  @ApiOperation({
+    summary: 'Leaves a chat room permanently',
+    description: `
+      - to be defined
+    `,
+  })
+  @ApiResponse({ status: 200, description: `- Chatroom left',` })
+  async leaveRoom(@Request() req, @Param('id') id: string) {
+    const roomId = parseInt(id);
+    return await this.service.leaveRoom(req.user, roomId);
+  }
   // @UseGuards(AuthenticatedGuard)
   // @ApiBearerAuth()
   // @Delete('leave/:id')
@@ -108,13 +122,9 @@ export class ChatRealtimeController {
     const take: number = parseInt(queryParams.take);
     const roomId: number = parseInt(id);
     if (roomId === 0) {
-      return await this.service.getGeneralMembers({ skip, take });
+      return await this.service.getGeneralMembers({ skip, take }, req.user);
     }
-    return await this.service.getRoomMembers(
-      { skip, take },
-      req.user.id,
-      roomId,
-    );
+    return await this.service.getRoomMembers({ skip, take }, req.user, roomId);
   }
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
@@ -130,60 +140,12 @@ export class ChatRealtimeController {
     const take: number = parseInt(queryParams.take);
     const roomId: number = parseInt(id);
     if (roomId === 0) {
-      return await this.service.getGeneralMessages({ skip, take });
+      return await this.service.getGeneralMessages({ skip, take }, req.user);
     }
     return await this.service.getRoomMessages(
       { skip, take },
-      req.user.id,
+      req.user,
       roomId,
     );
   }
-  // @ApiBearerAuth()
-  // @UseGuards(AuthenticatedGuard)
-  // @ApiOperation({ summary: 'Kick a user from a room' })
-  // @ApiResponse({ status: 200 })
-  // @Post('kick')
-  // async kickUser(
-  //   @Request() req,
-  //   @Query() queryParams: PaginationQuery,
-  //   @Body() userActionDto: UserActionDto,
-  // ) {
-  //   return await this.service.kickChatRoomMember(req.user.id, userActionDto);
-  // }
-  // @ApiBearerAuth()
-  // @UseGuards(AuthenticatedGuard)
-  // @ApiOperation({ summary: 'Ban a user from a room' })
-  // @ApiResponse({ status: 200 })
-  // @Post('ban')
-  // async banUser(
-  //   @Request() req,
-  //   @Query() queryParams: PaginationQuery,
-  //   @Body() userActionDto: UserActionDto,
-  // ) {
-  //   const kickedUser = await this.service.banChatRoomMember(
-  //     req.user.id,
-  //     userActionDto,
-  //   );
-  //   if (kickedUser) {
-  //     this.service.emitOn('updateRoomMembers');
-  //   }
-  // }
-  // @ApiBearerAuth()
-  // @UseGuards(AuthenticatedGuard)
-  // @ApiOperation({ summary: 'Mute a user in a room' })
-  // @ApiResponse({ status: 200 })
-  // @Post('mute')
-  // async muteUser(
-  //   @Request() req,
-  //   @Query() queryParams: PaginationQuery,
-  //   @Body() userActionDto: UserActionDto,
-  // ) {
-  //   const kickedUser = await this.service.muteChatRoomMember(
-  //     req.user.id,
-  //     userActionDto,
-  //   );
-  //   if (kickedUser) {
-  //     this.service.emitOn('updateRoomMembers');
-  //   }
-  // }
 }
