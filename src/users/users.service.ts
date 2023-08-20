@@ -9,6 +9,7 @@ import {
 } from '@prisma/client';
 import { UsersRepository } from './users.repository';
 import * as argon from 'argon2';
+import { FriendsService } from "../friends/friends.service";
 
 function exclude<User, Key extends keyof User>(
   user: User,
@@ -35,7 +36,10 @@ function getRandomSpiderManAvatarUrl(): string {
 
 @Injectable()
 export class UsersService {
-  constructor(private repository: UsersRepository) {}
+  constructor(
+    private repository: UsersRepository,
+    private friendsService: FriendsService,
+  ) {}
 
   // Create a simple user with no profile
   async createUser(params: {
@@ -222,8 +226,8 @@ export class UsersService {
   }
   async blockUser(userId: number, blockedUserId: number): Promise<BlockedUser> {
     try {
-      await this.repository.deleteFriendRequest(userId, blockedUserId);
-      await this.repository.removeFriend(userId, blockedUserId);
+      await this.friendsService.removeRequest(userId, blockedUserId);
+      await this.friendsService.removeFriend(userId, blockedUserId);
     } catch (e) {
       // Nothing to be done if there was an error
     }

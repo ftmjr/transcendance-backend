@@ -18,6 +18,9 @@ export class FriendsService {
   async removeFriend(userId: number, friendId: number){
     return this.repository.removeFriend(userId, friendId);
   }
+  async removeRequest(userId: number, friendId: number){
+    return this.repository.removeRequest(userId, friendId);
+  }
   async addFriendRequest(userId: number, friendId: number) {
     const friend = await this.repository.getFriend(userId, friendId);
     if (friend) {

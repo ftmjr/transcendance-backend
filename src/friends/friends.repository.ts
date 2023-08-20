@@ -145,4 +145,27 @@ export class FriendsRepository {
       },
     });
   }
+  async removeRequest(userId: number, otherId: number) {
+    const request = await this.prisma.contactRequest.findFirst({
+      where: {
+        OR: [
+          {
+            senderId: userId,
+            receiverId: otherId,
+          },
+          {
+            senderId: otherId,
+            receiverId: userId,
+          },
+        ],
+      },
+    });
+    if (request) {
+      return await this.prisma.contactRequest.delete({
+        where: {
+          id: request.id,
+        },
+      });
+    }
+  }
 }

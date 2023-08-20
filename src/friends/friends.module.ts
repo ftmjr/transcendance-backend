@@ -7,6 +7,6 @@ import { UsersModule } from '../users/users.module';
 @Module({
   controllers: [FriendsController],
   providers: [FriendsService, FriendsRepository],
-  imports: [UsersModule],
+  exports: [FriendsService],
 })
 export class FriendsModule {}
