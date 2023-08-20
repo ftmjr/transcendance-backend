@@ -14,19 +14,19 @@ import {
   ClientToServerEvents,
 } from './interfaces/chat.interface';
 import { ChatRealtimeService } from './chatRealtime.service';
-import { AuthenticatedGuard } from '../auth/guards';
-import { ApiBearerAuth } from '@nestjs/swagger';
-import { ChatRoom } from '@prisma/client';
-import { ChatRealtimeRepository } from './chatRealtime.repository';
 import { JwtService } from '@nestjs/jwt';
-import {AuthService, JwtPayload} from "../auth/auth.service";
+import { AuthService, JwtPayload } from '../auth/auth.service';
+import { MessageDto } from './dto';
 
 @WebSocketGateway({ namespace: 'chat' })
 export class ChatRealtimeGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
+  @WebSocketServer() server: Server = new Server<
+    ServerToClientEvents,
+    ClientToServerEvents
+  >();
   constructor(
-    private repository: ChatRealtimeRepository,
     private service: ChatRealtimeService,
     private authService: AuthService,
     private jwt: JwtService,
@@ -61,55 +61,111 @@ export class ChatRealtimeGateway
       return await this.handleDisconnect(client);
     }
     client.data.user = user;
+    console.log(client.data.user.blockedFrom);
   }
 
   async handleDisconnect(client: Socket) {
     this.logger.log(`Client disconnected : ${client.id}`);
   }
-  @SubscribeMessage('chat')
-  async newMessage(
+  // @SubscribeMessage('chat')
+  // async newMessage(
+  //   @ConnectedSocket() client: Socket,
+  //   @MessageBody() message: string,
+  // ) {
+  //   const newMessage = await this.repository.createMessage({
+  //     data: {
+  //       chatroomId: client.data.roomId,
+  //       memberId: client.data.user.id,
+  //       content: message,
+  //     },
+  //   });
+  //   this.service.emitTo('chat', client.data.room.name, newMessage);
+  // }
+
+  @SubscribeMessage('message')
+  async newChatMessage(
     @ConnectedSocket() client: Socket,
     @MessageBody() message: string,
   ) {
-    const newMessage = await this.repository.createMessage({
-      data: {
-        chatroomId: client.data.roomId,
-        memberId: client.data.user.id,
-        content: message,
-      },
-    });
-    this.service.emitTo('chat', client.data.room.name, newMessage);
+    let createdMessage;
+    if (client.data.room === 'General') {
+      createdMessage = await this.service.createGeneralMessage(client, message);
+    } else {
+      createdMessage = await this.service.createRoomMessage(client, message);
+    }
+    this.server.to(client.data.room).emit('message', createdMessage);
   }
-
+  @SubscribeMessage('filter')
+  filterBlockedMessages(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() message: any,
+  ) {
+    const { blockedFrom, blockedUsers } = client.data.user;
+    const isBlockedFrom = blockedFrom.some(
+      (blocked) => blocked.userId === message.userId,
+    );
+    const isBlockedUser = blockedUsers.some(
+      (blocked) => blocked.blockedUserId === message.userId,
+    );
+    if (isBlockedFrom || isBlockedUser) {
+      return;
+    }
+    this.server.to(client.id).emit('filter', message);
+  }
   @SubscribeMessage('updateRooms')
   async updateRooms() {
-    this.service.emitOn('updateRooms');
+    this.server.emit('updateRooms');
   }
-
   @SubscribeMessage('updateRoomMembers')
   async updateRoomMembers(@ConnectedSocket() client: Socket) {
-    this.service.emitTo('updateRoomMembers', client.data.room.name, null);
+    this.server.to(client.data.room).emit('updateRoomMembers');
   }
   @SubscribeMessage('joinRoom')
   async joinRoom(
-    @MessageBody() payload: { roomName: string },
+    @MessageBody() roomName: string,
     @ConnectedSocket() client: Socket,
   ) {
-    if (client.id) {
-      const room = await this.repository.getRoom(payload.roomName);
-      if (room) {
-        client.data.room = room;
-        this.service.socketJoin(client.id, room.name);
-      }
-    }
-  }
-  @SubscribeMessage('leaveRoom')
-  async leaveRoom(@ConnectedSocket() client: Socket) {
-    if (client.id) {
-      if (client.data.room.name) {
-        this.service.socketLeave(client.id, client.data.room.name);
-      }
+    if (client.data.room) {
+      await this.server.in(client.id).socketsLeave(client.data.room);
       client.data.room = null;
     }
+    await this.server.in(client.id).socketsJoin(roomName);
+    client.data.room = roomName;
+  }
+  @SubscribeMessage('kick')
+  async kickMember(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() otherId: number,
+  ) {
+    await this.service.kickChatRoomMember(otherId);
+  }
+  @SubscribeMessage('mute')
+  async muteMember(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() otherId: number,
+  ) {
+    console.log(otherId);
+    await this.service.muteChatRoomMember(otherId);
+  }
+  @SubscribeMessage('unmute')
+  async unmuteMember(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() otherId: number,
+  ) {
+    await this.service.unmuteChatRoomMember(otherId);
+  }
+  @SubscribeMessage('ban')
+  async banMember(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() otherId: number,
+  ) {
+    await this.service.banChatRoomMember(otherId);
+  }
+  @SubscribeMessage('promote')
+  async promoteMember(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() otherId: number,
+  ) {
+    await this.service.promoteChatRoomMember(otherId);
   }
 }

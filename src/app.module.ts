@@ -7,6 +7,11 @@ import { UsersModule } from './users/users.module';
 import { ChatRealtimeModule } from './chatRealtime/chatRealtime.module';
 import { GameRealtimeModule } from './gameRealtime/gameRealtime.module';
 import { CacheModule } from '@nestjs/cache-manager';
+import { FilesModule } from './files/files.module';
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
+import { FriendsModule } from './friends/friends.module';
+
 
 @Module({
   imports: [
@@ -18,6 +23,12 @@ import { CacheModule } from '@nestjs/cache-manager';
     ChatRealtimeModule,
     GameRealtimeModule,
     CacheModule.register(),
+    FilesModule,
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'uploads'),
+      exclude: ['/(.*)'],
+    }),
+    FriendsModule,
   ],
   controllers: [],
   providers: [],

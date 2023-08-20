@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {Injectable, NotFoundException, UnauthorizedException} from '@nestjs/common';
 import { ChatRealtimeRepository } from './chatRealtime.repository';
 import { CreateRoomDto } from './dto/createRoom.dto';
 import { Status, Prisma, User, Role } from '@prisma/client';
@@ -11,7 +11,9 @@ import { JoinRoomDto } from './dto/joinRoom.dto';
 import { ChatRealtimeGateway } from './chatRealtime.gateway';
 import { UserActionDto } from './dto/userAction.dto';
 import { WebSocketServer } from '@nestjs/websockets';
-import { Server } from 'socket.io';
+import {Server, Socket} from 'socket.io';
+import * as argon from "argon2";
+import {UsersService} from "../users/users.service";
 
 function exclude<ChatRoom, Key extends keyof ChatRoom>(
   room: ChatRoom,
@@ -25,46 +27,97 @@ function exclude<ChatRoom, Key extends keyof ChatRoom>(
 
 @Injectable()
 export class ChatRealtimeService {
-  @WebSocketServer() server: Server = new Server<
-    ServerToClientEvents,
-    ClientToServerEvents
-  >();
-  constructor(private repository: ChatRealtimeRepository) {}
-
+  constructor(
+    private repository: ChatRealtimeRepository,
+    private usersService: UsersService,
+  ) {}
   async getRooms({ skip, take }, userId: number) {
     const banRooms = await this.repository.findBanFrom(userId);
     const banRoomIds = banRooms.map((banRoom) => banRoom.chatroomId);
+    const userMemberships = await this.repository.getMemberRooms(userId);
+    const userMembershipRoomIds = userMemberships.map((membership) => membership.id);
     const rooms = await this.repository.getRooms({
       where: {
-        private: false,
-        id: {
-          not: {
-            in: banRoomIds,
+        OR: [
+          {
+            private: false,
+            id: {
+              not: {
+                in: banRoomIds,
+              },
+            },
           },
-        },
+          {
+            private: true,
+            id: {
+              in: userMembershipRoomIds,
+            },
+          },
+        ],
       },
       skip,
       take,
     });
     return rooms.map((room) => exclude(room, ['password']));
   }
-  async getRoomMembers({ skip, take }, userId: number, roomId: number) {
-    const userMember = await this.repository.findMember(userId, roomId);
-    if (!userMember) {
-      throw new UnauthorizedException('User not in the chat room');
-    } else if (userMember.role === Role.BAN) {
-      throw new UnauthorizedException('User is Ban');
-    }
-    return await this.repository.getRoomMembers(roomId);
+  async filterRoomMembers(members, user) {
+    const blockedUserIds = user.blockedUsers.map(
+      (blockedUser) => blockedUser.blockedUserId,
+    );
+    const blockedFromIds = user.blockedFrom.map(
+      (blockedFrom) => blockedFrom.userId,
+    );
+    return members.filter((member) => {
+      return (
+        !blockedUserIds.includes(member.memberId) &&
+        !blockedFromIds.includes(member.memberId)
+      );
+    });
   }
-  async getRoomMessages({ skip, take }, userId: number, roomId: number) {
-    const userMember = await this.repository.findMember(userId, roomId);
+  async filterMessages(messages, user) {
+    const blockedUserIds = user.blockedUsers.map(
+      (blockedUser) => blockedUser.blockedUserId,
+    );
+    const blockedFromIds = user.blockedFrom.map(
+      (blockedFrom) => blockedFrom.userId,
+    );
+    return messages.filter((message) => {
+      return (
+        !blockedUserIds.includes(message.userId) &&
+        !blockedFromIds.includes(message.userId)
+      );
+    });
+  }
+  async getRoomMembers({ skip, take }, user: any, roomId: number) {
+    const userMember = await this.repository.findMember(user.id, roomId);
     if (!userMember) {
       throw new UnauthorizedException('User not in the chat room');
     } else if (userMember.role === Role.BAN) {
       throw new UnauthorizedException('User is Ban');
     }
-    return await this.repository.getRoomMessages(roomId);
+    const members = await this.repository.getRoomMembers(roomId);
+    return await this.filterRoomMembers(members, user);
+  }
+  async getRoomMessages({ skip, take }, user: any, roomId: number) {
+    const userMember = await this.repository.findMember(user.id, roomId);
+    if (!userMember) {
+      throw new UnauthorizedException('User not in the chat room');
+    } else if (userMember.role === Role.BAN) {
+      throw new UnauthorizedException('User is Ban');
+    }
+    const messages = await this.repository.getRoomMessages(roomId, {
+      skip,
+      take,
+    });
+    return await this.filterMessages(messages, user);
+  }
+  async getGeneralMessages({ skip, take }, user: any) {
+    const messages = await this.repository.getGeneralMessages({ skip, take });
+    return await this.filterMessages(messages, user);
+  }
+
+  async getRoomMember(userId: number, roomId: number) {
+    return await this.repository.findMember(userId, roomId);
   }
 
   async createRoom(newRoom: CreateRoomDto) {
@@ -75,7 +128,7 @@ export class ChatRealtimeService {
       password: '',
     };
     if (newRoom.protected) {
-      data.password = newRoom.password;
+      data.password = await argon.hash(newRoom.password);
     }
     return await this.repository.createRoom({ data }, newRoom.ownerId);
   }
@@ -97,61 +150,102 @@ export class ChatRealtimeService {
     }
     return user;
   }
+  async createGeneralMessage(client: Socket, message: string) {
+    return await this.repository.createGeneralMessage({
+      data: {
+        userId: client.data.user.id,
+        content: message,
+      },
+    });
+  }
+  async createRoomMessage(client: Socket, message: string) {
+    const room = await this.repository.getRoom(client.data.room);
+    return await this.repository.createRoomMessage({
+      data: {
+        chatroomId: room.id,
+        userId: client.data.user.id,
+        content: message,
+      },
+    });
+  }
   async joinRoom(data: JoinRoomDto) {
-    return await this.repository.joinRoom(data);
-  }
-  async kickChatRoomMember(userId: number, userActionDo: UserActionDto) {
-    const user = await this.verifyMember(userId, userActionDo.roomId);
-    if (!user) {
-      throw new UnauthorizedException('User not allowed');
+    const room = await this.repository.getRoom(data.roomName);
+    if (!room) {
+      throw new NotFoundException("Room doesn't exist");
     }
-    const other = await this.repository.findMember(
-      userActionDo.memberId,
-      userActionDo.roomId,
+    if (room.protected) {
+      const isValid = await argon.verify(room.password, data.password);
+      if (!isValid) {
+        throw new NotFoundException('Password invalid');
+      }
+    }
+    const member = await this.repository.getChatRoomMember(
+      data.userId,
+      room.id,
     );
-    if (other.role === Role.ADMIN || other.role === Role.OWNER) {
-      throw new UnauthorizedException('Action not authorized');
+    if (!member) {
+      return await this.repository.joinRoom(data, room.id);
+    } else if (member.role === Role.BAN) {
+      console.log('hey4');
+
+      throw new NotFoundException('User is ban from room!');
+    } else {
+      return member;
     }
-    return await this.repository.kickChatRoomMember(other.id);
   }
-  async banChatRoomMember(userId: number, userActionDo: UserActionDto) {
-    const user = await this.verifyMember(userId, userActionDo.roomId);
-    if (!user) {
-      throw new UnauthorizedException('User not allowed');
+  async joinGeneral(user: User) {
+    const member = await this.repository.getGeneralMember(user.id);
+    if (!member) {
+      return await this.repository.createGeneralMember(user.id);
     }
-    const other = await this.repository.findMember(
-      userActionDo.memberId,
-      userActionDo.roomId,
-    );
-    if (other.role === Role.ADMIN || other.role === Role.OWNER) {
-      throw new UnauthorizedException('Action not authorized');
-    }
-    return await this.repository.banChatRoomMember(other.id);
+    return member;
   }
-  async muteChatRoomMember(userId: number, userActionDo: UserActionDto) {
-    const user = await this.verifyMember(userId, userActionDo.roomId);
-    if (!user) {
-      throw new UnauthorizedException('User not allowed');
-    }
-    const other = await this.repository.findMember(
-      userActionDo.memberId,
-      userActionDo.roomId,
-    );
-    if (other.role === Role.ADMIN || other.role === Role.OWNER) {
-      throw new UnauthorizedException('Action not authorized');
-    }
-    return await this.repository.muteChatRoomMember(other.id);
+  async kickChatRoomMember(otherId: number) {
+    return await this.repository.kickChatRoomMember(otherId);
   }
-  emitTo(event, roomName, object) {
-    this.server.to(roomName).emit('chat', object); // broadcast messages
+  async muteChatRoomMember(otherId: number) {
+    return await this.repository.updateChatRoomMember({
+      where: {
+        id: otherId,
+      },
+      data: {
+        role: Role.MUTED,
+      },
+    });
   }
-  emitOn(event) {
-    this.server.emit(event);
+  async unmuteChatRoomMember(otherId: number) {
+    return await this.repository.updateChatRoomMember({
+      where: {
+        id: otherId,
+      },
+      data: {
+        role: Role.USER,
+      },
+    });
   }
-  socketJoin(id, roomName) {
-    this.server.in(id).socketsJoin(roomName);
+  async banChatRoomMember(otherId: number) {
+    return await this.repository.updateChatRoomMember({
+      where: {
+        id: otherId,
+      },
+      data: {
+        role: Role.BAN,
+      },
+    });
   }
-  socketLeave(id, roomName) {
-    this.server.in(id).socketsLeave(roomName);
+  async promoteChatRoomMember(otherId: number) {
+    return await this.repository.updateChatRoomMember({
+      where: {
+        id: otherId,
+      },
+      data: {
+        role: Role.ADMIN,
+      },
+    });
+  }
+
+  async getGeneralMembers({ skip, take }, user: any) {
+    const members = await this.repository.getGeneralMembers({ skip, take });
+    return await this.filterRoomMembers(members, user);
   }
 }

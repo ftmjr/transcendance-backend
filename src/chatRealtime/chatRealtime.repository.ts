@@ -7,18 +7,14 @@ import {
   Prisma,
   ChatRoom,
   ChatRoomMessage,
+  GeneralMessage,
   User,
   Role,
   Status,
 } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { CreateRoomDto } from './dto/createRoom.dto';
 import { JoinRoomDto } from './dto/joinRoom.dto';
-import { UserActionDto } from "./dto/userAction.dto";
 import { UsersService } from "../users/users.service";
-import {Server, Socket} from 'socket.io';
-import {WebSocketServer} from "@nestjs/websockets";
-import {ClientToServerEvents, ServerToClientEvents} from "./interfaces/chat.interface";
 
 
 @Injectable()
@@ -62,13 +58,22 @@ export class ChatRealtimeRepository {
     });
     return createdRoom;
   }
-  getChatRoomMember(userId: number, roomId: number) {
-    return this.prisma.chatRoomMember.findFirst({
+  async getChatRoomMember(userId: number, roomId: number) {
+    const member = await this.prisma.chatRoomMember.findFirst({
       where: {
         memberId: userId,
         chatroomId: roomId,
       },
     });
+    if (!member) {
+      return await this.prisma.chatRoomMember.create({
+        data: {
+          memberId: userId,
+          chatroomId: roomId,
+        },
+      });
+    }
+    return member;
   }
 
   async findNewOwner(roomId: number) {
@@ -140,22 +145,14 @@ export class ChatRealtimeRepository {
       },
     });
   }
-  async joinRoom(data: JoinRoomDto) {
-    const room = await this.getRoom(data.roomName);
-    if (!room) {
-      throw new NotFoundException('already exists');
-    } else if (room.password !== data.password) {
-      throw new ForbiddenException('Invalid Password');
-    }
-
-    const newMember = await this.prisma.chatRoomMember.create({
+  async joinRoom(data: JoinRoomDto, roomId: number) {
+    return await this.prisma.chatRoomMember.create({
       data: {
         memberId: data.userId,
-        chatroomId: room.id,
+        chatroomId: roomId,
         role: Role.USER,
       },
     });
-    return newMember;
   }
   async findBanFrom(userId: number) {
     return await this.prisma.chatRoomMember.findMany({
@@ -181,20 +178,83 @@ export class ChatRealtimeRepository {
       orderBy: {
         member: {
           username: 'asc',
-          profile: {
-            status: 'desc',
+        },
+      },
+      include: {
+        member: {
+          include: {
+            profile: true,
           },
         },
       },
     });
   }
-  async getRoomMessages(roomId: number) {
+
+  async getMemberRooms(userId: number) {
+    return await this.prisma.chatRoom.findMany({
+      where: {
+        members: {
+          some: {
+            memberId: userId,
+          },
+        },
+      },
+    });
+  }
+  async getRoomMessages(roomId: number, { skip, take }) {
     return await this.prisma.chatRoomMessage.findMany({
       where: {
         chatroomId: roomId,
       },
       orderBy: {
         timestamp: 'asc',
+      },
+      include: {
+        user: true,
+      },
+      skip: skip,
+      take: take,
+    });
+  }
+  async getGeneralMessages({ skip, take }) {
+    return await this.prisma.generalMessage.findMany({
+      orderBy: {
+        timestamp: 'asc',
+      },
+      include: {
+        user: true,
+      },
+      skip: skip,
+      take: take,
+    });
+  }
+  async getGeneralMembers({ skip, take }) {
+    return await this.prisma.generalMember.findMany({
+      orderBy: {
+        createdAt: 'asc',
+      },
+      skip: skip,
+      take: take,
+      include: {
+        member: {
+          include: {
+            profile: true,
+          },
+        },
+      },
+    });
+  }
+  async getGeneralMember(userId: number) {
+    return await this.prisma.generalMember.findFirst({
+      where: {
+        memberId: userId,
+      },
+    });
+  }
+  async createGeneralMember(userId: number) {
+    return await this.prisma.generalMember.create({
+      data: {
+        memberId: userId,
       },
     });
   }
@@ -225,8 +285,16 @@ export class ChatRealtimeRepository {
       },
     });
   }
-  async createMessage(params): Promise<ChatRoomMessage> {
+  async createRoomMessage(params): Promise<ChatRoomMessage> {
     const { data } = params;
     return await this.prisma.chatRoomMessage.create({ data });
+  }
+  async createGeneralMessage(params): Promise<GeneralMessage> {
+    const { data } = params;
+    return await this.prisma.generalMessage.create({ data });
+  }
+  async updateChatRoomMember(params) {
+    const { data, where } = params;
+    return await this.prisma.chatRoomMember.update({ data, where });
   }
 }
