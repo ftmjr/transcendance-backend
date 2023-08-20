@@ -53,16 +53,18 @@ export class UsersRepository {
 
   async deleteUser(params: {
     where: Prisma.UserWhereUniqueInput;
+    include?: Prisma.UserInclude;
   }): Promise<User> {
-    const { where } = params;
-    return this.prisma.user.delete({ where });
+    const { where, include } = params;
+    return this.prisma.user.delete({ where, include });
   }
 
   async getUser(params: {
     where: Prisma.UserWhereUniqueInput;
+    include?: Prisma.UserInclude;
   }): Promise<User | null> {
-    const { where } = params;
-    return this.prisma.user.findUnique({ where });
+    const { where, include } = params;
+    return this.prisma.user.findUnique({ where, include });
   }
 
   async getByID(id: User[`id`]): Promise<User | null> {
@@ -117,166 +119,16 @@ export class UsersRepository {
     const { where } = params;
     return this.prisma.session.findUnique({ where });
   }
-
-  async getFriends(id: number): Promise<Profile[]> {
-    const user = await this.prisma.user.findUnique({
-      where: { id: id },
+  async getUserBlocked(userId: number) {
+    return this.prisma.user.findUnique({
+      where: {
+        id: userId,
+      },
       include: {
-        contacts: {
-          include: {
-            contact: {
-              include: {
-                profile: true, // Include the profile of each contact
-              },
-            },
-          },
-        },
+        blockedUsers: true,
+        blockedFrom: true,
       },
     });
-
-    if (!user) {
-      // Handle the case where the user is not found
-      throw new Error(`User with id: ${id} not found.`);
-    }
-
-    return user.contacts.map((contact) => contact.contact.profile);
-  }
-  async addFriend(userId: number, id: number) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    const friend = await this.prisma.user.findUnique({
-      where: { id: id },
-    });
-
-    if (!user || !friend) {
-      throw new Error('User or friend not found');
-    }
-
-    // Create a new Contact record linking the user and friend
-    const contact = await this.prisma.contact.create({
-      data: {
-        userId: userId,
-        contactId: id,
-      },
-    });
-
-    return contact;
-  }
-  async removeFriend(userId: number, friendId: number) {
-    // Check if both user and friend IDs exist in the database
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-    });
-
-    const friend = await this.prisma.user.findUnique({
-      where: { id: friendId },
-    });
-
-    if (!user || !friend) {
-      throw new Error('User or friend not found');
-    }
-
-    // Find and delete the Contact record that links the user and friend
-    const contact = await this.prisma.contact.findFirst({
-      where: {
-        userId: userId,
-        contactId: friendId,
-      },
-    });
-
-    if (!contact) {
-      throw new Error('Contact not found');
-    }
-
-    return this.prisma.contact.delete({
-      where: {
-        id: contact.id,
-      },
-    });
-  }
-
-  async addPendingContactRequest(
-    senderId: number,
-    receiverId: number,
-  ): Promise<ContactRequest> {
-    // Check if both sender and receiver IDs exist in the database
-    const sender = await this.prisma.user.findUnique({
-      where: { id: senderId },
-    });
-
-    const receiver = await this.prisma.user.findUnique({
-      where: { id: receiverId },
-    });
-
-    if (!sender || !receiver) {
-      throw new Error('Sender or receiver not found');
-    }
-
-    // Create a new ContactRequest record linking the sender and receiver
-    const contactRequest = await this.prisma.contactRequest.create({
-      data: {
-        senderId: senderId,
-        receiverId: receiverId,
-      },
-    });
-
-    return contactRequest;
-  }
-  async cancelFriendRequest(requestId: number) {
-    const deleteRequest = await this.prisma.contactRequest.delete({
-      where: {
-        id: requestId,
-      },
-    });
-
-    return deleteRequest;
-  }
-  async allSentFriendRequests(userId: number) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        sentContactRequests: true,
-      },
-    });
-
-    if (!user) {
-      // Handle the case where the user is not found
-      throw new Error(`User with id: ${userId} not found.`);
-    }
-
-    return user.sentContactRequests;
-  }
-  async receivedFriendRequests(userId: number) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      include: {
-        receivedContactRequests: true,
-      },
-    });
-
-    if (!user) {
-      // Handle the case where the user is not found
-      throw new Error(`User with id: ${userId} not found.`);
-    }
-
-    return user.receivedContactRequests;
-  }
-  async approveFriendRequest(requestId: number) {
-    const deleteRequest = await this.prisma.contactRequest.delete({
-      where: {
-        id: requestId,
-      },
-    });
-    const newFriend = await this.prisma.contact.create({
-      data: {
-        userId: deleteRequest.senderId,
-        contactId: deleteRequest.receiverId,
-      },
-    });
-
-    return newFriend;
   }
   async getBlockUser(userId: number, blockedUserId: number) {
     return await this.prisma.blockedUser.findFirst({
@@ -315,20 +167,6 @@ export class UsersRepository {
             profile: true,
           },
         },
-      },
-    });
-  }
-  async deleteFriendRequest(userId: number, blockedUserId: number) {
-    await this.prisma.contactRequest.deleteMany({
-      where: {
-        senderId: userId,
-        receiverId: blockedUserId,
-      }
-    });
-    await this.prisma.contactRequest.deleteMany({
-      where: {
-        senderId: blockedUserId,
-        receiverId: userId,
       },
     });
   }

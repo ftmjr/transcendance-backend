@@ -1,5 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import { BlockedUser, Prisma, Profile, Session, Status, User } from '@prisma/client';
+import {
+  BlockedUser,
+  Prisma,
+  Profile,
+  Session,
+  Status,
+  User,
+} from '@prisma/client';
 import { UsersRepository } from './users.repository';
 import * as argon from 'argon2';
 
@@ -96,6 +103,17 @@ export class UsersService {
     const { id } = params;
     return this.repository.getUser({ where: { id } });
   }
+  async getUserWithFriends(userId) {
+    return this.repository.getUser({
+      where: {
+        id: userId,
+      },
+      include: {
+        contacts: true,
+        contactedBy: true,
+      },
+    });
+  }
 
   async getBlockedUsers(userId: number) {
     const blockedUsers = await this.repository.getBlockedUsers(userId);
@@ -113,10 +131,11 @@ export class UsersService {
       take: 1,
       include: {
         profile: true,
+        blockedUsers: true,
+        blockedFrom: true,
         // sessions: true,
       },
     });
-
     return user.length > 0 ? user[0] : null;
   }
 
@@ -166,22 +185,45 @@ export class UsersService {
     return this.repository.getByUserName(username);
   }
 
-  async getUsers(params: {
-    skip?: number;
-    take?: number;
-    cursor?: Prisma.UserWhereUniqueInput;
-    where?: Prisma.UserWhereInput;
-    orderBy?: Prisma.UserOrderByWithRelationInput;
-    include?: Prisma.UserInclude;
-  }) {
+  async getUserBlocked(userId) {
+    return await this.repository.getUserBlocked(userId);
+  }
+  async filterBlockedUsers(users, currentUser) {
+    const userBlocked = await this.getUserBlocked(currentUser.id);
+    const blockedUserIds = userBlocked.blockedUsers.map(
+      (blockedUser) => blockedUser.blockedUserId,
+    );
+    const blockedFromIds = userBlocked.blockedFrom.map(
+      (blockedFrom) => blockedFrom.userId,
+    );
+
+    return users.filter((user) => {
+      return (
+        !blockedUserIds.includes(user.id) && !blockedFromIds.includes(user.id)
+      );
+    });
+  }
+
+  async getUsers(
+    params: {
+      skip?: number;
+      take?: number;
+      cursor?: Prisma.UserWhereUniqueInput;
+      where?: Prisma.UserWhereInput;
+      orderBy?: Prisma.UserOrderByWithRelationInput;
+      include?: Prisma.UserInclude;
+    },
+    user,
+  ) {
     const { skip, take, cursor, where, orderBy, include } = params;
     const users = await this.repository.getUsers(params);
-    return users.map((user) => exclude(user, ['password']));
+    const allUsers = users.map((user) => exclude(user, ['password']));
+    return await this.filterBlockedUsers(allUsers, user);
   }
   async blockUser(userId: number, blockedUserId: number): Promise<BlockedUser> {
     try {
       await this.repository.deleteFriendRequest(userId, blockedUserId);
-      await this.repository.removeFriend(userId, blockedUserId)
+      await this.repository.removeFriend(userId, blockedUserId);
     } catch (e) {
       // Nothing to be done if there was an error
     }
@@ -285,33 +327,6 @@ export class UsersService {
   // util function to remove all the hashed password fields on users
   removesPasswords(users: User[]) {
     return users.map((user) => exclude(user, ['password']));
-  }
-
-  getFriends(id: number) {
-    return this.repository.getFriends(id);
-  }
-  addFriend(userId: number, friendId: number) {
-    return this.repository.addFriend(userId, friendId);
-  }
-  removeFriend(userId: number, friendId: number) {
-    return this.repository.removeFriend(userId, friendId);
-  }
-  sendFriendRequest(userId: number, friendId: number) {
-    return this.repository.addPendingContactRequest(userId, friendId);
-  }
-  allSentFriendRequests(userId: number) {
-    return this.repository.allSentFriendRequests(userId);
-  }
-
-  receivedFriendRequests(userId: number) {
-    return this.repository.receivedFriendRequests(userId);
-  }
-
-  cancelFriendRequest(requestId: number) {
-    return this.repository.cancelFriendRequest(requestId);
-  }
-  approveFriendRequest(requestId: number) {
-    return this.repository.approveFriendRequest(requestId);
   }
 
   async setTwoFactorAuthenticationSecret(secret: string, id: number) {
