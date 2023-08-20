@@ -246,6 +246,7 @@ export class ChatRealtimeService {
 
   async createPrivateMessage({ data }) {
     return await this.repository.createPrivateMessage({ data });
+  }
 
   async getGeneralMembers({ skip, take }, user: any) {
     const members = await this.repository.getGeneralMembers({ skip, take });

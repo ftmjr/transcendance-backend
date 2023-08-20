@@ -179,11 +179,9 @@ export class ChatRealtimeGateway
     await this.service.banChatRoomMember(otherId);
   }
   @SubscribeMessage('joinUsers')
-  async joinUsers(
-    @ConnectedSocket() client: Socket,
-  ) {
-    console.log("sender username: " + client.data.user.username);
+  async joinUsers(@ConnectedSocket() client: Socket) {
     await this.server.in(client.id).socketsJoin(client.data.user.username);
+  }
   @SubscribeMessage('promote')
   async promoteMember(
     @ConnectedSocket() client: Socket,
