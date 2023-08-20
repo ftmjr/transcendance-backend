@@ -11,6 +11,7 @@ import {
   User,
   Role,
   Status,
+  PrivateMessage,
 } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { JoinRoomDto } from './dto/joinRoom.dto';
@@ -189,7 +190,6 @@ export class ChatRealtimeRepository {
       },
     });
   }
-
   async getMemberRooms(userId: number) {
     return await this.prisma.chatRoom.findMany({
       where: {
@@ -296,5 +296,9 @@ export class ChatRealtimeRepository {
   async updateChatRoomMember(params) {
     const { data, where } = params;
     return await this.prisma.chatRoomMember.update({ data, where });
+  }
+  async createPrivateMessage(params): Promise<PrivateMessage> {
+    const { data } = params;
+    return await this.prisma.privateMessage.create({ data });
   }
 }

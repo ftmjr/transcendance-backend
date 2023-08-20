@@ -9,7 +9,7 @@ import { JwtModule } from "@nestjs/jwt";
 
 @Module({
   providers: [ChatRealtimeRepository, ChatRealtimeService, ChatRealtimeGateway],
-  imports: [UsersModule, AuthModule, JwtModule],
+  imports: [UsersModule, AuthModule, JwtModule, UsersModule],
   controllers: [ChatRealtimeController],
 })
 export class ChatRealtimeModule {}

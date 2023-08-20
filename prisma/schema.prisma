@@ -154,10 +154,10 @@ model GeneralMessage {
 model PrivateMessage {
   id         Int    @id @default(autoincrement())
   text       String
-  sender     User   @relation(name: "sentMessages", fields: [senderId], references: [id], onDelete: Cascade)
-  receiver   User   @relation(name: "receivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
   senderId   Int
   receiverId Int
+  sender     User   @relation(name: "sentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User   @relation(name: "receivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
   timestamp  DateTime @default(now())
 }
 
