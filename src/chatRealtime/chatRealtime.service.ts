@@ -13,6 +13,7 @@ import { UserActionDto } from './dto/userAction.dto';
 import { WebSocketServer } from '@nestjs/websockets';
 import {Server, Socket} from 'socket.io';
 import * as argon from "argon2";
+import {UsersService} from "../users/users.service";
 
 function exclude<ChatRoom, Key extends keyof ChatRoom>(
   room: ChatRoom,
@@ -26,7 +27,10 @@ function exclude<ChatRoom, Key extends keyof ChatRoom>(
 
 @Injectable()
 export class ChatRealtimeService {
-  constructor(private repository: ChatRealtimeRepository) {}
+  constructor(
+    private repository: ChatRealtimeRepository,
+    private usersService: UsersService,
+  ) {}
   async getRooms({ skip, take }, userId: number) {
     const banRooms = await this.repository.findBanFrom(userId);
     const banRoomIds = banRooms.map((banRoom) => banRoom.chatroomId);
@@ -56,26 +60,60 @@ export class ChatRealtimeService {
     });
     return rooms.map((room) => exclude(room, ['password']));
   }
-  async getRoomMembers({ skip, take }, userId: number, roomId: number) {
-    const userMember = await this.repository.findMember(userId, roomId);
+  async filterRoomMembers(members, user) {
+    const blockedUserIds = user.blockedUsers.map(
+      (blockedUser) => blockedUser.blockedUserId,
+    );
+    const blockedFromIds = user.blockedFrom.map(
+      (blockedFrom) => blockedFrom.userId,
+    );
+    return members.filter((member) => {
+      return (
+        !blockedUserIds.includes(member.memberId) &&
+        !blockedFromIds.includes(member.memberId)
+      );
+    });
+  }
+  async filterMessages(messages, user) {
+    const blockedUserIds = user.blockedUsers.map(
+      (blockedUser) => blockedUser.blockedUserId,
+    );
+    const blockedFromIds = user.blockedFrom.map(
+      (blockedFrom) => blockedFrom.userId,
+    );
+    return messages.filter((message) => {
+      return (
+        !blockedUserIds.includes(message.userId) &&
+        !blockedFromIds.includes(message.userId)
+      );
+    });
+  }
+  async getRoomMembers({ skip, take }, user: any, roomId: number) {
+    const userMember = await this.repository.findMember(user.id, roomId);
     if (!userMember) {
       throw new UnauthorizedException('User not in the chat room');
     } else if (userMember.role === Role.BAN) {
       throw new UnauthorizedException('User is Ban');
     }
-    return await this.repository.getRoomMembers(roomId);
+    const members = await this.repository.getRoomMembers(roomId);
+    return await this.filterRoomMembers(members, user);
   }
-  async getRoomMessages({ skip, take }, userId: number, roomId: number) {
-    const userMember = await this.repository.findMember(userId, roomId);
+  async getRoomMessages({ skip, take }, user: any, roomId: number) {
+    const userMember = await this.repository.findMember(user.id, roomId);
     if (!userMember) {
       throw new UnauthorizedException('User not in the chat room');
     } else if (userMember.role === Role.BAN) {
       throw new UnauthorizedException('User is Ban');
     }
-    return await this.repository.getRoomMessages(roomId, { skip, take });
+    const messages = await this.repository.getRoomMessages(roomId, {
+      skip,
+      take,
+    });
+    return await this.filterMessages(messages, user);
   }
-  async getGeneralMessages({ skip, take }) {
-    return await this.repository.getGeneralMessages({ skip, take });
+  async getGeneralMessages({ skip, take }, user: any) {
+    const messages = await this.repository.getGeneralMessages({ skip, take });
+    return await this.filterMessages(messages, user);
   }
 
   async getRoomMember(userId: number, roomId: number) {
@@ -206,7 +244,8 @@ export class ChatRealtimeService {
     });
   }
 
-  async getGeneralMembers({ skip, take }) {
-    return await this.repository.getGeneralMembers({ skip, take });
+  async getGeneralMembers({ skip, take }, user: any) {
+    const members = await this.repository.getGeneralMembers({ skip, take });
+    return await this.filterRoomMembers(members, user);
   }
 }
