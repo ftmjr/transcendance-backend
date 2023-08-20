@@ -61,6 +61,7 @@ export class ChatRealtimeGateway
       return await this.handleDisconnect(client);
     }
     client.data.user = user;
+    console.log(client.data.user.blockedFrom);
   }
 
   async handleDisconnect(client: Socket) {
@@ -93,6 +94,23 @@ export class ChatRealtimeGateway
       createdMessage = await this.service.createRoomMessage(client, message);
     }
     this.server.to(client.data.room).emit('message', createdMessage);
+  }
+  @SubscribeMessage('filter')
+  filterBlockedMessages(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() message: any,
+  ) {
+    const { blockedFrom, blockedUsers } = client.data.user;
+    const isBlockedFrom = blockedFrom.some(
+      (blocked) => blocked.userId === message.userId,
+    );
+    const isBlockedUser = blockedUsers.some(
+      (blocked) => blocked.blockedUserId === message.userId,
+    );
+    if (isBlockedFrom || isBlockedUser) {
+      return;
+    }
+    this.server.to(client.id).emit('filter', message);
   }
   @SubscribeMessage('updateRooms')
   async updateRooms() {
