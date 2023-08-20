@@ -105,13 +105,9 @@ export class ChatRealtimeController {
     const take: number = parseInt(queryParams.take);
     const roomId: number = parseInt(id);
     if (roomId === 0) {
-      return await this.service.getGeneralMembers({ skip, take });
+      return await this.service.getGeneralMembers({ skip, take }, req.user);
     }
-    return await this.service.getRoomMembers(
-      { skip, take },
-      req.user.id,
-      roomId,
-    );
+    return await this.service.getRoomMembers({ skip, take }, req.user, roomId);
   }
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
@@ -127,11 +123,11 @@ export class ChatRealtimeController {
     const take: number = parseInt(queryParams.take);
     const roomId: number = parseInt(id);
     if (roomId === 0) {
-      return await this.service.getGeneralMessages({ skip, take });
+      return await this.service.getGeneralMessages({ skip, take }, req.user);
     }
     return await this.service.getRoomMessages(
       { skip, take },
-      req.user.id,
+      req.user,
       roomId,
     );
   }
