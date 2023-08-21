@@ -301,4 +301,23 @@ export class ChatRealtimeRepository {
     const { data } = params;
     return await this.prisma.privateMessage.create({ data });
   }
+
+  async getPrivateMessages({skip, take}, dmSenderId: number, dmReceiverId: number) {
+    return await this.prisma.privateMessage.findMany({
+      where: {
+        OR: [
+          {
+            senderId: dmSenderId,
+            receiverId: dmReceiverId,
+          },
+          {
+            senderId: dmReceiverId,
+            receiverId: dmSenderId,
+          },
+        ],
+      },
+      skip: skip,
+      take: take,
+    });
+  }
 }

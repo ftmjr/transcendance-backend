@@ -252,4 +252,8 @@ export class ChatRealtimeService {
     const members = await this.repository.getGeneralMembers({ skip, take });
     return await this.filterRoomMembers(members, user);
   }
+
+  async getPrivateMessages( {skip, take}, senderId: number, receiverId: number) {
+    return this.repository.getPrivateMessages({skip, take}, senderId, receiverId);
+  }
 }

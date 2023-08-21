@@ -148,4 +148,23 @@ export class ChatRealtimeController {
       roomId,
     );
   }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @ApiOperation({ summary: 'Retrieve all members of a room' })
+  @ApiResponse({ status: 200 })
+  @Get('dm/:id')
+  async getPrivateMessages(
+    @Request() req,
+    @Query() queryParams: PaginationQuery,
+    @Param('id') id: string,
+  ) {
+    const skip: number = parseInt(queryParams.skip);
+    const take: number = parseInt(queryParams.take);
+    return await this.service.getPrivateMessages(
+      { skip, take },
+      req.user.id,
+      parseInt(id),
+    );
+  }
 }
