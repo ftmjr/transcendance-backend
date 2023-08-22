@@ -81,9 +81,11 @@ export class ChatRealtimeGateway
         text: message,
       },
     });
-    this.server.to(client.data.user.username).emit('dm', newMessage);
+    this.server.to('user:' + client.data.user.username).emit('dm', newMessage);
     if (client.data.user.username !== client.data.receiverUsername) {
-      this.server.to(client.data.receiverUsername).emit('dm', newMessage);
+      this.server
+        .to('user:' + client.data.receiverUsername)
+        .emit('dm', newMessage);
     }
   }
 
@@ -93,7 +95,7 @@ export class ChatRealtimeGateway
     @MessageBody() receiverId: number,
   ) {
     client.data.receiverId = receiverId;
-    const receiver = await this.usersService.getUser({id: receiverId});
+    const receiver = await this.usersService.getUser({ id: receiverId });
     client.data.receiverUsername = receiver.username;
   }
 
@@ -108,7 +110,7 @@ export class ChatRealtimeGateway
     } else {
       createdMessage = await this.service.createRoomMessage(client, message);
     }
-    this.server.to(client.data.room).emit('message', createdMessage);
+    this.server.to('room:' + client.data.room).emit('message', createdMessage);
   }
   @SubscribeMessage('filter')
   filterBlockedMessages(
@@ -133,7 +135,7 @@ export class ChatRealtimeGateway
   }
   @SubscribeMessage('updateRoomMembers')
   async updateRoomMembers(@ConnectedSocket() client: Socket) {
-    this.server.to(client.data.room).emit('updateRoomMembers');
+    this.server.to('room' + client.data.room).emit('updateRoomMembers');
   }
   @SubscribeMessage('joinRoom')
   async joinRoom(
@@ -141,10 +143,10 @@ export class ChatRealtimeGateway
     @ConnectedSocket() client: Socket,
   ) {
     if (client.data.room) {
-      await this.server.in(client.id).socketsLeave(client.data.room);
+      await this.server.in(client.id).socketsLeave('room:' + client.data.room);
       client.data.room = null;
     }
-    await this.server.in(client.id).socketsJoin(roomName);
+    await this.server.in(client.id).socketsJoin('room:' + roomName);
     client.data.room = roomName;
   }
   @SubscribeMessage('kick')
@@ -178,7 +180,9 @@ export class ChatRealtimeGateway
   }
   @SubscribeMessage('joinUsers')
   async joinUsers(@ConnectedSocket() client: Socket) {
-    await this.server.in(client.id).socketsJoin(client.data.user.username);
+    await this.server
+      .in(client.id)
+      .socketsJoin('user:' + client.data.user.username);
   }
   @SubscribeMessage('promote')
   async promoteMember(
