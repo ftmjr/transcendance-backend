@@ -61,7 +61,7 @@ export class AuthController {
     @Response({ passthrough: true }) res,
     @Body() loginDto: LoginDto,
   ) {
-    return this.authService.loginAndRefreshTokens(req, res, req.user);
+    return this.authService.signInLocalUser(req, res, loginDto);
   }
 
   @Post('signup')

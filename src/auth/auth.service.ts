@@ -43,7 +43,8 @@ export class AuthService {
         name: signUpDto.firstName,
         lastName: signUpDto.lastName,
       });
-      return this.loginAndRefreshTokens(req, res, userCreated);
+      const user = await this.usersService.getUserWithData(userCreated);
+      return await this.loginAndRefreshTokens(req, res, user);
     } catch (err) {
       if (err?.code === 'P2002' && err?.meta?.target) {
         throw new ForbiddenException(`${err.meta?.target} already exists`);
