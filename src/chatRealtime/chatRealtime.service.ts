@@ -253,7 +253,15 @@ export class ChatRealtimeService {
     return await this.filterRoomMembers(members, user);
   }
 
-  async getPrivateMessages( {skip, take}, senderId: number, receiverId: number) {
-    return this.repository.getPrivateMessages({skip, take}, senderId, receiverId);
+  async getPrivateMessages(
+    { skip, take },
+    senderId: number,
+    receiverId: number,
+  ) {
+    return this.repository.getPrivateMessages(
+      { skip, take },
+      senderId,
+      receiverId,
+    );
   }
 }

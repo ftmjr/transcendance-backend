@@ -72,7 +72,7 @@ export class ChatRealtimeGateway
   @SubscribeMessage('dm')
   async newMessage(
     @ConnectedSocket() client: Socket,
-    @MessageBody() message: string
+    @MessageBody() message: string,
   ) {
     const newMessage = await this.service.createPrivateMessage({
       data: {

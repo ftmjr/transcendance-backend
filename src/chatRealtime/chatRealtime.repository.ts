@@ -15,8 +15,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { JoinRoomDto } from './dto/joinRoom.dto';
-import { UsersService } from "../users/users.service";
-
+import { UsersService } from '../users/users.service';
 
 @Injectable()
 export class ChatRealtimeRepository {
@@ -210,7 +209,11 @@ export class ChatRealtimeRepository {
         timestamp: 'asc',
       },
       include: {
-        user: true,
+        user: {
+          include: {
+            profile: true,
+          },
+        },
       },
       skip: skip,
       take: take,
@@ -222,7 +225,11 @@ export class ChatRealtimeRepository {
         timestamp: 'asc',
       },
       include: {
-        user: true,
+        user: {
+          include: {
+            profile: true,
+          },
+        },
       },
       skip: skip,
       take: take,
@@ -287,11 +294,29 @@ export class ChatRealtimeRepository {
   }
   async createRoomMessage(params): Promise<ChatRoomMessage> {
     const { data } = params;
-    return await this.prisma.chatRoomMessage.create({ data });
+    return await this.prisma.chatRoomMessage.create({
+      data,
+      include: {
+        user: {
+          include: {
+            profile: true,
+          },
+        },
+      },
+    });
   }
   async createGeneralMessage(params): Promise<GeneralMessage> {
     const { data } = params;
-    return await this.prisma.generalMessage.create({ data });
+    return await this.prisma.generalMessage.create({
+      data,
+      include: {
+        user: {
+          include: {
+            profile: true,
+          },
+        },
+      },
+    });
   }
   async updateChatRoomMember(params) {
     const { data, where } = params;
@@ -299,10 +324,23 @@ export class ChatRealtimeRepository {
   }
   async createPrivateMessage(params): Promise<PrivateMessage> {
     const { data } = params;
-    return await this.prisma.privateMessage.create({ data });
+    return await this.prisma.privateMessage.create({
+      data,
+      include: {
+        sender: {
+          include: {
+            profile: true,
+          },
+        },
+      },
+    });
   }
 
-  async getPrivateMessages({skip, take}, dmSenderId: number, dmReceiverId: number) {
+  async getPrivateMessages(
+    { skip, take },
+    dmSenderId: number,
+    dmReceiverId: number,
+  ) {
     return await this.prisma.privateMessage.findMany({
       where: {
         OR: [
@@ -315,6 +353,18 @@ export class ChatRealtimeRepository {
             receiverId: dmSenderId,
           },
         ],
+      },
+      include: {
+        sender: {
+          include: {
+            profile: true,
+          },
+        },
+        receiver: {
+          include: {
+            profile: true,
+          },
+        },
       },
       skip: skip,
       take: take,
