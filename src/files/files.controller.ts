@@ -42,6 +42,8 @@ export class FilesController {
             requestWithUser.user.id +
               '-' +
               requestWithUser.user.username +
+              '-' +
+              file.originalname +
               extension,
           );
         },
