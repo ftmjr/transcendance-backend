@@ -142,16 +142,12 @@ export class ChatRealtimeController {
     if (roomId === 0) {
       return await this.service.getGeneralMessages({ skip, take }, req.user);
     }
-    return await this.service.getRoomMessages(
-      { skip, take },
-      req.user,
-      roomId,
-    );
+    return await this.service.getRoomMessages({ skip, take }, req.user, roomId);
   }
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @ApiOperation({ summary: 'Retrieve all members of a room' })
+  @ApiOperation({ summary: 'Retrieve all messages of a dm' })
   @ApiResponse({ status: 200 })
   @Get('dm/:id')
   async getPrivateMessages(
