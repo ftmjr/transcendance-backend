@@ -9,7 +9,7 @@ import {
 } from '@prisma/client';
 import { UsersRepository } from './users.repository';
 import * as argon from 'argon2';
-import { FriendsService } from "../friends/friends.service";
+import { FriendsService } from '../friends/friends.service';
 
 function exclude<User, Key extends keyof User>(
   user: User,
@@ -223,6 +223,19 @@ export class UsersService {
     const users = await this.repository.getUsers(params);
     const allUsers = users.map((user) => exclude(user, ['password']));
     return await this.filterBlockedUsers(allUsers, user);
+  }
+  async getAllUsers(
+    params: {
+      skip?: number;
+      take?: number;
+      cursor?: Prisma.UserWhereUniqueInput;
+      where?: Prisma.UserWhereInput;
+      orderBy?: Prisma.UserOrderByWithRelationInput;
+      include?: Prisma.UserInclude;
+    },
+    user,
+  ) {
+    return await this.repository.getUsers(params);
   }
   async blockUser(userId: number, blockedUserId: number): Promise<BlockedUser> {
     try {

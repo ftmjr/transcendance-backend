@@ -54,6 +54,28 @@ export class UsersController {
       req.user,
     );
   }
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Get('all')
+  @ApiOperation({
+    summary: 'get all users',
+    description: `
+      - fetch all users from the database
+    `,
+  })
+  @ApiResponse({ status: 200, description: 'return an array of users' })
+  getAllUsers(@Request() req, @Query() queryParams: PaginationQuery) {
+    const skip: number = parseInt(queryParams.skip);
+    const take: number = parseInt(queryParams.take);
+    return this.usersService.getAllUsers(
+      {
+        skip,
+        take,
+        include: { profile: true, sessions: false, gameHistories: true },
+      },
+      req.user,
+    );
+  }
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
@@ -96,5 +118,25 @@ export class UsersController {
   unblockUser(@Request() req, @Param('id') id: string) {
     const blockUserId: number = parseInt(id);
     return this.usersService.unblockUser(req.user.id, blockUserId);
+  }
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Post('username/:username')
+  @ApiOperation({
+    summary: 'update a user username',
+    description: `
+      -tries to update the username
+    `,
+  })
+  @ApiResponse({ status: 200, description: 'return  the updated user' })
+  updateUsername(@Request() req, @Param('username') username: string) {
+    return this.usersService.updateUser({
+      where: {
+        id: req.user.id,
+      },
+      data: {
+        username: username,
+      },
+    });
   }
 }
