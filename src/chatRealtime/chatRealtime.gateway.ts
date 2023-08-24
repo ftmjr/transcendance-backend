@@ -135,7 +135,7 @@ export class ChatRealtimeGateway
   }
   @SubscribeMessage('updateRoomMembers')
   async updateRoomMembers(@ConnectedSocket() client: Socket) {
-    this.server.to('room' + client.data.room).emit('updateRoomMembers');
+    this.server.to('room:' + client.data.room).emit('updateRoomMembers');
   }
   @SubscribeMessage('joinRoom')
   async joinRoom(
@@ -161,7 +161,6 @@ export class ChatRealtimeGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() otherId: number,
   ) {
-    console.log(otherId);
     await this.service.muteChatRoomMember(otherId);
   }
   @SubscribeMessage('unmute')
