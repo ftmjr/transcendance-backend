@@ -7,7 +7,7 @@ import {
   UploadedFile,
   ParseFilePipe,
   FileTypeValidator,
-  MaxFileSizeValidator, Req,
+  MaxFileSizeValidator, Req, Delete,
 } from '@nestjs/common';
 import { FilesService } from './files.service';
 import { AuthenticatedGuard } from '../auth/guards';
@@ -77,5 +77,19 @@ export class FilesController {
       statusCode: 200,
       data: fileUrl,
     };
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Delete('avatar')
+  async randomizeAvatar(@Req() req) {
+    await this.usersService.updateProfile({
+      where: {
+        userId: req.user.id,
+      },
+      data: {
+        avatar: this.filesService.getRandomAvatarUrl(),
+      },
+    });
   }
 }
