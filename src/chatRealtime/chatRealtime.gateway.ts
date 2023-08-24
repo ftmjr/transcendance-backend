@@ -63,7 +63,6 @@ export class ChatRealtimeGateway
       return await this.handleDisconnect(client);
     }
     client.data.user = user;
-    client.data.user.username = user.username;
   }
 
   async handleDisconnect(client: Socket) {
@@ -92,10 +91,9 @@ export class ChatRealtimeGateway
   @SubscribeMessage('addReceiver')
   async addReceiver(
     @ConnectedSocket() client: Socket,
-    @MessageBody() receiverId: number,
+    @MessageBody() receiver,
   ) {
-    client.data.receiverId = receiverId;
-    const receiver = await this.usersService.getUser({ id: receiverId });
+    client.data.receiverId = receiver.id;
     client.data.receiverUsername = receiver.username;
   }
 
