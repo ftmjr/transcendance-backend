@@ -208,11 +208,12 @@ export class UsersService {
       (blockedFrom) => blockedFrom.userId,
     );
 
-    return users.filter((user) => {
+    const blockedUsers = users.filter((user) => {
       return (
         !blockedUserIds.includes(user.id) && !blockedFromIds.includes(user.id)
       );
     });
+    return blockedUsers.map((user) => exclude(user, ['password']));
   }
 
   async getUsers(

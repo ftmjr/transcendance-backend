@@ -264,4 +264,8 @@ export class ChatRealtimeService {
       receiverId,
     );
   }
+  async getConversations(userId: number) {
+    const conversations = await this.repository.getConversations(userId);
+    return conversations.map((user) => exclude(user, ['password']));
+  }
 }

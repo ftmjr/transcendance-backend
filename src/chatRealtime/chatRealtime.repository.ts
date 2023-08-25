@@ -370,4 +370,38 @@ export class ChatRealtimeRepository {
       take: take,
     });
   }
+  async getConversations(userId: number) {
+    const privateMessages = await this.prisma.privateMessage.findMany({
+      where: {
+        OR: [
+          {
+            senderId: userId,
+          },
+          {
+            receiverId: userId,
+          },
+        ],
+      },
+      select: {
+        senderId: true,
+        receiverId: true,
+      },
+    });
+    const distinctUserIds = [
+      ...new Set([
+        ...privateMessages.map((message) => message.senderId),
+        ...privateMessages.map((message) => message.receiverId),
+      ]),
+    ];
+    return this.prisma.user.findMany({
+      where: {
+        id: {
+          in: distinctUserIds,
+        },
+      },
+      include: {
+        profile: true,
+      },
+    });
+  }
 }
