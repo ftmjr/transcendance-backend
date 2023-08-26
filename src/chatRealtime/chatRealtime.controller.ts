@@ -91,23 +91,6 @@ export class ChatRealtimeController {
     const roomId = parseInt(id);
     return await this.service.leaveRoom(req.user, roomId);
   }
-  // @UseGuards(AuthenticatedGuard)
-  // @ApiBearerAuth()
-  // @Delete('leave/:id')
-  // @ApiOperation({
-  //   summary: 'Leaves a chat room permanently',
-  //   description: `
-  //     - to be defined
-  //   `,
-  // })
-  // @ApiResponse({ status: 200, description: `- Chatroom left',` })
-  // async leaveRoom(@Request() req, @Param('id') id: string) {
-  //   const roomId = parseInt(id);
-  //   const oldMember = await this.service.leaveRoom(req.user, roomId);
-  //   if (oldMember) {
-  //     this.service.emitOn('updateRoomMembers');
-  //   }
-  // }
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
   @ApiOperation({ summary: 'Retrieve all members of a room' })
@@ -162,5 +145,13 @@ export class ChatRealtimeController {
       req.user.id,
       parseInt(id),
     );
+  }
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @ApiOperation({ summary: 'Retrieve all dm conversations of a user' })
+  @ApiResponse({ status: 200 })
+  @Get('dm')
+  async getConversations(@Request() req) {
+    return await this.service.getConversations(req.user.id);
   }
 }

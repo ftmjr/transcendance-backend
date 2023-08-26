@@ -6,6 +6,8 @@ import {
   User,
   Profile,
   ContactRequest,
+  Game,
+  GameEvent,
 } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -166,6 +168,23 @@ export class UsersRepository {
           include: {
             profile: true,
           },
+        },
+      },
+    });
+  }
+  async getUsersOrderedByWins() {
+    return this.prisma.user.findMany({
+      include: {
+        gameHistories: {
+          where: {
+            event: GameEvent.MATCH_WON,
+          },
+        },
+        profile: true,
+      },
+      orderBy: {
+        gameHistories: {
+          _count: 'desc',
         },
       },
     });

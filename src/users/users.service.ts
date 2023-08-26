@@ -21,17 +21,24 @@ function exclude<User, Key extends keyof User>(
   return user;
 }
 
-function getRandomSpiderManAvatarUrl(): string {
+function getRandomAvatarUrl(): string {
+  const serverBaseUrl = 'https://' + process.env.URL + '/api';
   const list = [
-    'https://cdn-icons-png.flaticon.com/512/1090/1090806.png',
-    'https://cdn-icons-png.flaticon.com/512/1610/1610778.png',
-    'https://cdn-icons-png.flaticon.com/512/1610/1610747.png',
-    'https://cdn-icons-png.flaticon.com/512/1610/1610716.png',
-    'https://cdn-icons-png.flaticon.com/512/1674/1674456.png',
-    'https://cdn-icons-png.flaticon.com/512/1674/1674213.png',
-    'https://cdn-icons-png.flaticon.com/512/10941/10941706.png',
+    'randomAvatars/icons8-bart-simpson-500.png',
+    'randomAvatars/icons8-batman-500.png',
+    'randomAvatars/icons8-character-500.png',
+    'randomAvatars/icons8-deadpool-500.png',
+    'randomAvatars/icons8-dj-500.png',
+    'randomAvatars/icons8-finn-500.png',
+    'randomAvatars/icons8-futurama-bender-500.png',
+    'randomAvatars/icons8-homer-simpson-500.png',
+    'randomAvatars/icons8-lisa-simpson-500.png',
+    'randomAvatars/icons8-marge-simpson-500.png',
+    'randomAvatars/icons8-owl-500.png',
+    'randomAvatars/icons8-unicorn-500.png',
   ];
-  return list[Math.floor(Math.random() * list.length)];
+  const image = list[Math.floor(Math.random() * list.length)];
+  return `${serverBaseUrl}/${image}`;
 }
 
 @Injectable()
@@ -95,7 +102,7 @@ export class UsersService {
           create: {
             name: params.name,
             lastname: params.lastName,
-            avatar: params.avatar ?? getRandomSpiderManAvatarUrl(),
+            avatar: params.avatar ?? getRandomAvatarUrl(),
             bio: params.bio,
           },
         },
@@ -201,11 +208,12 @@ export class UsersService {
       (blockedFrom) => blockedFrom.userId,
     );
 
-    return users.filter((user) => {
+    const blockedUsers = users.filter((user) => {
       return (
         !blockedUserIds.includes(user.id) && !blockedFromIds.includes(user.id)
       );
     });
+    return blockedUsers.map((user) => exclude(user, ['password']));
   }
 
   async getUsers(
@@ -224,18 +232,16 @@ export class UsersService {
     const allUsers = users.map((user) => exclude(user, ['password']));
     return await this.filterBlockedUsers(allUsers, user);
   }
-  async getAllUsers(
-    params: {
-      skip?: number;
-      take?: number;
-      cursor?: Prisma.UserWhereUniqueInput;
-      where?: Prisma.UserWhereInput;
-      orderBy?: Prisma.UserOrderByWithRelationInput;
-      include?: Prisma.UserInclude;
-    },
-    user,
-  ) {
-    return await this.repository.getUsers(params);
+  async getAllUsers(params: {
+    skip?: number;
+    take?: number;
+    cursor?: Prisma.UserWhereUniqueInput;
+    where?: Prisma.UserWhereInput;
+    orderBy?: Prisma.UserOrderByWithRelationInput;
+    include?: Prisma.UserInclude;
+  }) {
+    const users = await this.repository.getUsers(params);
+    return users.map((user) => exclude(user, ['password']));
   }
   async blockUser(userId: number, blockedUserId: number): Promise<BlockedUser> {
     try {
@@ -372,5 +378,9 @@ export class UsersService {
         status: status,
       },
     });
+  }
+  async getUsersOrderedByWins() {
+    const users = await this.repository.getUsersOrderedByWins();
+    return users.map((user) => exclude(user, ['password']));
   }
 }

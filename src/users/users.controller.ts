@@ -1,4 +1,5 @@
 import {
+  ConflictException,
   Controller,
   Delete,
   Get,
@@ -73,7 +74,6 @@ export class UsersController {
         take,
         include: { profile: true, sessions: false, gameHistories: true },
       },
-      req.user,
     );
   }
 
@@ -130,6 +130,9 @@ export class UsersController {
   })
   @ApiResponse({ status: 200, description: 'return  the updated user' })
   updateUsername(@Request() req, @Param('username') username: string) {
+    if (username.startsWith('42-')) {
+      throw new ConflictException('Username starting with 42- not allowed!');
+    }
     return this.usersService.updateUser({
       where: {
         id: req.user.id,
@@ -138,5 +141,15 @@ export class UsersController {
         username: username,
       },
     });
+  }
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Get('leaderboard')
+  @ApiOperation({
+    summary: 'Get users ordered by game wins',
+  })
+  @ApiResponse({ status: 200, description: 'return the users leaderboard' })
+  async getUsersOrderedByWins() {
+    return await this.usersService.getUsersOrderedByWins();
   }
 }
