@@ -1,4 +1,4 @@
-import { Logger, UseGuards } from '@nestjs/common';
+import {Body, Logger, UseGuards} from '@nestjs/common';
 import {
   SubscribeMessage,
   WebSocketGateway,
@@ -187,5 +187,16 @@ export class ChatRealtimeGateway
     @MessageBody() otherId: number,
   ) {
     await this.service.promoteChatRoomMember(otherId);
+  }
+  @SubscribeMessage('game')
+  async linkUsernameToGame(@ConnectedSocket() client: Socket) {
+    this.server.in(client.id).socketsJoin('game:' + client.data.user.username);
+  }
+  @SubscribeMessage('game-invite')
+  async inviteToPlay(
+    @Body() username: string,
+    @ConnectedSocket() client: Socket,
+  ) {
+    this.server.to('game:' + username).emit('game-invite', client.data.user);
   }
 }
