@@ -199,4 +199,12 @@ export class ChatRealtimeGateway
   ) {
     this.server.to('game:' + username).emit('game-invite', client.data.user);
   }
+  @SubscribeMessage('game-accept')
+  async acceptToPlay(@Body() username: string,) {
+    this.server.to('game:' + username).emit('game-accept');
+  }
+  @SubscribeMessage('game-reject')
+  async rejectToPlay(@Body() username: string) {
+    this.server.to('game:' + username).emit('game-reject');
+  }
 }
