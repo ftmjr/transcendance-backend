@@ -32,6 +32,7 @@ export class ChatRealtimeGateway
       return this.handleDisconnect(client);
     }
     client.data.user = user;
+    client.data.room = 'General';
     this.server.in(client.id).socketsJoin('user:' + user.username);
   }
 
