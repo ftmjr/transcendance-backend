@@ -1,4 +1,4 @@
-import {Body, Logger, UseGuards} from '@nestjs/common';
+import { Body, Logger } from '@nestjs/common';
 import {
   SubscribeMessage,
   WebSocketGateway,
@@ -14,10 +14,6 @@ import {
   ClientToServerEvents,
 } from './interfaces/chat.interface';
 import { ChatRealtimeService } from './chatRealtime.service';
-import { JwtService } from '@nestjs/jwt';
-import { AuthService, JwtPayload } from '../auth/auth.service';
-import { MessageDto } from './dto';
-import {UsersService} from "../users/users.service";
 
 @WebSocketGateway({ namespace: 'chat' })
 export class ChatRealtimeGateway
@@ -27,42 +23,16 @@ export class ChatRealtimeGateway
     ServerToClientEvents,
     ClientToServerEvents
   >();
-  constructor(
-    private service: ChatRealtimeService,
-    private authService: AuthService,
-    private jwt: JwtService,
-    private usersService: UsersService,
-  ) {}
+  constructor(private service: ChatRealtimeService) {}
   private logger = new Logger('ChatRealtimeGateway');
-
-  async decodeJwtToken(token: string): Promise<JwtPayload | null> {
-    try {
-      const decodedToken = this.jwt.verify(token, {
-        secret: process.env.JWT_SECRET,
-      }) as JwtPayload;
-      return decodedToken;
-    } catch (error) {
-      console.error('Error decoding JWT token:', error);
-      return null;
-    }
-  }
-  async handleConnection(@ConnectedSocket() client, ...args: any[]) {
+  handleConnection(@ConnectedSocket() client, ...args: any[]) {
     this.logger.log(`Client connected : ${client.id}`);
-    if (!client.handshake.headers.authorization) {
-      return await this.handleDisconnect(client);
-    }
-    const token = client.handshake.headers.authorization.split(' ')[1];
-    const decodedToken = await this.decodeJwtToken(token);
-
-    if (!decodedToken) {
-      return await this.handleDisconnect(client);
-    }
-    const { userId, sessionId } = decodedToken.sub;
-    const user = await this.authService.getUserFromJwt(userId, sessionId);
+    const user = client.handshake.auth.user;
     if (!user) {
-      return await this.handleDisconnect(client);
+      return this.handleDisconnect(client);
     }
     client.data.user = user;
+    this.server.in(client.id).socketsJoin('user:' + user.username);
   }
 
   async handleDisconnect(client: Socket) {
@@ -175,12 +145,6 @@ export class ChatRealtimeGateway
   ) {
     await this.service.banChatRoomMember(otherId);
   }
-  @SubscribeMessage('joinUsers')
-  async joinUsers(@ConnectedSocket() client: Socket) {
-    await this.server
-      .in(client.id)
-      .socketsJoin('user:' + client.data.user.username);
-  }
   @SubscribeMessage('promote')
   async promoteMember(
     @ConnectedSocket() client: Socket,
@@ -200,7 +164,7 @@ export class ChatRealtimeGateway
     this.server.to('game:' + username).emit('game-invite', client.data.user);
   }
   @SubscribeMessage('game-accept')
-  async acceptToPlay(@Body() username: string,) {
+  async acceptToPlay(@Body() username: string) {
     this.server.to('game:' + username).emit('game-accept');
   }
   @SubscribeMessage('game-reject')
