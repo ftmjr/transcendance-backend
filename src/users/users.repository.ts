@@ -177,15 +177,13 @@ export class UsersRepository {
       include: {
         gameHistories: {
           where: {
-            event: GameEvent.MATCH_WON,
+            OR: [
+              { event: GameEvent.MATCH_WON },
+              { event: GameEvent.MATCH_LOST }, // Add this line
+            ],
           },
         },
         profile: true,
-      },
-      orderBy: {
-        gameHistories: {
-          _count: 'desc',
-        },
       },
     });
   }

@@ -43,8 +43,7 @@ export class FilesController {
               '-' +
               requestWithUser.user.username +
               '-' +
-              file.originalname +
-              extension,
+              file.originalname
           );
         },
       }),

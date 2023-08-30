@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import {
   BlockedUser,
+  GameEvent,
   Prisma,
   Profile,
   Session,
@@ -381,6 +382,13 @@ export class UsersService {
   }
   async getUsersOrderedByWins() {
     const users = await this.repository.getUsersOrderedByWins();
-    return users.map((user) => exclude(user, ['password']));
+    const usersNoPasswords = users.map((user) => exclude(user, ['password']));
+    const usersWithScore = usersNoPasswords.map(user => {
+      const wins = user.gameHistories.filter(history => history.event === GameEvent.MATCH_WON).length;
+      const loss = user.gameHistories.filter(history => history.event === GameEvent.MATCH_LOST).length;
+      const score = wins - loss
+      return { ...user, score };
+    });
+    return usersWithScore.sort((a, b) => b.score - a.score);
   }
 }
