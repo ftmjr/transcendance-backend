@@ -57,8 +57,22 @@ export class ChatRealtimeController {
   })
   @ApiResponse({ status: 200, description: `- Chatroom created',` })
   async createRoom(@Body() createRoomDto: CreateRoomDto) {
-    console.log(createRoomDto);
     return await this.service.createRoom(createRoomDto);
+  }
+  @UseGuards(AuthenticatedGuard)
+  @ApiBearerAuth()
+  @Post('password/:id')
+  @ApiOperation({
+    summary: 'Update a chat room',
+    description: `
+      - Returns the updated chat room
+    `,
+  })
+  @ApiResponse({ status: 200, description: `- Chatroom updated',` })
+  async updateRoom(@Request() req, @Param('id') id: string, @Body() data) {
+    const roomId = parseInt(id);
+    console.log(data.password);
+    return await this.service.updateRoom(req.user.id, roomId, data.password);
   }
   @UseGuards(AuthenticatedGuard)
   @ApiBearerAuth()

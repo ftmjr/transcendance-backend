@@ -1,17 +1,9 @@
 import {Injectable, NotFoundException, UnauthorizedException} from '@nestjs/common';
 import { ChatRealtimeRepository } from './chatRealtime.repository';
 import { CreateRoomDto } from './dto/createRoom.dto';
-import { Status, Prisma, User, Role } from '@prisma/client';
-import {
-  ClientToServerEvents,
-  NewRoom,
-  ServerToClientEvents,
-} from './interfaces/chat.interface';
+import { Prisma, User, Role } from '@prisma/client';
 import { JoinRoomDto } from './dto/joinRoom.dto';
-import { ChatRealtimeGateway } from './chatRealtime.gateway';
-import { UserActionDto } from './dto/userAction.dto';
-import { WebSocketServer } from '@nestjs/websockets';
-import {Server, Socket} from 'socket.io';
+import { Socket } from 'socket.io';
 import * as argon from "argon2";
 import {UsersService} from "../users/users.service";
 
@@ -131,6 +123,23 @@ export class ChatRealtimeService {
       data.password = await argon.hash(newRoom.password);
     }
     return await this.repository.createRoom({ data }, newRoom.ownerId);
+  }
+
+  async updateRoom(userId: number, roomId: number, password: string) {
+    const member = await this.verifyMember(userId, roomId);
+    if (!member || member.role !== Role.OWNER) {
+      throw new UnauthorizedException('User is not the owner of the room')
+    }
+    const hashedPassword = password === '' ? '' : await argon.hash(password);
+    return await this.repository.updateRoom({
+      where: {
+        id: roomId,
+      },
+      data: {
+        password: hashedPassword,
+        protected: password === '' ? false: true,
+      }
+    });
   }
 
   async leaveRoom(user: User, roomId: number) {

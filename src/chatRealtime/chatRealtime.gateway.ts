@@ -86,7 +86,9 @@ export class ChatRealtimeGateway
     @ConnectedSocket() client: Socket,
     @MessageBody() message: any,
   ) {
+    console.log(message.userId);
     const { blockedFrom, blockedUsers } = client.data.user;
+    console.log( blockedFrom, blockedUsers );
     const isBlockedFrom = blockedFrom.some(
       (blocked) => blocked.userId === message.userId,
     );
@@ -172,4 +174,12 @@ export class ChatRealtimeGateway
   async rejectToPlay(@Body() username: string) {
     this.server.to('game:' + username).emit('game-reject');
   }
+  @SubscribeMessage('update-user')
+  async updateUser(
+      @ConnectedSocket() client: Socket,
+      @MessageBody() username,
+  ) {
+      this.server.to('user:' + username).emit('update-user');
+  }
+
 }

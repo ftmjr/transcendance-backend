@@ -184,6 +184,7 @@ export class ChatRealtimeRepository {
         member: {
           include: {
             profile: true,
+            gameHistories: true,
           },
         },
       },
@@ -246,6 +247,7 @@ export class ChatRealtimeRepository {
         member: {
           include: {
             profile: true,
+            gameHistories: true,
           },
         },
       },
@@ -404,4 +406,7 @@ export class ChatRealtimeRepository {
       },
     });
   }
+    async updateRoom(params: {where, data}) {
+      return await this.prisma.chatRoom.update(params)
+    }
 }
