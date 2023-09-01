@@ -166,6 +166,6 @@ export class ChatRealtimeController {
   @ApiResponse({ status: 200 })
   @Get('dm')
   async getConversations(@Request() req) {
-    return await this.service.getConversations(req.user.id);
+    return await this.service.getConversations(req.user);
   }
 }
