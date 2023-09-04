@@ -251,7 +251,7 @@ export class UsersService {
     } catch (e) {
       // Nothing to be done if there was an error
     }
-    return this.repository.blockUser(userId, blockedUserId);
+    return await this.repository.blockUser(userId, blockedUserId);
   }
   async unblockUser(
     userId: number,

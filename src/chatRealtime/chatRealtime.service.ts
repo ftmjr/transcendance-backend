@@ -1,19 +1,15 @@
-import {Injectable, NotFoundException, UnauthorizedException} from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ChatRealtimeRepository } from './chatRealtime.repository';
 import { CreateRoomDto } from './dto/createRoom.dto';
-import { Status, Prisma, User, Role } from '@prisma/client';
-import {
-  ClientToServerEvents,
-  NewRoom,
-  ServerToClientEvents,
-} from './interfaces/chat.interface';
+import { Prisma, User, Role } from '@prisma/client';
 import { JoinRoomDto } from './dto/joinRoom.dto';
-import { ChatRealtimeGateway } from './chatRealtime.gateway';
-import { UserActionDto } from './dto/userAction.dto';
-import { WebSocketServer } from '@nestjs/websockets';
-import {Server, Socket} from 'socket.io';
-import * as argon from "argon2";
-import {UsersService} from "../users/users.service";
+import { Socket } from 'socket.io';
+import * as argon from 'argon2';
+import { UsersService } from '../users/users.service';
 
 function exclude<ChatRoom, Key extends keyof ChatRoom>(
   room: ChatRoom,
@@ -35,7 +31,9 @@ export class ChatRealtimeService {
     const banRooms = await this.repository.findBanFrom(userId);
     const banRoomIds = banRooms.map((banRoom) => banRoom.chatroomId);
     const userMemberships = await this.repository.getMemberRooms(userId);
-    const userMembershipRoomIds = userMemberships.map((membership) => membership.id);
+    const userMembershipRoomIds = userMemberships.map(
+      (membership) => membership.id,
+    );
     const rooms = await this.repository.getRooms({
       where: {
         OR: [
@@ -131,6 +129,23 @@ export class ChatRealtimeService {
       data.password = await argon.hash(newRoom.password);
     }
     return await this.repository.createRoom({ data }, newRoom.ownerId);
+  }
+
+  async updateRoom(userId: number, roomId: number, password: string) {
+    const member = await this.verifyMember(userId, roomId);
+    if (!member || member.role !== Role.OWNER) {
+      throw new UnauthorizedException('User is not the owner of the room');
+    }
+    const hashedPassword = password === '' ? '' : await argon.hash(password);
+    return await this.repository.updateRoom({
+      where: {
+        id: roomId,
+      },
+      data: {
+        password: hashedPassword,
+        protected: password !== '',
+      },
+    });
   }
 
   async leaveRoom(user: User, roomId: number) {
@@ -264,8 +279,24 @@ export class ChatRealtimeService {
       receiverId,
     );
   }
-  async getConversations(userId: number) {
-    const conversations = await this.repository.getConversations(userId);
-    return conversations.map((user) => exclude(user, ['password']));
+
+  async filterConversations(users, user) {
+    const blockedUserIds = user.blockedUsers.map(
+      (blockedUser) => blockedUser.blockedUserId,
+    );
+    const blockedFromIds = user.blockedFrom.map(
+      (blockedFrom) => blockedFrom.userId,
+    );
+    return users.filter((member) => {
+      return (
+        !blockedUserIds.includes(member.id) &&
+        !blockedFromIds.includes(member.id)
+      );
+    });
+  }
+  async getConversations(user: User) {
+    const conversations = await this.repository.getConversations(user.id);
+    const users = conversations.map((user) => exclude(user, ['password']));
+    return this.filterConversations(users, user);
   }
 }
