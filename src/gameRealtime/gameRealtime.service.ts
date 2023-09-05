@@ -23,6 +23,9 @@ export class GameRealtimeService {
     if (data.roomId === 0) {
       return this.handleJoiningAWaitingGame(data);
     }
+    if (data.roomId === 9999) {
+      return this.handleJoiningInviteGame(data);
+    }
     const gameSession = this.currentManagedGames.find(
       (g) => g.gameId === data.roomId,
     );
@@ -53,6 +56,23 @@ export class GameRealtimeService {
       new Map(),
       data.userType === GameUserType.Player
         ? OnlineGameStates.Waiting
+        : OnlineGameStates.Playing_with_bot,
+    );
+  }
+
+  async handleJoiningInviteGame(data: JoinGameData): Promise<GameSession> {
+    const gameSession = this.currentManagedGames.find(
+      (g) => g.state === OnlineGameStates.Invite,
+    );
+    if (gameSession && data.userType === GameUserType.Player) {
+      // add player to existing game or return existing game if player is already in it
+      return await this.addPlayerToInviteGameSession(gameSession, data.user);
+    }
+    return await this.createAGameSession(
+      new Map([[data.user.userId, { ...data.user, isHost: true }]]),
+      new Map(),
+      data.userType === GameUserType.Player
+        ? OnlineGameStates.Invite
         : OnlineGameStates.Playing_with_bot,
     );
   }
@@ -89,6 +109,21 @@ export class GameRealtimeService {
       return gameSession;
     }
     if (gameSession.state === OnlineGameStates.Waiting) {
+      return await this.addPlayerToGameSession(gameSession, user);
+    }
+  }
+
+  async addPlayerToInviteGameSession(
+    gameSession: GameSession,
+    user: Gamer,
+  ): Promise<GameSession> {
+    if (
+      gameSession.participants.has(user.userId) ||
+      gameSession.observers.has(user.userId)
+    ) {
+      return gameSession;
+    }
+    if (gameSession.state === OnlineGameStates.Invite) {
       return await this.addPlayerToGameSession(gameSession, user);
     }
   }

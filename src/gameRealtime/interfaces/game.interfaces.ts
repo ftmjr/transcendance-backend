@@ -22,6 +22,7 @@ export enum OnlineGameStates {
   Playing,
   Playing_with_bot,
   Finished,
+  Invite,
 }
 
 export interface GameSession {
