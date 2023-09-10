@@ -29,6 +29,8 @@ import { AuthenticatedGuard } from './guards';
 import { ILoginData } from './interfaces';
 import { UsersService } from '../users/users.service';
 import { TwoFaDto } from './dto/twoFa.dto';
+import { UpdatePasswordDto } from './dto/modifyPassword.dto';
+import { UpdateUserInfoDto } from './dto/updateUserInfo.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -232,12 +234,7 @@ export class AuthController {
       statusCode: 302,
     };
   }
-  //
-  // // Two-factor auth
-  // @Post('twofactor/verify')
-  // async verifyTwoFactorAuth(@Request() req, @Body('token') token: string) {
-  //   return this.authService.checkTwoFactor(req, req.user);
-  // }
+
   @Post('2fa/turn-on')
   @UseGuards(AuthenticatedGuard)
   @ApiBearerAuth()
@@ -297,6 +294,17 @@ export class AuthController {
     );
   }
 
+  @Post('2fa/turn-off')
+  @UseGuards(AuthenticatedGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Disable 2FA',
+    description: 'Set "two"twoFactorEnabled" to false,',
+  })
+  async turnOffTwoFactorAuthentication(@Req() request) {
+    return this.usersService.turnOffTwoFactorAuthentication(request.user.id);
+  }
+
   @UseGuards(AuthenticatedGuard)
   @ApiBearerAuth()
   @ApiOperation({
@@ -307,14 +315,35 @@ export class AuthController {
     return request.user;
   }
 
+  @Post('updatePassword')
   @UseGuards(AuthenticatedGuard)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Test of a protected route for a logged in user',
+    summary: 'modify User password to a new one',
+    description: 'return true when it is done',
   })
-  @Get('pizza')
-  async getPizza(@Request() req) {
-    console.log(req.user);
-    return 'Free pizza';
+  async modifyPassword(@Req() request, @Body() body: UpdatePasswordDto) {
+    return this.authService.modifyPassword(request.user, body);
+  }
+
+  @Post('updateInfo')
+  @UseGuards(AuthenticatedGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'modify User info, firstName, lastName and biography',
+    description: 'return user',
+  })
+  async modifyUserInfo(@Req() request, @Body() body: UpdateUserInfoDto) {
+    return this.authService.updateUserInfo(request.user, body);
+  }
+
+  @UseGuards(AuthenticatedGuard)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Return last user sessions',
+  })
+  @Get('sessions')
+  async getLastSessions(@Request() request) {
+    return this.authService.getLastSessions(request.user.userId);
   }
 }

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { FriendsRepository } from './friends.repository';
 import { UsersService } from '../users/users.service';
-import {InvalidRequestError} from "express-oauth2-jwt-bearer";
+import { InvalidRequestError } from 'express-oauth2-jwt-bearer';
 
 @Injectable()
 export class FriendsService {
@@ -15,10 +15,10 @@ export class FriendsService {
   async getReceivedFriendRequests(userId: number) {
     return this.repository.getReceivedFriendRequests(userId);
   }
-  async removeFriend(userId: number, friendId: number){
+  async removeFriend(userId: number, friendId: number) {
     return this.repository.removeFriend(userId, friendId);
   }
-  async removeRequest(userId: number, friendId: number){
+  async removeRequest(userId: number, friendId: number) {
     return this.repository.removeRequest(userId, friendId);
   }
   async addFriendRequest(userId: number, friendId: number) {

@@ -12,7 +12,6 @@ import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { FriendsModule } from './friends/friends.module';
 
-
 @Module({
   imports: [
     PrismaModule,

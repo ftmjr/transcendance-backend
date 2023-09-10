@@ -1,8 +1,18 @@
-import {Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request} from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Patch,
+  Param,
+  Delete,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { FriendsService } from './friends.service';
-import {ApiBearerAuth, ApiOperation} from "@nestjs/swagger";
-import {AuthenticatedGuard} from "../auth/guards";
-import {UsersService} from "../users/users.service";
+import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { AuthenticatedGuard } from '../auth/guards';
+import { UsersService } from '../users/users.service';
 
 @Controller('friends')
 export class FriendsController {

@@ -3,7 +3,7 @@ import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { UsersRepository } from './users.repository';
-import { FriendsModule } from "../friends/friends.module";
+import { FriendsModule } from '../friends/friends.module';
 
 @Module({
   imports: [PrismaModule, FriendsModule],

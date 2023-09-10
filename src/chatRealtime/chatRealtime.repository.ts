@@ -406,7 +406,7 @@ export class ChatRealtimeRepository {
       },
     });
   }
-    async updateRoom(params: {where, data}) {
-      return await this.prisma.chatRoom.update(params)
-    }
+  async updateRoom(params: { where; data }) {
+    return await this.prisma.chatRoom.update(params);
+  }
 }

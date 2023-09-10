@@ -68,13 +68,11 @@ export class UsersController {
   getAllUsers(@Request() req, @Query() queryParams: PaginationQuery) {
     const skip: number = parseInt(queryParams.skip);
     const take: number = parseInt(queryParams.take);
-    return this.usersService.getAllUsers(
-      {
-        skip,
-        take,
-        include: { profile: true, sessions: false, gameHistories: true },
-      },
-    );
+    return this.usersService.getAllUsers({
+      skip,
+      take,
+      include: { profile: true, sessions: false, gameHistories: true },
+    });
   }
 
   @ApiBearerAuth()

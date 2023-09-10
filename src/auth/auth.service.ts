@@ -3,7 +3,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import {Status, User} from '@prisma/client';
+import { Status, User } from '@prisma/client';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto, SignupDto } from './dto';
@@ -13,12 +13,15 @@ import { ILoginData, OauthData, Tokens } from './interfaces';
 import { UsersService } from '../users/users.service';
 import { authenticator } from 'otplib';
 import { toDataURL } from 'qrcode';
+import { UpdatePasswordDto } from './dto/modifyPassword.dto';
+import { UpdateUserInfoDto } from './dto/updateUserInfo.dto';
 
 export interface JwtPayload {
   email: string;
   sub: {
     userId: number;
     sessionId: number;
+    needToPassTwoFactor: boolean;
   };
 }
 
@@ -150,7 +153,13 @@ export class AuthService {
       userAgent: userAgent,
       expiresAt: new Date(),
     });
-    const tokens = await this.getTokens(user.email, user.id, session.id);
+    const needTwoFactor = user.twoFactorEnabled;
+    const tokens = await this.getTokens(
+      user.email,
+      user.id,
+      session.id,
+      needTwoFactor,
+    ); // for the first login we sent  token that contain a 2FA flag
     await this.refreshSession(session.id, tokens.refreshToken, res);
     const userWithoutPassword = this.usersService.removePassword(user);
     await this.usersService.changeStatus(user.id, Status.Online);
@@ -189,9 +198,64 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
+    console.log(`user Id:`, user.id);
     return user;
   }
 
+  async modifyPassword(user: User, data: UpdatePasswordDto) {
+    const isValid = await argon.verify(user.password, data.currentPassword);
+    if (!isValid) {
+      throw new UnauthorizedException('Invalid credentials, wrong password');
+    }
+    if (data.newPassword !== data.confirmPassword) {
+      throw new ForbiddenException(
+        'new password and confirm password mismatch',
+      );
+    }
+    const hashedPassword = await argon.hash(data.newPassword);
+    return this.usersService.updateUser({
+      where: { id: user.id },
+      data: { password: hashedPassword },
+      include: {
+        profile: true,
+        blockedUsers: true,
+        blockedFrom: true,
+      },
+    });
+  }
+
+  async updateUserInfo(user: User, data: UpdateUserInfoDto) {
+    try {
+      return this.usersService.updateUser({
+        where: { id: user.id },
+        data: {
+          username: data.userName ?? user.username,
+          profile: {
+            update: {
+              name: data.firstName,
+              lastname: data.lastName,
+              bio: data.bio,
+            },
+          },
+        },
+        include: {
+          profile: true,
+          blockedUsers: true,
+          blockedFrom: true,
+        },
+      });
+    } catch (err) {
+      if (err?.code === 'P2002' && err?.meta?.target) {
+        throw new ForbiddenException(`${err.meta?.target} already exists`);
+      } else {
+        throw err;
+      }
+    }
+  }
+
+  async getLastSessions(userId: number) {
+    return this.usersService.getAllUserSessions({ userId, limit: 10 });
+  }
   async refreshSession(sessionId: number, refreshToken: string, res: Response) {
     const data = this.jwtService.decode(refreshToken);
     const expiresAt = new Date((data as any).exp * 1000);
@@ -203,7 +267,6 @@ export class AuthService {
     await this.usersService.deleteSession({ id: sessionId });
   }
 
-  // TODO Verify with 42 api, res.cookie not a function
   setCookieForRefreshToken(refreshToken: string, res: Response) {
     res.cookie('REFRESH_TOKEN', refreshToken, {
       httpOnly: true,
@@ -224,12 +287,14 @@ export class AuthService {
     email: string,
     userId: number,
     sessionId: number,
+    needToPassTwoFactor = false,
   ): Promise<Tokens> {
     const payload: JwtPayload = {
       email: email,
       sub: {
         userId: userId,
         sessionId: sessionId,
+        needToPassTwoFactor,
       },
     };
     const tokens = await Promise.all([

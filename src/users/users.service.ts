@@ -154,6 +154,7 @@ export class UsersService {
   async updateUser(params: {
     where: Prisma.UserWhereUniqueInput;
     data: Prisma.UserUpdateInput;
+    include?: Prisma.UserInclude;
   }): Promise<User | null> {
     return this.repository.updateUser(params);
   }
@@ -336,10 +337,11 @@ export class UsersService {
   }
 
   // get all sessions for a user
-  getAllUserSessions(params: { userId: User[`id`] }) {
-    const { userId } = params;
+  getAllUserSessions(params: { userId: User[`id`]; limit?: number }) {
+    const { userId, limit } = params;
     return this.repository.getSessions({
       where: { userId },
+      take: limit,
     });
   }
 
@@ -370,6 +372,16 @@ export class UsersService {
       },
     });
   }
+
+  async turnOffTwoFactorAuthentication(id: number) {
+    return this.repository.updateUser({
+      where: { id: id },
+      data: {
+        twoFactorEnabled: false,
+        twoFactorSecret: null,
+      },
+    });
+  }
   async changeStatus(userId: number, status: Status) {
     await this.repository.updateProfile({
       where: {
@@ -383,10 +395,14 @@ export class UsersService {
   async getUsersOrderedByWins() {
     const users = await this.repository.getUsersOrderedByWins();
     const usersNoPasswords = users.map((user) => exclude(user, ['password']));
-    const usersWithScore = usersNoPasswords.map(user => {
-      const wins = user.gameHistories.filter(history => history.event === GameEvent.MATCH_WON).length;
-      const loss = user.gameHistories.filter(history => history.event === GameEvent.MATCH_LOST).length;
-      const score = wins - loss
+    const usersWithScore = usersNoPasswords.map((user) => {
+      const wins = user.gameHistories.filter(
+        (history) => history.event === GameEvent.MATCH_WON,
+      ).length;
+      const loss = user.gameHistories.filter(
+        (history) => history.event === GameEvent.MATCH_LOST,
+      ).length;
+      const score = wins - loss;
       return { ...user, score };
     });
     return usersWithScore.sort((a, b) => b.score - a.score);
