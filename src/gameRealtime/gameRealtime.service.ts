@@ -71,9 +71,7 @@ export class GameRealtimeService {
     return await this.createAGameSession(
       new Map([[data.user.userId, { ...data.user, isHost: true }]]),
       new Map(),
-      data.userType === GameUserType.Player
-        ? OnlineGameStates.Invite
-        : OnlineGameStates.Playing_with_bot,
+      OnlineGameStates.Invite,
     );
   }
 
