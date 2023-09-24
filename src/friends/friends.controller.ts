@@ -27,6 +27,18 @@ export class FriendsController {
   async getFriends(@Request() req) {
     return await this.friendsService.getFriends(req.user.id);
   }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Get('check/:id')
+  @ApiOperation({
+    summary: 'Check if a user is a friend',
+  })
+  async checkFriend(@Request() req, @Param('id') id: string) {
+    const friendId = parseInt(id);
+    return await this.friendsService.checkFriend(req.user.id, friendId);
+  }
+
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
   @Get('sent')

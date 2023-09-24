@@ -1,13 +1,25 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ContactRequest, Prisma, Profile } from '@prisma/client';
+import { Contact, ContactRequest, Profile, User } from '@prisma/client';
+import { UserWithoutSensitiveInfo } from '../users/users.service';
+
+export interface ContactRequestWithReceiver extends ContactRequest {
+  receiver: {
+    profile: Profile;
+  };
+}
+export interface ContactRequestWithSender extends ContactRequest {
+  sender: {
+    profile: Profile;
+  };
+}
 
 @Injectable()
 export class FriendsRepository {
   constructor(private prisma: PrismaService) {}
 
-  async getFriend(userId, friendId) {
-    return await this.prisma.contact.findFirst({
+  async getFriend(userId: User[`id`], friendId: User[`id`]): Promise<Contact> {
+    return this.prisma.contact.findFirst({
       where: {
         OR: [
           {
@@ -22,7 +34,7 @@ export class FriendsRepository {
       },
     });
   }
-  async getFriends(id: number) {
+  async getFriends(id: number): Promise<UserWithoutSensitiveInfo[]> {
     const relations = await this.prisma.contact.findMany({
       where: {
         OR: [
@@ -36,12 +48,30 @@ export class FriendsRepository {
       },
       include: {
         user: {
-          include: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            role: true,
+            googleId: true,
+            facebookId: true,
+            api42Id: true,
+            createdAt: true,
+            updatedAt: true,
             profile: true,
           },
         },
         contact: {
-          include: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            role: true,
+            googleId: true,
+            facebookId: true,
+            api42Id: true,
+            createdAt: true,
+            updatedAt: true,
             profile: true,
           },
         },
@@ -82,8 +112,10 @@ export class FriendsRepository {
       },
     });
   }
-  async getSentFriendRequests(id: number) {
-    return await this.prisma.contactRequest.findMany({
+  async getSentFriendRequests(
+    id: number,
+  ): Promise<ContactRequestWithReceiver[]> {
+    return this.prisma.contactRequest.findMany({
       where: {
         senderId: id,
       },
@@ -96,8 +128,10 @@ export class FriendsRepository {
       },
     });
   }
-  async getReceivedFriendRequests(id: number) {
-    return await this.prisma.contactRequest.findMany({
+  async getReceivedFriendRequests(
+    id: number,
+  ): Promise<ContactRequestWithSender[]> {
+    return this.prisma.contactRequest.findMany({
       where: {
         receiverId: id,
       },

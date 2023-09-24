@@ -11,6 +11,7 @@ import { FilesModule } from './files/files.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { FriendsModule } from './friends/friends.module';
+import { MessageModule } from './message/message.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { FriendsModule } from './friends/friends.module';
       exclude: ['/(.*)'],
     }),
     FriendsModule,
+    MessageModule,
   ],
   controllers: [],
   providers: [],

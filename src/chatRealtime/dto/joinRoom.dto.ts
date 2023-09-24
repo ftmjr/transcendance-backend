@@ -7,10 +7,6 @@ export class JoinRoomDto {
   userId: number;
 
   @ApiProperty()
-  @IsNotEmpty()
-  roomName: string;
-
-  @ApiProperty()
   @IsOptional()
   password?: string;
 }

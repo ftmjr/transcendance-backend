@@ -120,14 +120,18 @@ export class AuthService {
 
   async logOut(refreshToken: string, res: Response) {
     try {
-      const isValid = this.jwtService.verify(refreshToken) as JwtPayload;
-      if (!isValid) {
-        throw new UnauthorizedException('Invalid credentials');
+      if (refreshToken) {
+        const isValid = this.jwtService.verify(refreshToken) as JwtPayload;
+        if (!isValid) {
+          throw new UnauthorizedException('Invalid credentials');
+        }
+        const { userId, sessionId } = isValid.sub;
+        await this.destroySession(sessionId);
+        this.destroyCookieForRefreshToken(res);
+        await this.usersService.changeStatus(userId, Status.Offline);
+      } else {
+        this.destroyCookieForRefreshToken(res);
       }
-      const { userId, sessionId } = isValid.sub;
-      await this.destroySession(sessionId);
-      this.destroyCookieForRefreshToken(res);
-      await this.usersService.changeStatus(userId, Status.Offline);
       return {
         message: 'Successfully logged out, bye bye',
       };
@@ -198,7 +202,6 @@ export class AuthService {
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    console.log(`user Id:`, user.id);
     return user;
   }
 

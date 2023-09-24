@@ -20,6 +20,7 @@ import { extname } from 'path'; // Import the extname function
 import { User } from '@prisma/client';
 import * as express from 'express';
 import { UsersService } from '../users/users.service';
+import { ChatRealtimeService } from '../chatRealtime/chatRealtime.service';
 
 type RequestWithUser = express.Request & { user: User };
 @Controller('files')
@@ -27,6 +28,7 @@ export class FilesController {
   constructor(
     private readonly filesService: FilesService,
     private usersService: UsersService,
+    private chatService: ChatRealtimeService,
   ) {}
 
   @ApiBearerAuth()
@@ -61,6 +63,45 @@ export class FilesController {
     }),
   )
   async local(
+    @Req() req: RequestWithUser,
+    @UploadedFile() file: Express.Multer.File,
+    @Body('roomId') roomId: number,
+  ) {
+    const serverBaseUrl = 'https://' + process.env.URL + '/api';
+    const fileUrl = `${serverBaseUrl}/${file.filename}`;
+    await this.chatService.changeChatAvatar(roomId, req.user.id, fileUrl);
+    return {
+      statusCode: 200,
+      data: fileUrl,
+    };
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Post('chatRoomAvatar')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: diskStorage({
+        destination: './uploads',
+        filename: (req, file, callback) => {
+          const requestWithUser = req as RequestWithUser;
+          const randomString = Math.random().toString(36).substring(2, 15);
+          callback(
+            null,
+            `${requestWithUser.user.id}-room-${file.originalname}-${randomString}`,
+          );
+        },
+      }),
+      fileFilter: (req, file, callback) => {
+        if (!file.originalname.match(/\.(jpg|jpeg|png|gif)$/)) {
+          return callback(new Error('Only image files are allowed!'), false);
+        }
+        callback(null, true);
+      },
+      limits: { fileSize: 1024 * 1024 * 4 },
+    }),
+  )
+  async changeChatAvatar(
     @Req() req: RequestWithUser,
     @UploadedFile() file: Express.Multer.File,
   ) {

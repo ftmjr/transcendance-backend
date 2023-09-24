@@ -1,13 +1,60 @@
 import { Injectable } from '@nestjs/common';
 import { FriendsRepository } from './friends.repository';
-import { UsersService } from '../users/users.service';
+import { UsersService, UserWithoutSensitiveInfo } from '../users/users.service';
 import { InvalidRequestError } from 'express-oauth2-jwt-bearer';
+import { Contact, ContactRequest } from '@prisma/client';
+
+export enum FriendshipStatus {
+  Friends = 'friends',
+  Pending = 'pending',
+  NeedApproval = 'needApproval',
+  None = 'none',
+}
 
 @Injectable()
 export class FriendsService {
   constructor(private repository: FriendsRepository) {}
   async getFriends(userId: number) {
     return this.repository.getFriends(userId);
+  }
+
+  async checkFriend(
+    userId: number,
+    friendId: number,
+  ): Promise<{
+    status: FriendshipStatus;
+    data: Contact | ContactRequest | null;
+  }> {
+    const friend = await this.repository.getFriend(userId, friendId);
+    if (!friend) {
+      // check for pending request
+      const requestSent = await this.repository.getSentFriendRequests(userId);
+      const request = requestSent.find((r) => r.receiverId === friendId);
+      if (request) {
+        return {
+          status: FriendshipStatus.Pending,
+          data: request,
+        };
+      }
+      const requestReceived = await this.repository.getReceivedFriendRequests(
+        userId,
+      );
+      const request2 = requestReceived.find((r) => r.senderId === friendId);
+      if (request2) {
+        return {
+          status: FriendshipStatus.NeedApproval,
+          data: request2,
+        };
+      }
+      return {
+        status: FriendshipStatus.None,
+        data: null,
+      };
+    }
+    return {
+      status: FriendshipStatus.Friends,
+      data: friend,
+    };
   }
   async getSentFriendRequests(userId: number) {
     return this.repository.getSentFriendRequests(userId);

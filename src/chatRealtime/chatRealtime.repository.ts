@@ -1,28 +1,28 @@
-import {
-  ForbiddenException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
   Prisma,
   ChatRoom,
   ChatRoomMessage,
-  GeneralMessage,
   User,
   Role,
-  Status,
-  PrivateMessage,
+  ChatRoomMember,
+  Profile,
 } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { JoinRoomDto } from './dto/joinRoom.dto';
-import { UsersService } from '../users/users.service';
+
+export type ChatRoomWithMembers = ChatRoom & {
+  members: ChatRoomMember[];
+};
+
+export type MemberRoomWithUserProfiles = ChatRoomMember & {
+  member: User & {
+    profile: Profile;
+  };
+};
 
 @Injectable()
 export class ChatRealtimeRepository {
-  constructor(
-    private prisma: PrismaService,
-    private usersService: UsersService,
-  ) {}
+  constructor(private prisma: PrismaService) {}
 
   async getRooms(params: {
     skip?: number;
@@ -42,156 +42,210 @@ export class ChatRealtimeRepository {
       include,
     });
   }
+
+  // Get a room, with its members
+  async getRoom(params: {
+    where: Prisma.ChatRoomWhereUniqueInput;
+  }): Promise<ChatRoomWithMembers> {
+    const { where } = params;
+    return this.prisma.chatRoom.findUnique({
+      where,
+      include: {
+        members: true,
+      },
+    });
+  }
+
+  async getRoomByName(name: string): Promise<ChatRoom | null> {
+    return this.prisma.chatRoom.findFirst({
+      where: {
+        name: name,
+      },
+    });
+  }
+
   async createRoom(
     params: { data: Prisma.ChatRoomCreateInput },
-    ownerId: number,
+    memberId: User[`id`],
   ): Promise<ChatRoom> {
     const { data } = params;
-    const createdRoom = await this.prisma.chatRoom.create({ data });
-
-    await this.prisma.chatRoomMember.create({
+    return this.prisma.chatRoom.create({
       data: {
-        memberId: ownerId,
-        chatroomId: createdRoom.id,
-        role: Role.OWNER,
-      },
-    });
-    return createdRoom;
-  }
-  async getChatRoomMember(userId: number, roomId: number) {
-    const member = await this.prisma.chatRoomMember.findFirst({
-      where: {
-        memberId: userId,
-        chatroomId: roomId,
-      },
-    });
-    if (!member) {
-      return await this.prisma.chatRoomMember.create({
-        data: {
-          memberId: userId,
-          chatroomId: roomId,
-        },
-      });
-    }
-    return member;
-  }
-
-  async findNewOwner(roomId: number) {
-    const admin = await this.prisma.chatRoomMember.findFirst({
-      where: {
-        chatroomId: roomId,
-        role: Role.ADMIN,
-      },
-    });
-    if (!admin) {
-      return await this.prisma.chatRoomMember.findFirst({
-        where: {
-          chatroomId: roomId,
-          role: { not: Role.BAN },
-        },
-      });
-    } else {
-      return admin;
-    }
-  }
-
-  async updateOwner(memberId: number) {
-    await this.prisma.chatRoomMember.update({
-      data: {
-        role: Role.OWNER,
-      },
-      where: {
-        id: memberId,
-      },
-    });
-  }
-
-  async deleteMember(memberId: number) {
-    return await this.prisma.chatRoomMember.delete({
-      where: {
-        id: memberId,
-      },
-    });
-  }
-
-  async deleteRoom(roomId: number) {
-    await this.prisma.chatRoom.delete({
-      where: {
-        id: roomId,
-      },
-    });
-  }
-  async leaveRoom(user: User, roomId: number) {
-    const chatRoomMember = await this.getChatRoomMember(user.id, roomId);
-    if (!chatRoomMember) {
-      throw new NotFoundException('ChatRoom Member not found');
-    }
-    const oldMember = await this.deleteMember(chatRoomMember.id);
-    if (!oldMember || oldMember.role != Role.OWNER) {
-      return chatRoomMember;
-    }
-    const newOwner = await this.findNewOwner(roomId);
-    if (!newOwner) {
-      await this.deleteRoom(roomId);
-    } else {
-      await this.updateOwner(newOwner.id);
-    }
-    return chatRoomMember;
-  }
-  async getRoom(roomName: string) {
-    return await this.prisma.chatRoom.findUnique({
-      where: {
-        name: roomName,
-      },
-    });
-  }
-  async joinRoom(data: JoinRoomDto, roomId: number) {
-    return await this.prisma.chatRoomMember.create({
-      data: {
-        memberId: data.userId,
-        chatroomId: roomId,
-        role: Role.USER,
-      },
-    });
-  }
-  async findBanFrom(userId: number) {
-    return await this.prisma.chatRoomMember.findMany({
-      where: {
-        memberId: userId,
-        role: Role.BAN,
-      },
-    });
-  }
-  async findMember(userId: number, roomId: number) {
-    return await this.prisma.chatRoomMember.findFirst({
-      where: {
-        memberId: userId,
-        chatroomId: roomId,
-      },
-    });
-  }
-  async getRoomMembers(roomId: number) {
-    return await this.prisma.chatRoomMember.findMany({
-      where: {
-        chatroomId: roomId,
-      },
-      orderBy: {
-        member: {
-          username: 'asc',
-        },
-      },
-      include: {
-        member: {
-          include: {
-            profile: true,
-            gameHistories: true,
+        ...data,
+        members: {
+          create: {
+            memberId: memberId,
+            role: Role.OWNER,
           },
         },
       },
     });
   }
-  async getMemberRooms(userId: number) {
-    return await this.prisma.chatRoom.findMany({
+
+  async updateRoom(params: {
+    where: Prisma.ChatRoomWhereUniqueInput;
+    data: Prisma.ChatRoomUpdateInput;
+  }) {
+    return this.prisma.chatRoom.update(params);
+  }
+
+  async getChatRoomMembers(
+    roomId: ChatRoom[`id`],
+  ): Promise<MemberRoomWithUserProfiles[]> {
+    return this.prisma.chatRoomMember.findMany({
+      where: {
+        chatroomId: roomId,
+      },
+      include: {
+        member: {
+          include: {
+            profile: true,
+          },
+        },
+      },
+    });
+  }
+
+  async getChatRoomMember(
+    memberId: User[`id`],
+    roomId: ChatRoom[`id`],
+  ): Promise<MemberRoomWithUserProfiles> {
+    return this.prisma.chatRoomMember.findFirst({
+      where: {
+        memberId: memberId,
+        chatroomId: roomId,
+      },
+      include: {
+        member: {
+          include: {
+            profile: true,
+          },
+        },
+      },
+    });
+  }
+
+  async getChatRoomOwner(
+    roomId: ChatRoom[`id`],
+  ): Promise<MemberRoomWithUserProfiles> {
+    return this.prisma.chatRoomMember.findFirst({
+      where: {
+        chatroomId: roomId,
+        role: Role.OWNER,
+      },
+      include: {
+        member: {
+          include: {
+            profile: true,
+          },
+        },
+      },
+    });
+  }
+
+  // find admin and owners
+  async getChatRoomAdmins(
+    roomId: ChatRoom[`id`],
+  ): Promise<MemberRoomWithUserProfiles[]> {
+    return this.prisma.chatRoomMember.findMany({
+      where: {
+        chatroomId: roomId,
+        OR: [{ role: Role.ADMIN }, { role: Role.OWNER }],
+      },
+      include: {
+        member: {
+          include: {
+            profile: true,
+          },
+        },
+      },
+    });
+  }
+
+  async updateChatRoomMember(params: {
+    where: Prisma.ChatRoomMemberWhereUniqueInput;
+    data: Prisma.ChatRoomMemberUpdateInput;
+  }): Promise<ChatRoomMember> {
+    const { data, where } = params;
+    return this.prisma.chatRoomMember.update({ data, where });
+  }
+
+  /*
+   * First, try to find an ADMIN from the chat room.
+   * Or any member who is not banned.
+   * return null when no other member is found.
+   */
+  async findPotentialNewOwner(
+    roomId: ChatRoom['id'],
+  ): Promise<ChatRoomMember | null> {
+    const potentialAdminOwner = await this.prisma.chatRoomMember.findFirst({
+      where: {
+        chatroomId: roomId,
+        role: Role.ADMIN,
+      },
+    });
+    if (potentialAdminOwner) {
+      return potentialAdminOwner;
+    }
+    const potentialRegularOwner = await this.prisma.chatRoomMember.findFirst({
+      where: {
+        chatroomId: roomId,
+        NOT: {
+          role: Role.BAN,
+        },
+      },
+    });
+    if (potentialRegularOwner) {
+      return potentialRegularOwner;
+    }
+    return null;
+  }
+
+  async deleteMemberFromRoom(id: ChatRoomMember[`id`]) {
+    return this.prisma.chatRoomMember.delete({
+      where: {
+        id: id,
+      },
+    });
+  }
+
+  async deleteRoom(roomId: ChatRoom[`id`]): Promise<ChatRoom> {
+    return this.prisma.chatRoom.delete({
+      where: {
+        id: roomId,
+      },
+    });
+  }
+
+  async joinRoom(userId: User[`id`], roomId: ChatRoom[`id`], role: Role) {
+    return this.prisma.chatRoomMember.create({
+      data: {
+        memberId: userId,
+        chatroomId: roomId,
+        role: role,
+      },
+    });
+  }
+
+  async findUserRoomsData(
+    userId: User[`id`],
+    whereMember?: Prisma.ChatRoomMemberWhereInput,
+    whereRoom?: Prisma.ChatRoomWhereInput,
+  ): Promise<ChatRoomMember[]> {
+    const chatRoomWhere = {
+      ...whereRoom,
+    };
+    return this.prisma.chatRoomMember.findMany({
+      where: {
+        ...whereMember,
+        memberId: userId,
+        chatroom: chatRoomWhere,
+      },
+    });
+  }
+
+  async getMemberRooms(userId: User[`id`]): Promise<ChatRoom[]> {
+    return this.prisma.chatRoom.findMany({
       where: {
         members: {
           some: {
@@ -201,212 +255,54 @@ export class ChatRealtimeRepository {
       },
     });
   }
-  async getRoomMessages(roomId: number, { skip, take }) {
-    return await this.prisma.chatRoomMessage.findMany({
+
+  async createRoomMessage(params: {
+    data: Prisma.ChatRoomMessageCreateInput;
+  }): Promise<ChatRoomMessage> {
+    const { data } = params;
+    return this.prisma.chatRoomMessage.create({
+      data,
+    });
+  }
+
+  async getRoomMessages(
+    roomId: ChatRoom[`id`],
+    params: { skip: number; take: number },
+  ): Promise<ChatRoomMessage[]> {
+    return this.prisma.chatRoomMessage.findMany({
       where: {
         chatroomId: roomId,
       },
       orderBy: {
         timestamp: 'asc',
       },
-      include: {
-        user: {
-          include: {
-            profile: true,
-          },
-        },
-      },
-      skip: skip,
-      take: take,
-    });
-  }
-  async getGeneralMessages({ skip, take }) {
-    return await this.prisma.generalMessage.findMany({
-      orderBy: {
-        timestamp: 'asc',
-      },
-      include: {
-        user: {
-          include: {
-            profile: true,
-          },
-        },
-      },
-      skip: skip,
-      take: take,
-    });
-  }
-  async getGeneralMembers({ skip, take }) {
-    return await this.prisma.generalMember.findMany({
-      orderBy: {
-        createdAt: 'asc',
-      },
-      skip: skip,
-      take: take,
-      include: {
-        member: {
-          include: {
-            profile: true,
-            gameHistories: true,
-          },
-        },
-      },
-    });
-  }
-  async getGeneralMember(userId: number) {
-    return await this.prisma.generalMember.findFirst({
-      where: {
-        memberId: userId,
-      },
-    });
-  }
-  async createGeneralMember(userId: number) {
-    return await this.prisma.generalMember.create({
-      data: {
-        memberId: userId,
-      },
-    });
-  }
-  async kickChatRoomMember(chatRoomMemberId: number) {
-    return await this.prisma.chatRoomMember.delete({
-      where: {
-        id: chatRoomMemberId,
-      },
-    });
-  }
-  async banChatRoomMember(chatRoomMemberId: number) {
-    return await this.prisma.chatRoomMember.update({
-      where: {
-        id: chatRoomMemberId,
-      },
-      data: {
-        role: Role.BAN,
-      },
-    });
-  }
-  async muteChatRoomMember(chatRoomMemberId: number) {
-    return await this.prisma.chatRoomMember.update({
-      where: {
-        id: chatRoomMemberId,
-      },
-      data: {
-        role: Role.MUTED,
-      },
-    });
-  }
-  async createRoomMessage(params): Promise<ChatRoomMessage> {
-    const { data } = params;
-    return await this.prisma.chatRoomMessage.create({
-      data,
-      include: {
-        user: {
-          include: {
-            profile: true,
-          },
-        },
-      },
-    });
-  }
-  async createGeneralMessage(params): Promise<GeneralMessage> {
-    const { data } = params;
-    return await this.prisma.generalMessage.create({
-      data,
-      include: {
-        user: {
-          include: {
-            profile: true,
-          },
-        },
-      },
-    });
-  }
-  async updateChatRoomMember(params) {
-    const { data, where } = params;
-    return await this.prisma.chatRoomMember.update({ data, where });
-  }
-  async createPrivateMessage(params): Promise<PrivateMessage> {
-    const { data } = params;
-    return await this.prisma.privateMessage.create({
-      data,
-      include: {
-        sender: {
-          include: {
-            profile: true,
-          },
-        },
-      },
+      skip: params.skip,
+      take: params.take,
     });
   }
 
-  async getPrivateMessages(
-    { skip, take },
-    dmSenderId: number,
-    dmReceiverId: number,
-  ) {
-    return await this.prisma.privateMessage.findMany({
+  /* Utilities */
+  async isOwnerOrAdmin(
+    roomId: ChatRoom[`id`],
+    userId: User[`id`],
+  ): Promise<boolean> {
+    const member = await this.prisma.chatRoomMember.findFirst({
       where: {
-        OR: [
-          {
-            senderId: dmSenderId,
-            receiverId: dmReceiverId,
-          },
-          {
-            senderId: dmReceiverId,
-            receiverId: dmSenderId,
-          },
-        ],
+        chatroomId: roomId,
+        memberId: userId,
+        OR: [{ role: Role.OWNER }, { role: Role.ADMIN }],
       },
-      include: {
-        sender: {
-          include: {
-            profile: true,
-          },
-        },
-        receiver: {
-          include: {
-            profile: true,
-          },
-        },
-      },
-      skip: skip,
-      take: take,
     });
+    return !!member;
   }
-  async getConversations(userId: number) {
-    const privateMessages = await this.prisma.privateMessage.findMany({
-      where: {
-        OR: [
-          {
-            senderId: userId,
-          },
-          {
-            receiverId: userId,
-          },
-        ],
-      },
-      select: {
-        senderId: true,
-        receiverId: true,
-      },
+
+  async updateRoomPassword(
+    roomId: ChatRoom[`id`],
+    hashedPassword: string,
+  ): Promise<ChatRoom> {
+    return this.prisma.chatRoom.update({
+      where: { id: roomId },
+      data: { password: hashedPassword },
     });
-    const distinctUserIds = [
-      ...new Set([
-        ...privateMessages.map((message) => message.senderId),
-        ...privateMessages.map((message) => message.receiverId),
-      ]),
-    ];
-    return this.prisma.user.findMany({
-      where: {
-        id: {
-          in: distinctUserIds,
-        },
-      },
-      include: {
-        profile: true,
-      },
-    });
-  }
-  async updateRoom(params: { where; data }) {
-    return await this.prisma.chatRoom.update(params);
   }
 }

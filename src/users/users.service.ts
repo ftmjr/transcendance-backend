@@ -22,7 +22,12 @@ function exclude<User, Key extends keyof User>(
   return user;
 }
 
-function getRandomAvatarUrl(): string {
+export type UserWithoutSensitiveInfo = Omit<
+  User,
+  'password' | 'twoFactorEnabled' | 'twoFactorSecret'
+>;
+
+export function getRandomAvatarUrl(): string {
   const serverBaseUrl = 'https://' + process.env.URL + '/api';
   const list = [
     'randomAvatars/icons8-bart-simpson-500.png',
@@ -115,7 +120,27 @@ export class UsersService {
     const { id } = params;
     return this.repository.getUser({ where: { id } });
   }
-  async getUserWithFriends(userId) {
+
+  async getUserProfile(id: number) {
+    const user = this.repository.getUserWithSelectedFields({
+      where: { id },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        role: true,
+        googleId: true,
+        facebookId: true,
+        api42Id: true,
+        createdAt: true,
+        updatedAt: true,
+        profile: true,
+        gameHistories: true,
+      },
+    }) as Promise<UserWithoutSensitiveInfo>;
+    return user;
+  }
+  async getUserWithFriends(userId: User[`id`]) {
     return this.repository.getUser({
       where: {
         id: userId,
@@ -392,8 +417,8 @@ export class UsersService {
       },
     });
   }
-  async getUsersOrderedByWins() {
-    const users = await this.repository.getUsersOrderedByWins();
+  async getUsersOrderedByWins(params: { skip: number; take: number }) {
+    const users = await this.repository.getUsersOrderedByWins(params);
     const usersNoPasswords = users.map((user) => exclude(user, ['password']));
     const usersWithScore = usersNoPasswords.map((user) => {
       const wins = user.gameHistories.filter(
@@ -406,5 +431,10 @@ export class UsersService {
       return { ...user, score };
     });
     return usersWithScore.sort((a, b) => b.score - a.score);
+  }
+
+  async getAppStatistics() {
+    const stats = await this.repository.getStats();
+    return stats;
   }
 }

@@ -5,6 +5,7 @@ import {
   Get,
   NotFoundException,
   Param,
+  ParseIntPipe,
   Post,
   Query,
   Request,
@@ -68,11 +69,31 @@ export class UsersController {
   getAllUsers(@Request() req, @Query() queryParams: PaginationQuery) {
     const skip: number = parseInt(queryParams.skip);
     const take: number = parseInt(queryParams.take);
+    const orderBy = queryParams.orderBy;
     return this.usersService.getAllUsers({
       skip,
       take,
+      orderBy,
       include: { profile: true, sessions: false, gameHistories: true },
     });
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Get('profile/:id')
+  @ApiOperation({
+    summary: 'get a user profile',
+    description: `
+      - fetch a user profile from the database
+    `,
+  })
+  @ApiResponse({ status: 200, description: 'return a user profile' })
+  async getUserProfile(@Param('id', ParseIntPipe) id: number) {
+    const user = await this.usersService.getUserProfile(id);
+    if (!user) {
+      throw new NotFoundException();
+    }
+    return user;
   }
 
   @ApiBearerAuth()
@@ -147,7 +168,19 @@ export class UsersController {
     summary: 'Get users ordered by game wins',
   })
   @ApiResponse({ status: 200, description: 'return the users leaderboard' })
-  async getUsersOrderedByWins() {
-    return await this.usersService.getUsersOrderedByWins();
+  async getUsersOrderedByWins(@Query() queryParams: PaginationQuery) {
+    const skip: number = parseInt(queryParams.skip);
+    const take: number = parseInt(queryParams.take);
+    return await this.usersService.getUsersOrderedByWins({ skip, take });
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Get('stats')
+  @ApiOperation({
+    summary: 'Get App statistics',
+  })
+  async getStatistic() {
+    return await this.usersService.getAppStatistics();
   }
 }
