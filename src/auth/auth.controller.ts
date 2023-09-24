@@ -180,7 +180,7 @@ export class AuthController {
       req.user,
     );
     const localUrl: string = process.env.URL;
-    await this.usersService.changeStatus(req.user.profile.id, Status.Online);
+    await this.usersService.changeStatus(req.user.id, Status.Online);
     return {
       url: `https://${localUrl}/auth/oauth-auth?token=${loginData.accessToken}`,
       statusCode: 302,
@@ -229,6 +229,7 @@ export class AuthController {
       req.user,
     );
     const localUrl: string = process.env.URL;
+    await this.usersService.changeStatus(req.user.id, Status.Online);
     return {
       url: `https://${localUrl}/auth/oauth-auth?token=${loginData.accessToken}`,
       statusCode: 302,
