@@ -127,8 +127,8 @@ export class AuthService {
         }
         const { userId, sessionId } = isValid.sub;
         await this.destroySession(sessionId);
-        this.destroyCookieForRefreshToken(res);
         await this.usersService.changeStatus(userId, Status.Offline);
+        this.destroyCookieForRefreshToken(res);
       } else {
         this.destroyCookieForRefreshToken(res);
       }
