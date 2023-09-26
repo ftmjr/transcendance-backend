@@ -65,7 +65,7 @@ export class ChatRealtimeService {
         info.roomId,
         Role.USER,
       );
-      await this.notificationService.createChatJoinNotification(
+      this.notificationService.createChatJoinNotification(
         newMember.memberId,
         room.id,
         `Vous avez été ajouté à la salle de chat ${room.name}`,

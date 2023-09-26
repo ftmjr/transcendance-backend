@@ -20,48 +20,58 @@ export class NotificationService {
     userId: User[`id`],
     gameId: Game[`id`],
     message: string,
-  ): Promise<Notification> {
-    const notification = this.notificationRepository.createNotification({
-      user: { connect: { id: userId } },
-      type: NotificationType.GAME_INVITE,
-      title: 'Game Invite',
-      message: message,
-      referenceId: gameId,
-    });
-    this.notificationGateway.sendNotificationToUser(userId, notification);
-    return notification;
+  ): Promise<void> {
+    this.notificationRepository
+      .createNotification({
+        user: { connect: { id: userId } },
+        type: NotificationType.GAME_INVITE,
+        title: 'Game Invite',
+        message: message,
+        referenceId: gameId,
+      })
+      .then((notification) => {
+        this.notificationGateway.sendNotificationToUser(userId, notification);
+      });
   }
 
   async createFriendRequestNotification(
     userId: User[`id`],
     friendId: User[`id`],
     message: string,
-  ): Promise<Notification> {
-    const notification = this.notificationRepository.createNotification({
-      user: { connect: { id: userId } },
-      type: NotificationType.FRIEND_REQUEST,
-      title: 'Friend Request',
-      message: message,
-      referenceId: friendId,
-    });
-    this.notificationGateway.sendNotificationToUser(userId, notification);
-    return notification;
+  ): Promise<void> {
+    this.notificationRepository
+      .createNotification({
+        user: { connect: { id: userId } },
+        type: NotificationType.FRIEND_REQUEST,
+        title: 'Friend Request',
+        message: message,
+        referenceId: friendId,
+      })
+      .then((notification) => {
+        this.notificationGateway.sendNotificationToUser(userId, notification);
+      });
   }
 
   async createChatJoinNotification(
     userId: User[`id`],
     roomId: number,
     message: string,
-  ): Promise<Notification> {
-    const notification = this.notificationRepository.createNotification({
-      user: { connect: { id: userId } },
-      type: NotificationType.PRIVATE_MESSAGE,
-      title: 'Ajouté à un chat privé',
-      message: message,
-      referenceId: roomId,
-    });
-    this.notificationGateway.sendNotificationToUser(userId, notification);
-    return notification;
+  ) {
+    this.notificationRepository
+      .createNotification({
+        user: { connect: { id: userId } },
+        type: NotificationType.PRIVATE_MESSAGE,
+        title: 'Added to Chat',
+        message: message,
+        referenceId: roomId,
+      })
+      .then((notification) => {
+        this.notificationGateway.sendNotificationToUser(userId, notification);
+      });
+  }
+
+  async getNotificationsForUser(userId: number): Promise<Notification[]> {
+    return this.notificationRepository.getNotificationsForUser(userId);
   }
 
   async markNotificationAsRead(notificationId: number): Promise<Notification> {

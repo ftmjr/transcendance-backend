@@ -20,15 +20,21 @@ export class NotificationGateway
   }
 
   handleConnection(client: Socket, ...args: any[]) {
-    console.log(`Client connected: ${client.id}`);
+    console.log(`Client connected on notification : ${client.id}`);
   }
 
   handleDisconnect(client: Socket) {
-    console.log(`Client disconnected: ${client.id}`);
+    // console.log(`Client disconnected on notification : ${client.id}`);
+  }
+
+  @SubscribeMessage('join')
+  handleJoin(client: Socket, userId: string) {
+    const room = `notification:${userId}`;
+    client.join(room);
   }
 
   sendNotificationToUser(userId: User[`id`], data: any) {
-    const room = userId.toString();
+    const room = `notification:${userId}`;
     this.server.to(room).emit('notification', data);
   }
 }

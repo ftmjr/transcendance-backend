@@ -7,16 +7,24 @@ import {
   Query,
   UseGuards,
   Req,
+  ParseIntPipe,
+  Delete,
 } from '@nestjs/common';
 import { MessageService } from './message.service';
 import { CreateMessageDto } from './dto';
-import { PrivateMessage } from '@prisma/client';
+import { PrivateMessage, User } from '@prisma/client';
 import { AuthenticatedGuard } from '../auth/guards';
 import { UserWithoutSensitiveInfo } from '../users/users.service';
+import { NotificationService } from './notification.service';
+import * as express from 'express';
 
+type RequestWithUser = express.Request & { user: User };
 @Controller('messages')
 export class MessageController {
-  constructor(private readonly messageService: MessageService) {}
+  constructor(
+    private readonly messageService: MessageService,
+    private readonly notificationService: NotificationService,
+  ) {}
 
   @UseGuards(AuthenticatedGuard)
   @Post()
@@ -47,5 +55,29 @@ export class MessageController {
     @Req() req: any,
   ): Promise<UserWithoutSensitiveInfo[]> {
     return this.messageService.getUniqueConversations(req.user.id);
+  }
+
+  @UseGuards(AuthenticatedGuard)
+  @Get('notifications')
+  async getNotifications(@Req() req: RequestWithUser) {
+    return this.notificationService.getNotificationsForUser(req.user.id);
+  }
+
+  @UseGuards(AuthenticatedGuard)
+  @Delete('notifications/:notificationId')
+  async deleteNotification(
+    @Param('notificationId', ParseIntPipe) notificationId: number,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.notificationService.deleteNotification(notificationId);
+  }
+
+  @UseGuards(AuthenticatedGuard)
+  @Post('notifications/:notificationId')
+  async markNotificationAsRead(
+    @Param('notificationId', ParseIntPipe) notificationId: number,
+    @Req() req: RequestWithUser,
+  ) {
+    return this.notificationService.markNotificationAsRead(notificationId);
   }
 }
