@@ -88,8 +88,8 @@ export class UsersController {
     `,
   })
   @ApiResponse({ status: 200, description: 'return a user profile' })
-  async getUserProfile(@Param('id', ParseIntPipe) id: number) {
-    const user = await this.usersService.getUserProfile(id);
+  async getUserProfile(@Request() req, @Param('id', ParseIntPipe) id: number) {
+    const user = await this.usersService.getUserProfile(req.user, id);
     if (!user) {
       throw new NotFoundException();
     }
