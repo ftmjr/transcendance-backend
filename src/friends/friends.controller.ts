@@ -69,7 +69,7 @@ export class FriendsController {
   }
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @Post(':id')
+  @Post('request-friendship-with/:id')
   @ApiOperation({
     summary: 'send a friend request',
   })
@@ -89,7 +89,7 @@ export class FriendsController {
   }
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @Post('approve/:id')
+  @Post('approve-friendship-request-for/:id')
   @ApiOperation({
     summary: 'Approve a friend request',
   })

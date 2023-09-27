@@ -89,11 +89,11 @@ export class UsersController {
   })
   @ApiResponse({ status: 200, description: 'return a user profile' })
   async getUserProfile(@Request() req, @Param('id', ParseIntPipe) id: number) {
-    const user = await this.usersService.getUserProfile(req.user, id);
-    if (!user) {
+    const users = await this.usersService.getUserProfile(req.user, id);
+    if (!users) {
       throw new NotFoundException();
     }
-    return user;
+    return users[0];
   }
 
   @ApiBearerAuth()

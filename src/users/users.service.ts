@@ -122,7 +122,7 @@ export class UsersService {
   }
 
   async getUserProfile(user: User, id: number) {
-    const otherProfile = this.repository.getUserWithSelectedFields({
+    const otherProfile = await this.repository.getUserWithSelectedFields({
       where: { id },
       select: {
         id: true,
@@ -137,7 +137,7 @@ export class UsersService {
         profile: true,
         gameHistories: true,
       },
-    }) as Promise<UserWithoutSensitiveInfo>;
+    });
     return this.filterBlockedUsers([otherProfile], user);
   }
   async getUserWithFriends(userId: User[`id`]) {
