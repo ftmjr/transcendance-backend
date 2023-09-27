@@ -14,6 +14,7 @@ import {
   ClientToServerEvents,
 } from './interfaces/chat.interface';
 import { ChatRealtimeService } from './chatRealtime.service';
+import { Status } from '@prisma/client';
 
 @WebSocketGateway({ namespace: 'chat' })
 export class ChatRealtimeGateway
@@ -27,32 +28,48 @@ export class ChatRealtimeGateway
   constructor(private service: ChatRealtimeService) {}
 
   private logger = new Logger('ChatRealtimeGateway');
-
-  handleConnection(@ConnectedSocket() client, ...args: any[]) {
-    this.logger.log(`Client connected : ${client.id}`);
-    // const user = client.handshake.auth.user;
-    // if (!user) {
-    //   return this.handleDisconnect(client);
-    // }
-    // client.data.user = user;
-    // this.server.in(client.id).socketsJoin('user:' + user.username);
+  async handleConnection(client: Socket, ...args: any[]): Promise<number[]> {
+    try {
+      const userId = client.handshake.query.userId;
+      if (!userId) throw new Error('User ID is required');
+      const id = Number(userId);
+      await this.service.changeUserStatus(id, Status.Online);
+    } catch (e) {
+      client.emit('connectionError', e.message);
+      client.disconnect();
+      return [];
+    }
   }
 
-  async handleDisconnect(client: Socket) {
-    this.logger.log(`Client disconnected : ${client.id}`);
+  async handleDisconnect(client: Socket): Promise<void> {
+    try {
+      const userId = client.handshake.query.userId;
+      if (userId) {
+        await this.service.changeUserStatus(Number(userId), Status.Offline);
+      }
+    } catch (e) {
+      this.logger.error(`Failed to handle disconnect: ${e.message}`);
+    }
   }
 
+  // Handle sending messages
   @SubscribeMessage('sendMessage')
   async handleMessage(
     @ConnectedSocket() client: Socket,
     @MessageBody() data: { senderId: number; roomId: number; content: string },
   ): Promise<void> {
     const { roomId, content, senderId } = data;
-    const message = await this.service.sendMessageToRoom(
-      roomId,
-      content,
-      senderId,
-    );
-    this.server.to(`room:${data.roomId}`).emit('newMessage', message);
+    try {
+      const message = await this.service.sendMessageToRoom(
+        roomId,
+        content,
+        senderId,
+      );
+      this.server.to(`chat-room:${roomId}`).emit('newMessage', message);
+    } catch (e) {
+      this.server
+        .to(`chat-room:${roomId}`)
+        .emit('failedToSendMessage', e.message);
+    }
   }
 }
