@@ -16,7 +16,6 @@ export interface Game extends PrismaGame {
 @Injectable()
 export class GamesService {
   constructor(private gamesRepository: GamesRepository) {}
-
   async createGame(data: Prisma.GameCreateInput): Promise<Game> {
     return this.gamesRepository.createGame({
       data,

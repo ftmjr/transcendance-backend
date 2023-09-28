@@ -12,33 +12,31 @@ import { GameRealtimeService } from './gameRealtime.service';
 import {
   GAME_EVENTS,
   GameSession,
-  JoinGameData,
+  GameUserType,
+  GAME_STATE,
+  PAD_DIRECTION,
   PadMovedData,
 } from './interfaces';
-import { JoinGameEvent, JoinGameResponse } from './dto';
-import { GameActionDto } from './dto/gameAction.dto';
-import { GAME_STATE, PAD_DIRECTION } from './interfaces/gameActions.interface';
+import { JoinGameEvent, GameActionDto } from './dto';
+import { GameSessionService } from './game-session.service';
 
 @WebSocketGateway({ namespace: 'game' })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
 
-  constructor(private gameRealtimeService: GameRealtimeService) {}
+  constructor(
+    private gameRealtimeService: GameRealtimeService,
+    private gameSessionService: GameSessionService,
+  ) {}
 
   handleConnection(client: Socket, ...args: any[]) {
-    console.log('New client connected', client.id);
+    console.log('New game client connected', client.id);
   }
 
-  handleDisconnect(client: Socket) {
+  handleDisconnect(@ConnectedSocket() client: Socket): any {
     try {
-      this.gameRealtimeService
-        .handleDisconnect(client.id)
-        .then((gameSession) => {
-          this.handleGameEvents(gameSession);
-        })
-        .catch((e) => {
-          console.log(e);
-        });
+      const gameSession = this.gameRealtimeService.handleDisconnect(client.id);
+      this.handleGameEvents(gameSession);
     } catch (e) {
       console.log(e);
     }
@@ -46,28 +44,30 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   @SubscribeMessage(GAME_EVENTS.JoinGame)
   async handleJoinGame(
-    @MessageBody() joinGameEvent: JoinGameEvent,
+    @MessageBody() joinData: JoinGameEvent,
     @ConnectedSocket() client: Socket,
-  ): Promise<JoinGameResponse> {
-    try {
-      const gamer = {
-        ...joinGameEvent.user,
-        clientId: client.id,
-      };
-      const data: JoinGameData = { ...joinGameEvent, user: gamer };
-      const gameSession = await this.gameRealtimeService.handleJoiningAGame(
-        data,
+  ): Promise<{ worked: boolean; roomId: number }> {
+    if (joinData.userType === GameUserType.Player) {
+      const gameSession = this.gameRealtimeService.clientPlayerConnected(
+        joinData.roomId,
+        joinData.user.userId,
+        client.id,
       );
-      await client.join(gameSession.gameId.toString());
+      const roomName = `${joinData.roomId}`;
+      await client.join(roomName);
       this.handleGameEvents(gameSession);
       return {
         worked: true,
         roomId: gameSession.gameId,
       };
-    } catch (error) {
-      console.log(`Error handling JoinGame: ${error.message}`);
-      console.error(error);
-      return { worked: false, roomId: 0 };
+    } else {
+      const gameSession = await this.gameRealtimeService.clientViewerConnected(
+        joinData,
+        client.id,
+      );
+      const roomName = `${joinData.roomId}`;
+      await client.join(roomName);
+      this.handleGameEvents(gameSession);
     }
   }
 
@@ -104,29 +104,34 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
-  // Handle game state change
   @SubscribeMessage(GAME_EVENTS.GameStateChanged)
   async handleGameStateChange(client: Socket, gameAction: GameActionDto) {
     const { roomId, user, isIA, actionData } = gameAction;
     const data = actionData as GAME_STATE[];
-    const gameSession = this.gameRealtimeService.currentManagedGames.find(
-      (g) => g.gameId === roomId,
-    );
+    const gameSession = this.gameSessionService.getGameSession(roomId);
     if (!gameSession) {
       console.log(`Game with id ${roomId} does not exist`);
       return;
     }
     switch (data[0]) {
       case GAME_STATE.waiting:
-        this.gameRealtimeService.handleGameStart(data[0], user, gameSession);
+        this.gameRealtimeService.SyncMonitorsStates(
+          data[0],
+          user.userId,
+          gameSession,
+        );
         break;
       case GAME_STATE.playing:
-        this.gameRealtimeService.handleGameStart(data[0], user, gameSession);
+        this.gameRealtimeService.SyncMonitorsStates(
+          data[0],
+          user.userId,
+          gameSession,
+        );
         break;
       case GAME_STATE.scored:
         this.gameRealtimeService.handleScoreUpdate(
           data[0],
-          user,
+          user.userId,
           gameSession,
           isIA,
         );
@@ -137,14 +142,15 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   private handleGameEvents(gameSession: GameSession) {
-    const room = gameSession.gameId.toString();
-    gameSession.events.forEach((eventObj) => {
+    const roomName = `${gameSession.gameId}`;
+    gameSession.eventsToPublishInRoom.forEach((eventObj) => {
       const { event, data } = eventObj;
-      if (this.server.to(room).emit(event, data)) {
-        console.log(`Emitted ${event} to room ${gameSession.gameId}`);
+      if (this.server.to(roomName).emit(event, data)) {
       }
     });
-    // after emitting events, clear the events array
-    gameSession.events.splice(0, gameSession.events.length);
+    gameSession.eventsToPublishInRoom.splice(
+      0,
+      gameSession.eventsToPublishInRoom.length,
+    );
   }
 }

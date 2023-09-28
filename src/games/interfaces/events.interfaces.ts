@@ -20,7 +20,6 @@ export enum GAME_EVENTS {
 export enum GameUserType {
   Player,
   Viewer,
-  LocalPlayer,
 }
 
 export interface JoinGameData {

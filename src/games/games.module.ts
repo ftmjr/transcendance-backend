@@ -2,10 +2,23 @@ import { Module } from '@nestjs/common';
 import { GamesService } from './games.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { GamesRepository } from './games.repository';
+import { GamesController } from './games.controller';
+import { MessageModule } from '../message/message.module';
+import { UsersModule } from '../users/users.module';
+import { GameSessionService } from './game-session.service';
+import { GameRealtimeService } from './gameRealtime.service';
+import { GameGateway } from './game.gateway';
 
 @Module({
-  imports: [PrismaModule],
-  providers: [GamesRepository, GamesService],
+  imports: [PrismaModule, MessageModule, UsersModule],
+  providers: [
+    GamesRepository,
+    GamesService,
+    GameSessionService,
+    GameRealtimeService,
+    GameGateway,
+  ],
+  controllers: [GamesController],
   exports: [GamesService],
 })
 export class GamesModule {}

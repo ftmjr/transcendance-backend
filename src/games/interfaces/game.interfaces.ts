@@ -18,33 +18,38 @@ export enum GameMonitorState {
 }
 
 export enum OnlineGameStates {
-  Waiting,
-  Playing,
-  Playing_with_bot,
-  Finished,
+  WAITING,
+  PLAYING,
+  PLAYING_AI,
+  FINISHED,
+}
+
+export enum GameSessionType {
+  Bot,
+  QueListGame,
+  CompetitionGame,
+  PrivateGame,
 }
 
 export interface GameSession {
   gameId: number;
-  participants: Map<number, Gamer>;
   hostId: number;
-  observers: Map<number, Gamer>;
+  type: GameSessionType;
+  participants: Gamer[];
+  observers: Gamer[];
   score: Map<number, number>;
   state: OnlineGameStates;
   monitors: Array<GameMonitorState>;
-  events: { event: GAME_EVENTS; data: { id: number; data: unknown } }[];
+  eventsToPublishInRoom: {
+    event: GAME_EVENTS;
+    data: { id: number; data: unknown };
+  }[];
   rules: {
     maxScore: number;
     maxTime: number;
   };
-  toBeDeleted?: boolean;
 }
 
-export interface BallServedData {
-  userId: number;
-  position: { x: number; y: number };
-  velocity: { x: number; y: number };
-}
 export interface PadMovedData {
   userId: number;
   direction: PAD_DIRECTION;
