@@ -74,6 +74,7 @@ export class UsersRepository {
   async updateProfile(params: {
     where: Prisma.ProfileWhereUniqueInput;
     data: Prisma.ProfileUpdateInput;
+    include?: Prisma.ProfileInclude;
   }): Promise<Profile> {
     const { where, data } = params;
     return this.prisma.profile.update({ where, data });

@@ -190,6 +190,7 @@ export class UsersService {
   async updateProfile(params: {
     where: Prisma.ProfileWhereUniqueInput;
     data: Prisma.ProfileUpdateInput;
+    include?: Prisma.ProfileInclude;
   }): Promise<Profile | null> {
     return this.repository.updateProfile(params);
   }
