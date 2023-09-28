@@ -25,11 +25,7 @@ import { ChatRealtimeService } from '../chatRealtime/chatRealtime.service';
 type RequestWithUser = express.Request & { user: User };
 @Controller('files')
 export class FilesController {
-  constructor(
-    private readonly filesService: FilesService,
-    private usersService: UsersService,
-    private chatService: ChatRealtimeService,
-  ) {}
+  constructor(private readonly filesService: FilesService) {}
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
@@ -41,13 +37,10 @@ export class FilesController {
         filename: (req, file, callback) => {
           const requestWithUser = req as RequestWithUser;
           const extension = extname(file.originalname);
+          //no more original name to avoid issues
           callback(
             null,
-            requestWithUser.user.id +
-              '-' +
-              requestWithUser.user.username +
-              '-' +
-              file.originalname,
+            `${requestWithUser.user.username}-avatar-${Date.now()}${extension}`,
           );
         },
       }),
@@ -62,18 +55,11 @@ export class FilesController {
       },
     }),
   )
-  async local(
+  async changeUserAvatar(
     @Req() req: RequestWithUser,
     @UploadedFile() file: Express.Multer.File,
-    @Body('roomId') roomId: number,
   ) {
-    const serverBaseUrl = 'https://' + process.env.URL + '/api';
-    const fileUrl = `${serverBaseUrl}/${file.filename}`;
-    await this.chatService.changeChatAvatar(roomId, req.user.id, fileUrl);
-    return {
-      statusCode: 200,
-      data: fileUrl,
-    };
+    return this.filesService.updateAvatarUrl(file.filename, req.user);
   }
 
   @ApiBearerAuth()
@@ -82,14 +68,10 @@ export class FilesController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
-        destination: './uploads',
+        destination: './uploads/room',
         filename: (req, file, callback) => {
-          const requestWithUser = req as RequestWithUser;
-          const randomString = Math.random().toString(36).substring(2, 15);
-          callback(
-            null,
-            `${requestWithUser.user.id}-room-${file.originalname}-${randomString}`,
-          );
+          const extension = extname(file.originalname);
+          callback(null, `room-${Date.now()}-${extension}`);
         },
       }),
       fileFilter: (req, file, callback) => {
@@ -104,34 +86,19 @@ export class FilesController {
   async changeChatAvatar(
     @Req() req: RequestWithUser,
     @UploadedFile() file: Express.Multer.File,
+    @Body('roomId') roomId: number,
   ) {
-    const serverBaseUrl = 'https://' + process.env.URL + '/api';
-    const fileUrl = `${serverBaseUrl}/${file.filename}`;
-    await this.usersService.updateProfile({
-      where: {
-        userId: req.user.id,
-      },
-      data: {
-        avatar: fileUrl,
-      },
-    });
-    return {
-      statusCode: 200,
-      data: fileUrl,
-    };
+    return this.filesService.updateChatRoomAvatar(
+      file.filename,
+      roomId,
+      req.user,
+    );
   }
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
   @Delete('avatar')
-  async randomizeAvatar(@Req() req) {
-    await this.usersService.updateProfile({
-      where: {
-        userId: req.user.id,
-      },
-      data: {
-        avatar: this.filesService.getRandomAvatarUrl(),
-      },
-    });
+  async randomizeAvatar(@Req() req: RequestWithUser) {
+    return this.filesService.deleteCurrentUserAvatar(req.user);
   }
 }

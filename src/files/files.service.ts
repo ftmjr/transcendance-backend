@@ -1,7 +1,50 @@
 import { Injectable } from '@nestjs/common';
+import { User } from '@prisma/client';
+import { UsersService } from '../users/users.service';
+import { ChatRealtimeService } from '../chatRealtime/chatRealtime.service';
+import { ChatRoomWithMembers } from '../chatRealtime/chatRealtime.repository';
 
 @Injectable()
 export class FilesService {
+  constructor(
+    private usersService: UsersService,
+    private chatService: ChatRealtimeService,
+  ) {}
+  updateAvatarUrl(fileName: string, user: User) {
+    const serverBaseUrl = 'https://' + process.env.URL + '/api';
+    const fileUrl = `${serverBaseUrl}/uploads/${fileName}`;
+    return this.usersService.updateProfile({
+      where: { userId: user.id },
+      data: {
+        avatar: fileUrl,
+      },
+      include: {
+        awards: true,
+      },
+    });
+  }
+  updateChatRoomAvatar(
+    fileName: string,
+    roomId: number,
+    source: User,
+  ): Promise<ChatRoomWithMembers> {
+    const serverBaseUrl = 'https://' + process.env.URL + '/api';
+    const fileUrl = `${serverBaseUrl}/uploads/room/${fileName}`;
+    return this.chatService.changeChatAvatar(roomId, source.id, fileUrl);
+  }
+
+  deleteCurrentUserAvatar(user: User) {
+    // TODO: delete the file from the server if  not in the default list
+    return this.usersService.updateProfile({
+      where: {
+        userId: user.id,
+      },
+      data: {
+        avatar: this.getRandomAvatarUrl(),
+      },
+    });
+  }
+
   getRandomAvatarUrl(): string {
     const serverBaseUrl = 'https://' + process.env.URL + '/api';
     const list = [
