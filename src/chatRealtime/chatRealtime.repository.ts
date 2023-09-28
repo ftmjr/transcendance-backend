@@ -7,6 +7,7 @@ import {
   Role,
   ChatRoomMember,
   Profile,
+  RoomType,
 } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
@@ -40,6 +41,14 @@ export class ChatRealtimeRepository {
       where,
       orderBy,
       include,
+    });
+  }
+
+  async getPublicRooms(): Promise<ChatRoomWithMembers[]> {
+    return this.prisma.chatRoom.findMany({
+      where: { type: RoomType.PUBLIC },
+      include: { members: true },
+      orderBy: { members: { _count: 'desc' } },
     });
   }
 
@@ -85,8 +94,14 @@ export class ChatRealtimeRepository {
   async updateRoom(params: {
     where: Prisma.ChatRoomWhereUniqueInput;
     data: Prisma.ChatRoomUpdateInput;
-  }) {
-    return this.prisma.chatRoom.update(params);
+  }): Promise<ChatRoomWithMembers> {
+    return this.prisma.chatRoom.update({
+      where: params.where,
+      data: params.data,
+      include: {
+        members: true,
+      },
+    });
   }
 
   async getChatRoomMembers(

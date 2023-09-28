@@ -1,7 +1,12 @@
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { Controller, Patch, Req } from '@nestjs/common';
+import { Controller, Get, ParseIntPipe, Patch, Req } from '@nestjs/common';
 import { ChatRealtimeService } from './chatRealtime.service';
-import { CreateRoomDto, JoinRoomDto, UpdatePasswordDto } from './dto';
+import {
+  CreateRoomDto,
+  JoinRoomDto,
+  LeaveRoomDto,
+  UpdatePasswordDto,
+} from './dto';
 import { AuthenticatedGuard } from '../auth/guards';
 import { Body, Post, Param, UseGuards } from '@nestjs/common';
 import * as express from 'express';
@@ -31,7 +36,7 @@ export class ChatRealtimeController {
   @Post('join-room/:roomId')
   async joinRoom(
     @Req() req: RequestWithUser,
-    @Param('roomId') roomId: number,
+    @Param('roomId', ParseIntPipe) roomId: number,
     @Body() joinRoomDto: JoinRoomDto,
   ) {
     const actorId = req.user.id; // replace with actual actorId
@@ -53,5 +58,34 @@ export class ChatRealtimeController {
   ) {
     const userId = req.user.id;
     return this.service.updateRoomPassword(updatePasswordDto, userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Post('leave-room')
+  async leaveRoom(
+    @Req() req: RequestWithUser,
+    @Body() leaveRoomDto: LeaveRoomDto,
+  ) {
+    const { roomId, userId } = leaveRoomDto;
+    return this.service.removeUserFromRoom(roomId, userId, req.user.id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Post('delete-room/:roomId')
+  async deleteRoom(
+    @Req() req: RequestWithUser,
+    @Param('roomId', ParseIntPipe) roomId: number,
+  ) {
+    const userId = req.user.id;
+    return this.service.deleteRoom(roomId, userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Get('public')
+  async getPublicRooms() {
+    return this.service.getPublicRooms();
   }
 }

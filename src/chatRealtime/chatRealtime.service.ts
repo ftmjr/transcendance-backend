@@ -75,6 +75,10 @@ export class ChatRealtimeService {
       throw new Error('Failed to add, User probably already in the room');
     }
   }
+
+  async getPublicRooms(): Promise<ChatRoomWithMembers[]> {
+    return this.repository.getPublicRooms();
+  }
   async sendMessageToRoom(roomId: number, content: string, senderId: number) {
     const room = await this.getRoom({ roomId });
     this.checkIfCanActInTheRoom(senderId, room, [
