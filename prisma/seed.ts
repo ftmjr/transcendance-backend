@@ -50,10 +50,10 @@ async function main() {
             password: usersPassword,
             profile: {
               create: {
-                name: faker.name.firstName(),
-                lastname: faker.name.lastName(),
+                name: faker.person.firstName(),
+                lastname: faker.person.lastName(),
                 avatar: faker.image.avatar(),
-                bio: faker.lorem.sentence(),
+                bio: faker.person.bio(),
               },
             },
           },
@@ -112,7 +112,7 @@ async function main() {
       // Choose 2 random other users to add as contacts
       const contactIndices = [];
       while (contactIndices.length < 2) {
-        const randomIndex = faker.datatype.number({
+        const randomIndex = faker.number.int({
           min: 0,
           max: users.length - 1,
         });
@@ -134,6 +134,16 @@ async function main() {
   } catch (e) {
     console.error('Error seeding the database:', e);
   } finally {
-    await prisma.$disconnect();
+    console.log('Seeding finished.');
   }
 }
+
+main()
+  .then(async () => {
+    await prisma.$disconnect();
+  })
+  .catch(async (e) => {
+    console.error(e);
+    await prisma.$disconnect();
+    process.exit(1);
+  });
