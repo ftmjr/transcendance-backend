@@ -23,8 +23,8 @@ import { MessageModule } from './message/message.module';
     CacheModule.register(),
     FilesModule,
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'uploads'),
-      exclude: ['/(.*)'],
+      rootPath: join(__dirname, '..', '..', 'uploads'),
+      serveRoot: '/uploads/',
     }),
     FriendsModule,
     MessageModule,
