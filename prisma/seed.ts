@@ -4,6 +4,7 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+const serverBaseUrl = 'https://localhost/api/uploads';
 async function main() {
   try {
     const awardPromises = [
@@ -13,7 +14,7 @@ async function main() {
         create: {
           name: 'Premier but',
           description: 'Tu as mis ton premier but, bravo !',
-          image: 'https://localhost/api/uploads/awards/revolver.png',
+          image: `${serverBaseUrl}/awards/revolver.png`,
         },
       }),
       prisma.award.upsert({
@@ -22,7 +23,7 @@ async function main() {
         create: {
           name: 'Premier defis gagné',
           description: 'Félicitation pour ton premier défi gagné !',
-          image: 'https://localhost/api/uploads/awards/boxing-glove.png',
+          image: `${serverBaseUrl}/awards/boxing-glove.png`,
         },
       }),
       prisma.award.upsert({
@@ -31,7 +32,7 @@ async function main() {
         create: {
           name: 'The Winner',
           description: 'Tu as gagné tes 5 premiers match, bravo !',
-          image: 'https://localhost/api/uploads/awards/swords-power.png',
+          image: `${serverBaseUrl}/awards/swords-power.png`,
         },
       }),
     ];
@@ -68,7 +69,7 @@ async function main() {
         create: {
           name: 'Attack on Pong land',
           type: 'PUBLIC',
-          avatar: 'https://localhost/api/uploads/room/fortnite.jpg',
+          avatar: `${serverBaseUrl}/room/fortnite.jpg`,
           members: {
             createMany: {
               data: [
@@ -90,7 +91,7 @@ async function main() {
         create: {
           name: 'Pongistes',
           type: 'PUBLIC',
-          avatar: 'https://localhost/api/uploads/room/pong_table.png',
+          avatar: `${serverBaseUrl}/room/pong_table.png`,
           members: {
             createMany: {
               data: [
@@ -139,7 +140,6 @@ async function main() {
 }
 
 function getRandomUserAvatarUrl(): string {
-  const serverBaseUrl = 'https://localhost/api';
   const list = [
     'randomAvatars/icons8-bart-simpson-500.png',
     'randomAvatars/icons8-batman-500.png',
