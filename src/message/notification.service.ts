@@ -35,6 +35,25 @@ export class NotificationService {
       });
   }
 
+  async createChallengeAcceptedNotification(
+    userId: number,
+    gameId: number,
+    message: string,
+  ): Promise<void> {
+    this.notificationRepository
+      .createNotification({
+        user: { connect: { id: userId } },
+        type: NotificationType.GAME_INVITE,
+        title: 'Challenge Accepted',
+        message: message,
+        referenceId: gameId,
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24), // 1 day
+      })
+      .then((notification) => {
+        this.notificationGateway.sendNotificationToUser(userId, notification);
+      });
+  }
+
   async createFriendRequestNotification(
     userId: User[`id`],
     friendId: User[`id`],
