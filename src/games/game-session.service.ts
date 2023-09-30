@@ -74,11 +74,134 @@ export class GameSessionService {
           (user as any).profile?.avatar ?? '',
         ),
       );
+      this.notificationService.createChallengeAcceptedNotification(
+        availableGameSession.hostId,
+        availableGameSession.gameId,
+        `${user.username} has accepted the game invitation`,
+      );
       return availableGameSession;
     } else {
-      // No available game session, create a new one.
       return this.startAGameSession({ againstBot: false }, user);
     }
+  }
+
+  async acceptGameInvitation(gameId: number, user: User): Promise<GameSession> {
+    const gameSession = this.gameSessions.get(gameId);
+    if (!gameSession) {
+      throw new Error('Game session not found');
+    }
+
+    // Check if the user is already a participant
+    const isAlreadyParticipant = gameSession.participants.some(
+      (participant) => participant.userId === user.id,
+    );
+    if (isAlreadyParticipant) {
+      throw new Error('User is already a participant');
+    }
+    const newParticipant = this.createGamer(
+      user.id,
+      user.username,
+      (user as any).profile?.avatar ?? '',
+      '',
+      false,
+    );
+    gameSession.participants.push(newParticipant);
+
+    // Notify the host of the game session
+    this.notificationService.createChallengeAcceptedNotification(
+      gameSession.hostId,
+      gameId,
+      `${user.username} has accepted the game invitation`,
+    );
+    this.updateGameSession(gameId, gameSession);
+    return gameSession;
+  }
+
+  async refuseGameInvitation(gameId: number, user: User): Promise<void> {
+    // Find the game session by gameId
+    const gameSession = this.gameSessions.get(gameId);
+    if (!gameSession) {
+      throw new Error('Game session not found');
+    }
+
+    // Check if the user is already a participant
+    const isAlreadyParticipant = gameSession.participants.some(
+      (participant) => participant.userId === user.id,
+    );
+    if (isAlreadyParticipant) {
+      throw new Error('User is already a participant');
+    }
+
+    // Notify the host of the game session
+    this.notificationService.createGameNotification(
+      gameSession.hostId,
+      gameId,
+      `The game invitation has been refused by ${user.username}`,
+    );
+
+    if (gameSession.participants.length === 1) {
+      this.deleteGameSession(gameId);
+    }
+  }
+
+  async getUserGameSessions(userId: number): Promise<GameSession[]> {
+    const userGameSessions: GameSession[] = [];
+
+    this.gameSessions.forEach((gameSession) => {
+      const isParticipant = gameSession.participants.some(
+        (participant) => participant.userId === userId,
+      );
+      if (isParticipant) {
+        userGameSessions.push(gameSession);
+      }
+    });
+
+    return userGameSessions;
+  }
+
+  getUserGameStatus(
+    userId: number,
+    checker: User,
+  ): {
+    status: 'playing' | 'inQueue' | 'free';
+    gameSession?: GameSession;
+  } {
+    for (const gameSession of this.gameSessions.values()) {
+      const participant = gameSession.participants.find(
+        (p) => p.userId === userId,
+      );
+      if (participant) {
+        const status =
+          gameSession.state === OnlineGameStates.PLAYING
+            ? 'playing'
+            : 'inQueue';
+        return { status, gameSession };
+      }
+    }
+    return { status: 'free' };
+  }
+
+  async deleteGameSessionByUser(gameId: number, userId: number): Promise<void> {
+    const gameSession = this.gameSessions.get(gameId);
+    if (!gameSession || gameSession.hostId !== userId) {
+      throw new Error('Game session not found or user is not the host');
+    }
+    this.deleteGameSession(gameId);
+  }
+
+  async quitGameSession(gameId: number, userId: number): Promise<void> {
+    const gameSession = this.gameSessions.get(gameId);
+    if (!gameSession) {
+      throw new Error('Game session not found');
+    }
+    const participantIndex = gameSession.participants.findIndex(
+      (participant) => participant.userId === userId,
+    );
+    if (participantIndex === -1) {
+      throw new Error('User is not a participant');
+    }
+    gameSession.participants.splice(participantIndex, 1);
+    this.updateGameSession(gameId, gameSession);
   }
 
   getNumberOfGameSessions(): number {
@@ -141,7 +264,9 @@ export class GameSessionService {
     const monitors = Array<GameMonitorState>(participants.length).fill(
       GameMonitorState.InitGame,
     );
-    const participantsIds = participants.map((p) => p.userId);
+    const participantsIds = participants
+      .map((p) => p.userId)
+      .filter((id) => id !== 0); // remove the bot id
     const game = await this.createAGame(participantsIds, type);
     // fill the score map with 0 for each participant
     const score = new Map<number, number>();
