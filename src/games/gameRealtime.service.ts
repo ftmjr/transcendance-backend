@@ -43,6 +43,7 @@ export class GameRealtimeService {
       event: GAME_EVENTS.ViewersRetrieved,
       data: { id: gameId, data: Array.from(gameSession.observers.values()) },
     });
+    this.writeGameHistory(GameEvent.GAME_STARTED, userId, gameId);
     return gameSession;
   }
 
@@ -85,11 +86,6 @@ export class GameRealtimeService {
       gamer.userId,
       gameSession.gameId,
     );
-    this.writeGameHistory(
-      GameEvent.GAME_ENDED,
-      gamer.userId,
-      gameSession.gameId,
-    );
     gameSession.eventsToPublishInRoom.push({
       event: GAME_EVENTS.GameMonitorStateChanged,
       data: {
@@ -110,11 +106,19 @@ export class GameRealtimeService {
     if (state === GAME_STATE.waiting) {
       // update monitor states to ready depending on userId index
       this.setGamerMonitorState(gameSession, userId, GameMonitorState.InitGame);
+      // update directly for Ai player if any
+      this.setGamerMonitorState(gameSession, 0, GameMonitorState.InitGame);
     } else if (state === GAME_STATE.playing) {
       // update monitor states to playing depending on userId index
       this.setGamerMonitorState(
         gameSession,
         userId,
+        GameMonitorState.PlayingSceneLoaded,
+      );
+      // update directly for Ai player if any
+      this.setGamerMonitorState(
+        gameSession,
+        0,
         GameMonitorState.PlayingSceneLoaded,
       );
     }
@@ -190,7 +194,7 @@ export class GameRealtimeService {
     return false;
   }
 
-  handleGameEnding(gameSession: GameSession, winnerId?: number) {
+  handleGameEnding(gameSession: GameSession, winnerId: number) {
     gameSession.eventsToPublishInRoom.push({
       event: GAME_EVENTS.GameMonitorStateChanged,
       data: {
@@ -199,23 +203,26 @@ export class GameRealtimeService {
       },
     });
     gameSession.state = OnlineGameStates.FINISHED;
-    for (const userId of gameSession.participants.keys()) {
-      if (winnerId) {
-        if (userId === winnerId) {
-          this.writeGameHistory(
-            GameEvent.MATCH_WON,
-            userId,
-            gameSession.gameId,
-          );
-        } else {
-          this.writeGameHistory(
-            GameEvent.MATCH_LOST,
-            userId,
-            gameSession.gameId,
-          );
-        }
+    for (const user of gameSession.participants) {
+      if (user.userId === winnerId) {
+        if (user.userId === 0) continue;
+        this.writeGameHistory(
+          GameEvent.MATCH_WON,
+          user.userId,
+          gameSession.gameId,
+        );
+      } else {
+        this.writeGameHistory(
+          GameEvent.MATCH_LOST,
+          user.userId,
+          gameSession.gameId,
+        );
       }
-      this.writeGameHistory(GameEvent.GAME_ENDED, userId, gameSession.gameId);
+      this.writeGameHistory(
+        GameEvent.GAME_ENDED,
+        user.userId,
+        gameSession.gameId,
+      );
     }
   }
 
@@ -224,6 +231,7 @@ export class GameRealtimeService {
     userId: GameHistory[`userId`],
     gameId: number,
   ) {
+    if (userId === 0) return;
     this.gamesService.addHistoryToGame({
       event: event,
       user: {
