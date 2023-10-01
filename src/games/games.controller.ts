@@ -152,4 +152,25 @@ export class GamesController {
     const user = req.user;
     return this.gameSessionService.getUserGameStatus(userId, user);
   }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Post('status')
+  @ApiOperation({ summary: 'Get the status of many users' })
+  @ApiResponse({
+    status: 200,
+    description: 'Retrieved the status successfully.',
+  })
+  async getUsersStatus(
+    @Req() req: RequestWithUser,
+    @Body() { userIds }: { userIds: number[] },
+  ): Promise<
+    {
+      status: 'playing' | 'inQueue' | 'free';
+      gameSession?: GameSession;
+    }[]
+  > {
+    const user = req.user;
+    return this.gameSessionService.getUsersGameStatus(userIds, user);
+  }
 }

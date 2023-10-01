@@ -181,6 +181,23 @@ export class GameSessionService {
     return { status: 'free' };
   }
 
+  getUsersGameStatus(
+    userIds: number[],
+    checker: User,
+  ): {
+    status: 'playing' | 'inQueue' | 'free';
+    gameSession?: GameSession;
+  }[] {
+    const statuses: {
+      status: 'playing' | 'inQueue' | 'free';
+      gameSession?: GameSession;
+    }[] = [];
+    for (const userId of userIds) {
+      statuses.push(this.getUserGameStatus(userId, checker));
+    }
+    return statuses;
+  }
+
   async deleteGameSessionByUser(gameId: number, userId: number): Promise<void> {
     const gameSession = this.gameSessions.get(gameId);
     if (!gameSession || gameSession.hostId !== userId) {
