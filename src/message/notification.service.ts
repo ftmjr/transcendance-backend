@@ -61,9 +61,45 @@ export class NotificationService {
   ): Promise<void> {
     this.notificationRepository
       .createNotification({
-        user: { connect: { id: userId } },
+        user: { connect: { id: friendId } },
         type: NotificationType.FRIEND_REQUEST,
         title: 'Friend Request',
+        message: message,
+        referenceId: userId,
+      })
+      .then((notification) => {
+        this.notificationGateway.sendNotificationToUser(friendId, notification);
+      });
+  }
+
+  async createFriendRequestAcceptedNotification(
+    userId: User[`id`],
+    friendId: User[`id`],
+    message: string,
+  ): Promise<void> {
+    this.notificationRepository
+      .createNotification({
+        user: { connect: { id: userId } },
+        type: NotificationType.FRIEND_REQUEST,
+        title: 'Friend Request Accepted',
+        message: message,
+        referenceId: friendId,
+      })
+      .then((notification) => {
+        this.notificationGateway.sendNotificationToUser(userId, notification);
+      });
+  }
+
+  async createFriendRequestRejectedNotification(
+    userId: User[`id`],
+    friendId: User[`id`],
+    message: string,
+  ): Promise<void> {
+    this.notificationRepository
+      .createNotification({
+        user: { connect: { id: userId } },
+        type: NotificationType.FRIEND_REQUEST,
+        title: 'Friend Request Rejected',
         message: message,
         referenceId: friendId,
       })
