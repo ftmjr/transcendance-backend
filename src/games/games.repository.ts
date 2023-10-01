@@ -156,10 +156,9 @@ export class GamesRepository {
 
   createGameHistory(params: {
     data: Prisma.GameHistoryCreateInput;
-    include?: Prisma.GameHistoryInclude;
   }): Promise<GameHistory> {
-    const { data, include } = params;
-    return this.prisma.gameHistory.create({ data, include });
+    const { data } = params;
+    return this.prisma.gameHistory.create({ data });
   }
 
   getGameCompetition(params: {

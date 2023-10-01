@@ -5,12 +5,18 @@ import {
   Session,
   User,
   Profile,
-  ContactRequest,
-  Game,
   GameEvent,
 } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
+export interface BlockedUserWithProfiles extends BlockedUser {
+  blockedUser: {
+    id: number;
+    username: string;
+    password: string;
+    profile: Profile;
+  };
+}
 @Injectable()
 export class UsersRepository {
   constructor(private prisma: PrismaService) {}
@@ -38,16 +44,37 @@ export class UsersRepository {
     });
   }
 
+  async getUsersWithSelected(params: {
+    skip?: number;
+    take?: number;
+    cursor?: Prisma.UserWhereUniqueInput;
+    where?: Prisma.UserWhereInput;
+    orderBy?: Prisma.UserOrderByWithRelationInput;
+    select?: Prisma.UserSelect;
+  }) {
+    const { skip, take, cursor, where, orderBy, select } = params;
+    return this.prisma.user.findMany({
+      skip,
+      take,
+      cursor,
+      where,
+      orderBy,
+      select,
+    });
+  }
+
   async updateUser(params: {
     where: Prisma.UserWhereUniqueInput;
     data: Prisma.UserUpdateInput;
+    include?: Prisma.UserInclude;
   }): Promise<User> {
-    const { where, data } = params;
-    return this.prisma.user.update({ where, data });
+    const { where, data, include } = params;
+    return this.prisma.user.update({ where, data, include });
   }
   async updateProfile(params: {
     where: Prisma.ProfileWhereUniqueInput;
     data: Prisma.ProfileUpdateInput;
+    include?: Prisma.ProfileInclude;
   }): Promise<Profile> {
     const { where, data } = params;
     return this.prisma.profile.update({ where, data });
@@ -67,6 +94,14 @@ export class UsersRepository {
   }): Promise<User | null> {
     const { where, include } = params;
     return this.prisma.user.findUnique({ where, include });
+  }
+
+  getUserWithSelectedFields(params: {
+    where: Prisma.UserWhereUniqueInput;
+    select: Prisma.UserSelect;
+  }) {
+    const { where, select } = params;
+    return this.prisma.user.findUnique({ where, select });
   }
 
   async getByID(id: User[`id`]): Promise<User | null> {
@@ -158,7 +193,7 @@ export class UsersRepository {
       });
     }
   }
-  async getBlockedUsers(userId: number) {
+  async getBlockedUsers(userId: number): Promise<BlockedUserWithProfiles[]> {
     return await this.prisma.blockedUser.findMany({
       where: {
         userId: userId,
@@ -172,19 +207,80 @@ export class UsersRepository {
       },
     });
   }
-  async getUsersOrderedByWins() {
+  async getUsersOrderedByWins(params: { skip: number; take: number }) {
+    const { skip, take } = params;
     return this.prisma.user.findMany({
       include: {
         gameHistories: {
           where: {
             OR: [
               { event: GameEvent.MATCH_WON },
-              { event: GameEvent.MATCH_LOST }, // Add this line
+              { event: GameEvent.MATCH_LOST },
             ],
+          },
+          orderBy: {
+            event: 'desc',
           },
         },
         profile: true,
       },
+      take,
+      skip,
     });
+  }
+
+  async getStats() {
+    const totalUsers = await this.prisma.user.count();
+    const activeUsers = await this.prisma.session.count({
+      where: {
+        createdAt: {
+          gte: new Date(new Date().setDate(new Date().getDate() - 30)), // Last 30 days
+        },
+      },
+    });
+    const totalGamesPlayed = await this.prisma.game.count();
+    const totalCompetitions = await this.prisma.competition.count();
+    const totalNotificationsSent = 0; //await this.prisma.notification.count();
+    const totalGames = await this.prisma.game.count();
+    const averageGamesPerUser = totalGames / totalUsers;
+
+    // This is a bit more complex, you'd need to group by game and count the participants or histories
+    const mostActiveGame = await this.prisma.gameHistory.groupBy({
+      by: ['gameId'],
+      _count: {
+        gameId: true,
+      },
+      orderBy: {
+        _count: {
+          gameId: 'desc',
+        },
+      },
+      take: 1,
+    });
+
+    // Similarly, group by user and count the participations or histories
+    const mostActiveUser = await this.prisma.gameParticipation.groupBy({
+      by: ['userId'],
+      _count: {
+        userId: true,
+      },
+      orderBy: {
+        _count: {
+          userId: 'desc',
+        },
+      },
+      take: 1,
+    });
+
+    return {
+      totalUsers,
+      activeUsers,
+      totalGamesPlayed,
+      totalCompetitions,
+      totalNotificationsSent,
+      averageGamesPerUser,
+      mostActiveGame: mostActiveGame[0]?.gameId,
+      mostActiveUser: mostActiveUser[0]?.userId,
+    };
   }
 }

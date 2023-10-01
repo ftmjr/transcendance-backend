@@ -1,12 +1,12 @@
-import { Body, Logger } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import {
-  SubscribeMessage,
   WebSocketGateway,
   WebSocketServer,
   OnGatewayConnection,
   OnGatewayDisconnect,
   ConnectedSocket,
   MessageBody,
+  SubscribeMessage,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import {
@@ -14,6 +14,7 @@ import {
   ClientToServerEvents,
 } from './interfaces/chat.interface';
 import { ChatRealtimeService } from './chatRealtime.service';
+import { Status } from '@prisma/client';
 
 @WebSocketGateway({ namespace: 'chat' })
 export class ChatRealtimeGateway
@@ -23,164 +24,52 @@ export class ChatRealtimeGateway
     ServerToClientEvents,
     ClientToServerEvents
   >();
+
   constructor(private service: ChatRealtimeService) {}
+
   private logger = new Logger('ChatRealtimeGateway');
-  handleConnection(@ConnectedSocket() client, ...args: any[]) {
-    this.logger.log(`Client connected : ${client.id}`);
-    const user = client.handshake.auth.user;
-    if (!user) {
-      return this.handleDisconnect(client);
+  async handleConnection(client: Socket, ...args: any[]): Promise<number[]> {
+    try {
+      const userId = client.handshake.query.userId;
+      if (!userId) throw new Error('User ID is required');
+      const id = Number(userId);
+      await this.service.changeUserStatus(id, Status.Online);
+    } catch (e) {
+      client.emit('connectionError', e.message);
+      client.disconnect();
+      return [];
     }
-    client.data.user = user;
-    client.data.room = 'General';
-    this.server.in(client.id).socketsJoin('user:' + user.username);
   }
 
-  async handleDisconnect(client: Socket) {
-    this.logger.log(`Client disconnected : ${client.id}`);
+  async handleDisconnect(client: Socket): Promise<void> {
+    try {
+      const userId = client.handshake.query.userId;
+      if (userId) {
+        await this.service.changeUserStatus(Number(userId), Status.Offline);
+      }
+    } catch (e) {
+      this.logger.error(`Failed to handle disconnect: ${e.message}`);
+    }
   }
-  @SubscribeMessage('dm')
-  async newMessage(
+
+  // Handle sending messages
+  @SubscribeMessage('sendMessage')
+  async handleMessage(
     @ConnectedSocket() client: Socket,
-    @MessageBody() message: string,
-  ) {
-    const newMessage = await this.service.createPrivateMessage({
-      data: {
-        senderId: client.data.user.id,
-        receiverId: client.data.receiverId,
-        text: message,
-      },
-    });
-    this.server.to('user:' + client.data.user.username).emit('dm', newMessage);
-    if (client.data.user.username !== client.data.receiverUsername) {
+    @MessageBody() data: { senderId: number; roomId: number; content: string },
+  ): Promise<void> {
+    const { roomId, content, senderId } = data;
+    try {
+      const message = await this.service.sendMessageToRoom(
+        roomId,
+        content,
+        senderId,
+      );
+      this.server.to(`chat-room:${roomId}`).emit('newMessage', message);
+    } catch (e) {
       this.server
-        .to('user:' + client.data.receiverUsername)
-        .emit('dm', newMessage);
+        .to(`chat-room:${roomId}`)
+        .emit('failedToSendMessage', e.message);
     }
-  }
-
-  @SubscribeMessage('addReceiver')
-  async addReceiver(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() receiver,
-  ) {
-    client.data.receiverId = receiver.id;
-    client.data.receiverUsername = receiver.username;
-  }
-
-  @SubscribeMessage('message')
-  async newChatMessage(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() message: string,
-  ) {
-    let createdMessage;
-    if (client.data.room === 'General') {
-      createdMessage = await this.service.createGeneralMessage(client, message);
-    } else {
-      createdMessage = await this.service.createRoomMessage(client, message);
-    }
-    this.server.to('room:' + client.data.room).emit('message', createdMessage);
-  }
-  @SubscribeMessage('filter')
-  filterBlockedMessages(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() message: any,
-  ) {
-    console.log(message.userId);
-    const { blockedFrom, blockedUsers } = client.data.user;
-    console.log(blockedFrom, blockedUsers);
-    const isBlockedFrom = blockedFrom.some(
-      (blocked) => blocked.userId === message.userId,
-    );
-    const isBlockedUser = blockedUsers.some(
-      (blocked) => blocked.blockedUserId === message.userId,
-    );
-    if (isBlockedFrom || isBlockedUser) {
-      return;
-    }
-    this.server.to(client.id).emit('filter', message);
-  }
-  @SubscribeMessage('updateRooms')
-  async updateRooms() {
-    this.server.emit('updateRooms');
-  }
-  @SubscribeMessage('updateRoomMembers')
-  async updateRoomMembers(@ConnectedSocket() client: Socket) {
-    this.server.to('room:' + client.data.room).emit('updateRoomMembers');
-  }
-  @SubscribeMessage('joinRoom')
-  async joinRoom(
-    @MessageBody() roomName: string,
-    @ConnectedSocket() client: Socket,
-  ) {
-    if (client.data.room) {
-      await this.server.in(client.id).socketsLeave('room:' + client.data.room);
-      client.data.room = null;
-    }
-    await this.server.in(client.id).socketsJoin('room:' + roomName);
-    client.data.room = roomName;
-  }
-  @SubscribeMessage('kick')
-  async kickMember(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() otherId: number,
-  ) {
-    await this.service.kickChatRoomMember(otherId);
-  }
-  @SubscribeMessage('mute')
-  async muteMember(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() otherId: number,
-  ) {
-    await this.service.muteChatRoomMember(otherId);
-  }
-  @SubscribeMessage('unmute')
-  async unmuteMember(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() otherId: number,
-  ) {
-    await this.service.unmuteChatRoomMember(otherId);
-  }
-  @SubscribeMessage('ban')
-  async banMember(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() otherId: number,
-  ) {
-    await this.service.banChatRoomMember(otherId);
-  }
-  @SubscribeMessage('promote')
-  async promoteMember(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() otherId: number,
-  ) {
-    await this.service.promoteChatRoomMember(otherId);
-  }
-  @SubscribeMessage('game')
-  async linkUsernameToGame(@ConnectedSocket() client: Socket) {
-    this.server.in(client.id).socketsJoin('game:' + client.data.user.username);
-  }
-  @SubscribeMessage('game-invite')
-  async inviteToPlay(
-    @Body() username: string,
-    @ConnectedSocket() client: Socket,
-  ) {
-    this.server.to('game:' + username).emit('game-invite', client.data.user);
-  }
-  @SubscribeMessage('game-accept')
-  async acceptToPlay(@Body() username: string) {
-    this.server.to('game:' + username).emit('game-accept');
-  }
-  @SubscribeMessage('game-reject')
-  async rejectToPlay(@Body() username: string) {
-    this.server.to('game:' + username).emit('game-reject');
-  }
-  @SubscribeMessage('block-user')
-  async blockUser(@ConnectedSocket() client: Socket, @MessageBody() username) {
-    this.server.to('user:' + username).emit('block-user');
-  }
-  @SubscribeMessage('update-self')
-  async updateSelf(@ConnectedSocket() client: Socket, @MessageBody() user) {
-    console.log(user);
-    client.data.user = user;
   }
 }

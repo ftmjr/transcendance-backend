@@ -1,171 +1,114 @@
-import {
-  ApiTags,
-  ApiOperation,
-  ApiBearerAuth,
-  ApiResponse,
-} from '@nestjs/swagger';
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Post,
-  Query,
-  Request,
-  Response,
-  UseGuards,
-} from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { Controller, Get, ParseIntPipe, Patch, Req } from '@nestjs/common';
 import { ChatRealtimeService } from './chatRealtime.service';
+import {
+  CreateRoomDto,
+  JoinRoomDto,
+  LeaveRoomDto,
+  UpdatePasswordDto,
+} from './dto';
 import { AuthenticatedGuard } from '../auth/guards';
+import { Body, Post, Param, UseGuards } from '@nestjs/common';
+import * as express from 'express';
+import { User } from '@prisma/client';
 
-import { CreateRoomDto } from './dto/createRoom.dto';
-import { AvailableRoomsDto } from './dto/availableRooms.dto';
-import { JoinRoomDto } from './dto/joinRoom.dto';
-import { ChatRealtimeGateway } from './chatRealtime.gateway';
-import { Status } from '@prisma/client';
-import { PaginationQuery } from '../users/dto/pagination-query.dto';
-import { UserActionDto } from './dto/userAction.dto';
+type RequestWithUser = express.Request & { user: User };
 
 @ApiTags('ChatActions')
 @Controller('chat')
 export class ChatRealtimeController {
-  constructor(
-    private service: ChatRealtimeService,
-    private gateway: ChatRealtimeGateway,
-  ) {}
+  constructor(private service: ChatRealtimeService) {}
 
-  @UseGuards(AuthenticatedGuard)
-  @ApiBearerAuth()
-  @ApiOperation({ summary: 'Retrieve all public and protected rooms' })
-  @ApiResponse({ status: 200, type: AvailableRoomsDto })
-  @Get('rooms')
-  async getAllRooms(@Request() req, @Query() queryParams: PaginationQuery) {
-    const skip: number = parseInt(queryParams.skip);
-    const take: number = parseInt(queryParams.take);
-    return await this.service.getRooms({ skip, take }, req.user.id);
-  }
-  @UseGuards(AuthenticatedGuard)
-  @ApiBearerAuth()
-  @Post('new')
-  @ApiOperation({
-    summary: 'Create a chat room',
-    description: `
-      - Returns the created chat room
-      - returns 403 if chatroom exist
-    `,
-  })
-  @ApiResponse({ status: 200, description: `- Chatroom created',` })
-  async createRoom(@Body() createRoomDto: CreateRoomDto) {
-    return await this.service.createRoom(createRoomDto);
-  }
-  @UseGuards(AuthenticatedGuard)
-  @ApiBearerAuth()
-  @Post('password/:id')
-  @ApiOperation({
-    summary: 'Update a chat room',
-    description: `
-      - Returns the updated chat room
-    `,
-  })
-  @ApiResponse({ status: 200, description: `- Chatroom updated',` })
-  async updateRoom(@Request() req, @Param('id') id: string, @Body() data) {
-    const roomId = parseInt(id);
-    console.log(data.password);
-    return await this.service.updateRoom(req.user.id, roomId, data.password);
-  }
-  @UseGuards(AuthenticatedGuard)
-  @ApiBearerAuth()
-  @Post('join')
-  @ApiOperation({
-    summary: 'Attempt to join a chat room',
-    description: `
-      - Returns the joined chat room
-      - returns 404 if room doesn't exist, 403 if password invalid
-    `,
-  })
-  @ApiResponse({ status: 200, description: `- Chatroom joined',` })
-  async joinRoom(@Request() req, @Body() joinRoomDto: JoinRoomDto) {
-    if (joinRoomDto.roomName === 'General') {
-      return await this.service.joinGeneral(req.user);
-    }
-    return await this.service.joinRoom(joinRoomDto);
-  }
-  @UseGuards(AuthenticatedGuard)
-  @ApiBearerAuth()
-  @Post('leave/:id')
-  @ApiOperation({
-    summary: 'Leaves a chat room permanently',
-    description: `
-      - to be defined
-    `,
-  })
-  @ApiResponse({ status: 200, description: `- Chatroom left',` })
-  async leaveRoom(@Request() req, @Param('id') id: string) {
-    const roomId = parseInt(id);
-    return await this.service.leaveRoom(req.user, roomId);
-  }
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @ApiOperation({ summary: 'Retrieve all members of a room' })
-  @ApiResponse({ status: 200 })
-  @Get('members/:id')
-  async getRoomMembers(
-    @Request() req,
-    @Query() queryParams: PaginationQuery,
-    @Param('id') id: string,
+  @Post('create-room')
+  async createRoom(
+    @Req() req: RequestWithUser,
+    @Body() createRoomDto: CreateRoomDto,
   ) {
-    const skip: number = parseInt(queryParams.skip);
-    const take: number = parseInt(queryParams.take);
-    const roomId: number = parseInt(id);
-    if (roomId === 0) {
-      return await this.service.getGeneralMembers({ skip, take }, req.user);
-    }
-    return await this.service.getRoomMembers({ skip, take }, req.user, roomId);
-  }
-  @ApiBearerAuth()
-  @UseGuards(AuthenticatedGuard)
-  @ApiOperation({ summary: 'Retrieve all members of a room' })
-  @ApiResponse({ status: 200 })
-  @Get('messages/:id')
-  async getRoomMessages(
-    @Request() req,
-    @Query() queryParams: PaginationQuery,
-    @Param('id') id: string,
-  ) {
-    const skip: number = parseInt(queryParams.skip);
-    const take: number = parseInt(queryParams.take);
-    const roomId: number = parseInt(id);
-    if (roomId === 0) {
-      return await this.service.getGeneralMessages({ skip, take }, req.user);
-    }
-    return await this.service.getRoomMessages({ skip, take }, req.user, roomId);
+    // Assume ownerId is obtained from the request after authentication
+    const ownerId = 1; // replace with actual ownerId
+    return this.service.createRoom(createRoomDto, ownerId);
   }
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @ApiOperation({ summary: 'Retrieve all messages of a dm' })
-  @ApiResponse({ status: 200 })
-  @Get('dm/:id')
-  async getPrivateMessages(
-    @Request() req,
-    @Query() queryParams: PaginationQuery,
-    @Param('id') id: string,
+  @Post('join-room/:roomId')
+  async joinRoom(
+    @Req() req: RequestWithUser,
+    @Param('roomId', ParseIntPipe) roomId: number,
+    @Body() joinRoomDto: JoinRoomDto,
   ) {
-    const skip: number = parseInt(queryParams.skip);
-    const take: number = parseInt(queryParams.take);
-    return await this.service.getPrivateMessages(
-      { skip, take },
-      req.user.id,
-      parseInt(id),
+    const actorId = req.user.id; // replace with actual actorId
+    return this.service.addUserToARoom(
+      {
+        roomId,
+        ...joinRoomDto,
+      },
+      actorId,
     );
   }
+
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @ApiOperation({ summary: 'Retrieve all dm conversations of a user' })
-  @ApiResponse({ status: 200 })
-  @Get('dm')
-  async getConversations(@Request() req) {
-    return await this.service.getConversations(req.user);
+  @Patch('update-password')
+  async updateRoomPassword(
+    @Req() req: RequestWithUser,
+    @Body() updatePasswordDto: UpdatePasswordDto,
+  ) {
+    const userId = req.user.id;
+    return this.service.updateRoomPassword(updatePasswordDto, userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Post('leave-room')
+  async leaveRoom(
+    @Req() req: RequestWithUser,
+    @Body() leaveRoomDto: LeaveRoomDto,
+  ) {
+    const { roomId, userId } = leaveRoomDto;
+    return this.service.removeUserFromRoom(roomId, userId, req.user.id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Post('delete-room/:roomId')
+  async deleteRoom(
+    @Req() req: RequestWithUser,
+    @Param('roomId', ParseIntPipe) roomId: number,
+  ) {
+    const userId = req.user.id;
+    return this.service.deleteRoom(roomId, userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Get('public')
+  async getPublicRooms() {
+    return this.service.getPublicRooms();
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @ApiOperation({ summary: 'Get all rooms where user is a member' })
+  @Get('rooms')
+  async getRooms(@Req() req: RequestWithUser) {
+    const userId = req.user.id;
+    return this.service.getUserRooms(userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @ApiOperation({
+    summary: 'Get all room members, can failed if user not a member',
+  })
+  @Get('room/:roomId')
+  async getRoomInfo(
+    @Req() req: RequestWithUser,
+    @Param('roomId', ParseIntPipe) roomId: number,
+  ) {
+    const userId = req.user.id;
+    return this.service.getRoomMembers(roomId, userId);
   }
 }

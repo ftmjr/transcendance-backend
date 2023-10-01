@@ -22,8 +22,13 @@ function exclude<User, Key extends keyof User>(
   return user;
 }
 
-function getRandomAvatarUrl(): string {
-  const serverBaseUrl = 'https://' + process.env.URL + '/api';
+export type UserWithoutSensitiveInfo = Omit<
+  User,
+  'password' | 'twoFactorEnabled' | 'twoFactorSecret'
+>;
+
+export function getRandomAvatarUrl(): string {
+  const serverBaseUrl = 'https://' + process.env.URL + '/api/uploads';
   const list = [
     'randomAvatars/icons8-bart-simpson-500.png',
     'randomAvatars/icons8-batman-500.png',
@@ -115,7 +120,27 @@ export class UsersService {
     const { id } = params;
     return this.repository.getUser({ where: { id } });
   }
-  async getUserWithFriends(userId) {
+
+  async getUserProfile(user: User, id: number) {
+    const otherProfile = await this.repository.getUserWithSelectedFields({
+      where: { id },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        role: true,
+        googleId: true,
+        facebookId: true,
+        api42Id: true,
+        createdAt: true,
+        updatedAt: true,
+        profile: true,
+        gameHistories: true,
+      },
+    });
+    return this.filterBlockedUsers([otherProfile], user);
+  }
+  async getUserWithFriends(userId: User[`id`]) {
     return this.repository.getUser({
       where: {
         id: userId,
@@ -145,6 +170,10 @@ export class UsersService {
         profile: true,
         blockedUsers: true,
         blockedFrom: true,
+        contacts: true,
+        contactedBy: true,
+        sentContactRequests: true,
+        receivedContactRequests: true,
         // sessions: true,
       },
     });
@@ -154,12 +183,14 @@ export class UsersService {
   async updateUser(params: {
     where: Prisma.UserWhereUniqueInput;
     data: Prisma.UserUpdateInput;
+    include?: Prisma.UserInclude;
   }): Promise<User | null> {
     return this.repository.updateUser(params);
   }
   async updateProfile(params: {
     where: Prisma.ProfileWhereUniqueInput;
     data: Prisma.ProfileUpdateInput;
+    include?: Prisma.ProfileInclude;
   }): Promise<Profile | null> {
     return this.repository.updateProfile(params);
   }
@@ -336,10 +367,11 @@ export class UsersService {
   }
 
   // get all sessions for a user
-  getAllUserSessions(params: { userId: User[`id`] }) {
-    const { userId } = params;
+  getAllUserSessions(params: { userId: User[`id`]; limit?: number }) {
+    const { userId, limit } = params;
     return this.repository.getSessions({
       where: { userId },
+      take: limit,
     });
   }
 
@@ -370,6 +402,16 @@ export class UsersService {
       },
     });
   }
+
+  async turnOffTwoFactorAuthentication(id: number) {
+    return this.repository.updateUser({
+      where: { id: id },
+      data: {
+        twoFactorEnabled: false,
+        twoFactorSecret: null,
+      },
+    });
+  }
   async changeStatus(userId: number, status: Status) {
     await this.repository.updateProfile({
       where: {
@@ -380,15 +422,24 @@ export class UsersService {
       },
     });
   }
-  async getUsersOrderedByWins() {
-    const users = await this.repository.getUsersOrderedByWins();
+  async getUsersOrderedByWins(params: { skip: number; take: number }) {
+    const users = await this.repository.getUsersOrderedByWins(params);
     const usersNoPasswords = users.map((user) => exclude(user, ['password']));
-    const usersWithScore = usersNoPasswords.map(user => {
-      const wins = user.gameHistories.filter(history => history.event === GameEvent.MATCH_WON).length;
-      const loss = user.gameHistories.filter(history => history.event === GameEvent.MATCH_LOST).length;
-      const score = wins - loss
+    const usersWithScore = usersNoPasswords.map((user) => {
+      const wins = user.gameHistories.filter(
+        (history) => history.event === GameEvent.MATCH_WON,
+      ).length;
+      const loss = user.gameHistories.filter(
+        (history) => history.event === GameEvent.MATCH_LOST,
+      ).length;
+      const score = wins - loss;
       return { ...user, score };
     });
     return usersWithScore.sort((a, b) => b.score - a.score);
+  }
+
+  async getAppStatistics() {
+    const stats = await this.repository.getStats();
+    return stats;
   }
 }

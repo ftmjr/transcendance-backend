@@ -1,6 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsInt, IsPositive, IsOptional } from 'class-validator';
 
+type SortOrder = 'asc' | 'desc';
+
 export class PaginationQuery {
   @ApiProperty({
     description:
@@ -18,4 +20,17 @@ export class PaginationQuery {
   })
   @IsOptional()
   take?: string = '10';
+
+  @IsOptional()
+  orderBy: {
+    username?: SortOrder;
+    email?: SortOrder;
+    profile?: {
+      name?: SortOrder;
+      lastname?: SortOrder;
+      status?: SortOrder;
+    };
+    createdAt?: SortOrder;
+    updatedAt?: SortOrder;
+  };
 }

@@ -5,13 +5,12 @@ import { GamesModule } from './games/games.module';
 import { CompetitionModule } from './competition/competition.module';
 import { UsersModule } from './users/users.module';
 import { ChatRealtimeModule } from './chatRealtime/chatRealtime.module';
-import { GameRealtimeModule } from './gameRealtime/gameRealtime.module';
 import { CacheModule } from '@nestjs/cache-manager';
 import { FilesModule } from './files/files.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { FriendsModule } from './friends/friends.module';
-
+import { MessageModule } from './message/message.module';
 
 @Module({
   imports: [
@@ -21,14 +20,14 @@ import { FriendsModule } from './friends/friends.module';
     GamesModule,
     CompetitionModule,
     ChatRealtimeModule,
-    GameRealtimeModule,
     CacheModule.register(),
     FilesModule,
     ServeStaticModule.forRoot({
-      rootPath: join(__dirname, '..', 'uploads'),
-      exclude: ['/(.*)'],
+      rootPath: join(__dirname, '..', '..', 'uploads'),
+      serveRoot: '/uploads/',
     }),
     FriendsModule,
+    MessageModule,
   ],
   controllers: [],
   providers: [],

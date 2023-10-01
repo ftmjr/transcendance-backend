@@ -1,302 +1,341 @@
 import {
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { ChatRealtimeRepository } from './chatRealtime.repository';
-import { CreateRoomDto } from './dto/createRoom.dto';
-import { Prisma, User, Role } from '@prisma/client';
-import { JoinRoomDto } from './dto/joinRoom.dto';
-import { Socket } from 'socket.io';
+import {
+  ChatRealtimeRepository,
+  ChatRoomWithMembers,
+} from './chatRealtime.repository';
 import * as argon from 'argon2';
-import { UsersService } from '../users/users.service';
-
-function exclude<ChatRoom, Key extends keyof ChatRoom>(
-  room: ChatRoom,
-  keys: Key[],
-): Omit<ChatRoom, Key> {
-  for (const key of keys) {
-    delete room[key];
-  }
-  return room;
-}
+import { getRandomAvatarUrl, UsersService } from '../users/users.service';
+import { Role, RoomType, Status } from '@prisma/client';
+import { CreateRoomDto, JoinRoomDto, UpdatePasswordDto } from './dto';
+import { NotificationService } from '../message/notification.service';
 
 @Injectable()
 export class ChatRealtimeService {
   constructor(
     private repository: ChatRealtimeRepository,
     private usersService: UsersService,
+    private notificationService: NotificationService,
   ) {}
-  async getRooms({ skip, take }, userId: number) {
-    const banRooms = await this.repository.findBanFrom(userId);
-    const banRoomIds = banRooms.map((banRoom) => banRoom.chatroomId);
-    const userMemberships = await this.repository.getMemberRooms(userId);
-    const userMembershipRoomIds = userMemberships.map(
-      (membership) => membership.id,
-    );
-    const rooms = await this.repository.getRooms({
-      where: {
-        OR: [
-          {
-            private: false,
-            id: {
-              not: {
-                in: banRoomIds,
-              },
-            },
-          },
-          {
-            private: true,
-            id: {
-              in: userMembershipRoomIds,
-            },
-          },
-        ],
-      },
-      skip,
-      take,
-    });
-    return rooms.map((room) => exclude(room, ['password']));
-  }
-  async filterRoomMembers(members, user) {
-    const blockedUserIds = user.blockedUsers.map(
-      (blockedUser) => blockedUser.blockedUserId,
-    );
-    const blockedFromIds = user.blockedFrom.map(
-      (blockedFrom) => blockedFrom.userId,
-    );
-    return members.filter((member) => {
-      return (
-        !blockedUserIds.includes(member.memberId) &&
-        !blockedFromIds.includes(member.memberId)
-      );
-    });
-  }
-  async filterMessages(messages, user) {
-    const blockedUserIds = user.blockedUsers.map(
-      (blockedUser) => blockedUser.blockedUserId,
-    );
-    const blockedFromIds = user.blockedFrom.map(
-      (blockedFrom) => blockedFrom.userId,
-    );
-    return messages.filter((message) => {
-      return (
-        !blockedUserIds.includes(message.userId) &&
-        !blockedFromIds.includes(message.userId)
-      );
-    });
-  }
-  async getRoomMembers({ skip, take }, user: any, roomId: number) {
-    const userMember = await this.repository.findMember(user.id, roomId);
-    if (!userMember) {
-      throw new UnauthorizedException('User not in the chat room');
-    } else if (userMember.role === Role.BAN) {
-      throw new UnauthorizedException('User is Ban');
-    }
-    const members = await this.repository.getRoomMembers(roomId);
-    return await this.filterRoomMembers(members, user);
-  }
-  async getRoomMessages({ skip, take }, user: any, roomId: number) {
-    const userMember = await this.repository.findMember(user.id, roomId);
-    if (!userMember) {
-      throw new UnauthorizedException('User not in the chat room');
-    } else if (userMember.role === Role.BAN) {
-      throw new UnauthorizedException('User is Ban');
-    }
-    const messages = await this.repository.getRoomMessages(roomId, {
-      skip,
-      take,
-    });
-    return await this.filterMessages(messages, user);
-  }
-  async getGeneralMessages({ skip, take }, user: any) {
-    const messages = await this.repository.getGeneralMessages({ skip, take });
-    return await this.filterMessages(messages, user);
-  }
 
-  async getRoomMember(userId: number, roomId: number) {
-    return await this.repository.findMember(userId, roomId);
-  }
-
-  async createRoom(newRoom: CreateRoomDto) {
-    const data: Prisma.ChatRoomCreateInput = {
-      name: newRoom.name,
-      private: newRoom.private,
-      protected: newRoom.protected,
-      password: '',
+  async createRoom(info: CreateRoomDto, ownerId: number) {
+    if (info.type === RoomType.PROTECTED && !info.password) {
+      throw new Error('Password is required, for protected room');
+    }
+    if (info.type === RoomType.PROTECTED && info.password) {
+      info.password = await argon.hash(info.password); // hash password before save to database
+    }
+    const data = {
+      name: info.name,
+      type: info.type,
+      avatar: info.avatar ?? getRandomAvatarUrl(),
+      password: info.password,
     };
-    if (newRoom.protected) {
-      data.password = await argon.hash(newRoom.password);
-    }
-    return await this.repository.createRoom({ data }, newRoom.ownerId);
+    return this.repository.createRoom({ data }, ownerId);
   }
-
-  async updateRoom(userId: number, roomId: number, password: string) {
-    const member = await this.verifyMember(userId, roomId);
-    if (!member || member.role !== Role.OWNER) {
-      throw new UnauthorizedException('User is not the owner of the room');
-    }
-    const hashedPassword = password === '' ? '' : await argon.hash(password);
-    return await this.repository.updateRoom({
-      where: {
-        id: roomId,
-      },
-      data: {
-        password: hashedPassword,
-        protected: password !== '',
-      },
-    });
-  }
-
-  async leaveRoom(user: User, roomId: number) {
-    return await this.repository.leaveRoom(user, roomId);
-  }
-  async getRoom(roomName: string) {
-    return await this.repository.getRoom(roomName);
-  }
-  async verifyMember(userId: number, roomId: number) {
-    const user = await this.repository.getChatRoomMember(userId, roomId);
-    if (!user) {
-      throw new UnauthorizedException('User is not in chatroom');
-    } else if (user.role === Role.BAN) {
-      throw new UnauthorizedException('User is banned from chatroom');
-    } else if (user.role === Role.USER) {
-      throw new UnauthorizedException('User is only a user in the chatroom');
-    }
-    return user;
-  }
-  async createGeneralMessage(client: Socket, message: string) {
-    return await this.repository.createGeneralMessage({
-      data: {
-        userId: client.data.user.id,
-        content: message,
-      },
-    });
-  }
-  async createRoomMessage(client: Socket, message: string) {
-    const room = await this.repository.getRoom(client.data.room);
-    return await this.repository.createRoomMessage({
-      data: {
-        chatroomId: room.id,
-        userId: client.data.user.id,
-        content: message,
-      },
-    });
-  }
-  async joinRoom(data: JoinRoomDto) {
-    const room = await this.repository.getRoom(data.roomName);
+  async addUserToARoom(
+    info: { roomId: number; userId: number; password?: string },
+    actorId: number,
+  ) {
+    const room = await this.getRoom({ roomId: info.roomId });
     if (!room) {
-      throw new NotFoundException("Room doesn't exist");
+      throw new NotFoundException('Room not found');
     }
-    if (room.protected) {
-      const isValid = await argon.verify(room.password, data.password);
-      if (!isValid) {
-        throw new NotFoundException('Password invalid');
+    if (room.type === RoomType.PRIVATE) {
+      // only admin and owner can add member to private room
+      this.checkIfCanActInTheRoom(actorId, room, [Role.OWNER, Role.ADMIN]);
+    } else if (room.type === RoomType.PROTECTED) {
+      // anyone can join a protected room, if they have the password
+      if (!info.password) {
+        throw new UnauthorizedException(
+          'Password is required, for protected rooms',
+        );
+      }
+      if (!(await argon.verify(room.password, info.password))) {
+        throw new ForbiddenException('Wrong password');
       }
     }
-    const member = await this.repository.getChatRoomMember(
-      data.userId,
-      room.id,
-    );
-    if (!member) {
-      return await this.repository.joinRoom(data, room.id);
-    } else if (member.role === Role.BAN) {
-      console.log('hey4');
-
-      throw new NotFoundException('User is ban from room!');
-    } else {
-      return member;
+    try {
+      const newMember = await this.repository.joinRoom(
+        info.userId,
+        info.roomId,
+        Role.USER,
+      );
+      this.notificationService.createChatJoinNotification(
+        newMember.memberId,
+        room.id,
+        `Vous avez été ajouté à la salle de chat ${room.name}`,
+      );
+      return newMember;
+    } catch (e) {
+      throw new Error('Failed to add, User probably already in the room');
     }
   }
-  async joinGeneral(user: User) {
-    const member = await this.repository.getGeneralMember(user.id);
+
+  async getPublicRooms(): Promise<ChatRoomWithMembers[]> {
+    return this.repository.getPublicRooms();
+  }
+  async sendMessageToRoom(roomId: number, content: string, senderId: number) {
+    const room = await this.getRoom({ roomId });
+    this.checkIfCanActInTheRoom(senderId, room, [
+      Role.OWNER,
+      Role.ADMIN,
+      Role.USER,
+      Role.SUPER_MODERATOR,
+    ]);
+    return this.repository.createRoomMessage({
+      data: {
+        content,
+        user: { connect: { id: senderId } },
+        chatroom: { connect: { id: roomId } },
+      },
+    });
+  }
+
+  async setUserAsAdmin(roomId: number, userId: number, actorId: number) {
+    const room = await this.getRoom({ roomId });
+    const owner = this.checkIfCanActInTheRoom(actorId, room, [Role.OWNER]);
+    if (owner.memberId === userId) {
+      throw new Error('You cannot promote yourself');
+    }
+    const member = this.checkIfCanActInTheRoom(actorId, room, [
+      Role.MUTED,
+      Role.BAN,
+      Role.USER,
+      Role.ADMIN,
+    ]);
+    return this.repository.updateChatRoomMember({
+      where: { id: member.id },
+      data: { role: Role.ADMIN },
+    });
+  }
+
+  async setUserAsMuted(roomId: number, userId: number, actorId: number) {
+    try {
+      const room = await this.getRoom({ roomId });
+      this.checkIfCanActInTheRoom(actorId, room, [Role.OWNER, Role.ADMIN]);
+      const member = this.checkIfCanActInTheRoom(actorId, room, [
+        Role.MUTED,
+        Role.BAN,
+        Role.USER,
+        Role.ADMIN,
+      ]);
+      return this.repository.updateChatRoomMember({
+        where: { id: member.id },
+        data: { role: Role.MUTED },
+      });
+    } catch (e) {
+      throw new Error('Failed to mute user');
+    }
+  }
+
+  async setUserAsBanned(roomId: number, userId: number, actorId: number) {
+    try {
+      const room = await this.getRoom({ roomId });
+      this.checkIfCanActInTheRoom(actorId, room, [Role.OWNER, Role.ADMIN]);
+      const member = this.checkIfCanActInTheRoom(actorId, room, [
+        Role.MUTED,
+        Role.BAN,
+        Role.USER,
+        Role.ADMIN,
+      ]);
+      return this.repository.updateChatRoomMember({
+        where: { id: member.id },
+        data: { role: Role.BAN },
+      });
+    } catch (e) {
+      throw new Error('Failed to ban user');
+    }
+  }
+
+  async setUserAsUser(roomId: number, userId: number, actorId: number) {
+    try {
+      const room = await this.getRoom({ roomId });
+      this.checkIfCanActInTheRoom(actorId, room, [Role.OWNER, Role.ADMIN]);
+      const member = this.checkIfCanActInTheRoom(actorId, room, [
+        Role.MUTED,
+        Role.BAN,
+        Role.USER,
+        Role.ADMIN,
+      ]);
+      return this.repository.updateChatRoomMember({
+        where: { id: member.id },
+        data: { role: Role.USER },
+      });
+    } catch (e) {
+      throw new Error('Failed to set user as user');
+    }
+  }
+
+  async removeUserFromRoom(roomId: number, userId: number, actorId: number) {
+    const room = await this.getRoom({ roomId });
+    const owner = this.checkIfCanActInTheRoom(actorId, room, [
+      Role.OWNER,
+      Role.ADMIN,
+    ]);
+    if (owner.memberId === userId) {
+      throw new Error('You cannot remove yourself');
+    }
+    const member = this.checkIfCanActInTheRoom(actorId, room, [
+      Role.MUTED,
+      Role.BAN,
+      Role.USER,
+      Role.ADMIN,
+    ]);
+    return this.repository.deleteMemberFromRoom(member.id);
+  }
+
+  async removeMyselfFromRoom(roomId: number, userId: number) {
+    const room = await this.getRoom({ roomId });
+    const member = this.checkIfCanActInTheRoom(userId, room, [
+      Role.MUTED,
+      Role.BAN,
+      Role.USER,
+      Role.ADMIN,
+      Role.OWNER,
+    ]);
+    if (member.role === Role.OWNER) {
+      const newOwner = await this.repository.findPotentialNewOwner(roomId);
+      // if no other member is found, delete the room
+      if (!newOwner) {
+        this.notificationService.createChatJoinNotification(
+          userId,
+          room.id,
+          `La salle de chat ${room.name} a été supprimée`,
+        );
+        await this.repository.deleteRoom(roomId);
+        return;
+      }
+      await this.repository.updateChatRoomMember({
+        where: { id: newOwner.id },
+        data: { role: Role.OWNER },
+      });
+      this.notificationService.createChatJoinNotification(
+        newOwner.memberId,
+        room.id,
+        `Vous avez été promu propriétaire de la salle de chat ${room.name}`,
+      );
+    }
+    return this.repository.deleteMemberFromRoom(member.id);
+  }
+
+  async deleteRoom(roomId: number, userId: number) {
+    const room = await this.getRoom({ roomId });
+    this.checkIfCanActInTheRoom(userId, room, [Role.OWNER]);
+    this.notificationService.createChatJoinNotification(
+      userId,
+      room.id,
+      `La salle de chat ${room.name} a été supprimée`,
+    );
+    return this.repository.deleteRoom(roomId);
+  }
+
+  async getRoomMessages(
+    roomId: number,
+    userId: number,
+    info: { skip?: number; take?: number },
+  ) {
+    const room = await this.getRoom({ roomId });
+    this.checkIfCanActInTheRoom(userId, room, [
+      Role.OWNER,
+      Role.ADMIN,
+      Role.USER,
+      Role.MUTED,
+    ]);
+    return this.repository.getRoomMessages(roomId, {
+      skip: info.skip,
+      take: info.take,
+    });
+  }
+
+  async getRoomMembers(roomId: number, userId: number) {
+    const room = await this.getRoom({ roomId });
+    if (room.type === RoomType.PRIVATE || room.type === RoomType.PROTECTED) {
+      this.checkIfCanActInTheRoom(userId, room, [
+        Role.OWNER,
+        Role.ADMIN,
+        Role.USER,
+        Role.MUTED,
+        Role.BAN,
+      ]);
+    }
+    return this.repository.getChatRoomMembers(roomId);
+  }
+
+  async getRoomMember(roomId: number, userId: number, memberId: number) {
+    const room = await this.getRoom({ roomId });
+    if (room.type === RoomType.PRIVATE || room.type === RoomType.PROTECTED) {
+      this.checkIfCanActInTheRoom(userId, room, [
+        Role.OWNER,
+        Role.ADMIN,
+        Role.USER,
+        Role.MUTED,
+        Role.BAN,
+      ]);
+    }
+    return this.repository.getChatRoomMember(memberId, roomId);
+  }
+
+  async getUserRooms(userId: number) {
+    return this.repository.getMemberRooms(userId);
+  }
+
+  async changeUserStatus(userId: number, status: Status) {
+    return this.usersService.changeStatus(userId, status);
+  }
+
+  async changeChatAvatar(roomId: number, userId: number, url: string) {
+    const room = await this.getRoom({ roomId });
+    this.checkIfCanActInTheRoom(userId, room, [Role.OWNER, Role.ADMIN]);
+    return this.repository.updateRoom({
+      where: { id: roomId },
+      data: { avatar: url },
+    });
+  }
+
+  async updateRoomPassword(data: UpdatePasswordDto, userId: number) {
+    const { roomId, password } = data;
+    const room = await this.getRoom({ roomId });
+    this.checkIfCanActInTheRoom(userId, room, [Role.OWNER, Role.ADMIN]);
+    const hashedPassword = await argon.hash(password);
+    return this.repository.updateRoom({
+      where: { id: roomId },
+      data: { password: hashedPassword },
+    });
+  }
+
+  /* utility functions */
+  async getRoom(info: {
+    roomId?: number;
+    name?: string;
+  }): Promise<ChatRoomWithMembers> {
+    try {
+      return await this.repository.getRoom({
+        where: {
+          id: info.roomId,
+          name: info.name,
+        },
+      });
+    } catch (e) {
+      throw new NotFoundException('Room not found');
+    }
+  }
+  checkIfCanActInTheRoom(
+    actorId: number,
+    chatRoom: ChatRoomWithMembers,
+    grantedRoles: Role[],
+  ) {
+    const member = chatRoom.members.find((m) => m.memberId === actorId);
     if (!member) {
-      return await this.repository.createGeneralMember(user.id);
+      throw new UnauthorizedException('You are not member of this room');
+    }
+    if (!grantedRoles.includes(member.role)) {
+      throw new ForbiddenException('You are not allowed to do this');
     }
     return member;
-  }
-  async kickChatRoomMember(otherId: number) {
-    return await this.repository.kickChatRoomMember(otherId);
-  }
-  async muteChatRoomMember(otherId: number) {
-    return await this.repository.updateChatRoomMember({
-      where: {
-        id: otherId,
-      },
-      data: {
-        role: Role.MUTED,
-      },
-    });
-  }
-  async unmuteChatRoomMember(otherId: number) {
-    return await this.repository.updateChatRoomMember({
-      where: {
-        id: otherId,
-      },
-      data: {
-        role: Role.USER,
-      },
-    });
-  }
-  async banChatRoomMember(otherId: number) {
-    return await this.repository.updateChatRoomMember({
-      where: {
-        id: otherId,
-      },
-      data: {
-        role: Role.BAN,
-      },
-    });
-  }
-  async promoteChatRoomMember(otherId: number) {
-    return await this.repository.updateChatRoomMember({
-      where: {
-        id: otherId,
-      },
-      data: {
-        role: Role.ADMIN,
-      },
-    });
-  }
-
-  async createPrivateMessage({ data }) {
-    return await this.repository.createPrivateMessage({ data });
-  }
-
-  async getGeneralMembers({ skip, take }, user: any) {
-    const members = await this.repository.getGeneralMembers({ skip, take });
-    return await this.filterRoomMembers(members, user);
-  }
-
-  async getPrivateMessages(
-    { skip, take },
-    senderId: number,
-    receiverId: number,
-  ) {
-    return this.repository.getPrivateMessages(
-      { skip, take },
-      senderId,
-      receiverId,
-    );
-  }
-
-  async filterConversations(users, user) {
-    const blockedUserIds = user.blockedUsers.map(
-      (blockedUser) => blockedUser.blockedUserId,
-    );
-    const blockedFromIds = user.blockedFrom.map(
-      (blockedFrom) => blockedFrom.userId,
-    );
-    return users.filter((member) => {
-      return (
-        !blockedUserIds.includes(member.id) &&
-        !blockedFromIds.includes(member.id)
-      );
-    });
-  }
-  async getConversations(user: User) {
-    const conversations = await this.repository.getConversations(user.id);
-    const users = conversations.map((user) => exclude(user, ['password']));
-    return this.filterConversations(users, user);
   }
 }

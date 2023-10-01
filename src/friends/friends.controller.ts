@@ -1,8 +1,15 @@
-import {Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Request} from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Param,
+  Delete,
+  UseGuards,
+  Request,
+} from '@nestjs/common';
 import { FriendsService } from './friends.service';
-import {ApiBearerAuth, ApiOperation} from "@nestjs/swagger";
-import {AuthenticatedGuard} from "../auth/guards";
-import {UsersService} from "../users/users.service";
+import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
+import { AuthenticatedGuard } from '../auth/guards';
 
 @Controller('friends')
 export class FriendsController {
@@ -17,6 +24,18 @@ export class FriendsController {
   async getFriends(@Request() req) {
     return await this.friendsService.getFriends(req.user.id);
   }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Get('check/:id')
+  @ApiOperation({
+    summary: 'Check if a user is a friend',
+  })
+  async checkFriend(@Request() req, @Param('id') id: string) {
+    const friendId = parseInt(id);
+    return await this.friendsService.checkFriend(req.user.id, friendId);
+  }
+
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
   @Get('sent')
@@ -47,12 +66,13 @@ export class FriendsController {
   }
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @Post(':id')
+  @Post('request-friendship-with/:id')
   @ApiOperation({
     summary: 'send a friend request',
   })
   async addFriendRequest(@Request() req, @Param('id') id: string) {
     const friendId = parseInt(id);
+
     return await this.friendsService.addFriendRequest(req.user.id, friendId);
   }
   @ApiBearerAuth()
@@ -67,7 +87,7 @@ export class FriendsController {
   }
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @Post('approve/:id')
+  @Post('approve-friendship-request-for/:id')
   @ApiOperation({
     summary: 'Approve a friend request',
   })
