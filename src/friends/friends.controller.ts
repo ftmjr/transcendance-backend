@@ -2,8 +2,6 @@ import {
   Controller,
   Get,
   Post,
-  Body,
-  Patch,
   Param,
   Delete,
   UseGuards,
@@ -12,7 +10,6 @@ import {
 import { FriendsService } from './friends.service';
 import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuthenticatedGuard } from '../auth/guards';
-import { UsersService } from '../users/users.service';
 
 @Controller('friends')
 export class FriendsController {
@@ -75,6 +72,7 @@ export class FriendsController {
   })
   async addFriendRequest(@Request() req, @Param('id') id: string) {
     const friendId = parseInt(id);
+
     return await this.friendsService.addFriendRequest(req.user.id, friendId);
   }
   @ApiBearerAuth()

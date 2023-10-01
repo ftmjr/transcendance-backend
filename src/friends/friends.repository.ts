@@ -173,7 +173,7 @@ export class FriendsRepository {
     return relation;
   }
   async rejectFriendRequest(requestId: number) {
-    return await this.prisma.contactRequest.delete({
+    return this.prisma.contactRequest.delete({
       where: {
         id: requestId,
       },

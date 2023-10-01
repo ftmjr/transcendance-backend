@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { FriendsRepository } from './friends.repository';
-import { UsersService, UserWithoutSensitiveInfo } from '../users/users.service';
 import { InvalidRequestError } from 'express-oauth2-jwt-bearer';
 import { Contact, ContactRequest } from '@prisma/client';
+import { NotificationService } from '../message/notification.service';
 
 export enum FriendshipStatus {
   Friends = 'friends',
@@ -13,7 +13,10 @@ export enum FriendshipStatus {
 
 @Injectable()
 export class FriendsService {
-  constructor(private repository: FriendsRepository) {}
+  constructor(
+    private repository: FriendsRepository,
+    private notificationService: NotificationService,
+  ) {}
   async getFriends(userId: number) {
     return this.repository.getFriends(userId);
   }
@@ -73,15 +76,32 @@ export class FriendsService {
     if (friend) {
       throw new InvalidRequestError('User is already your friend');
     }
+    await this.notificationService.createFriendRequestNotification(
+      userId,
+      friendId,
+      'You have a new friend request',
+    );
     return this.repository.addFriendRequest(userId, friendId);
   }
   async cancelFriendRequest(requestId: number) {
     return this.repository.cancelFriendRequest(requestId);
   }
   async approveFriendRequest(requestId: number) {
-    return this.repository.approveFriendRequest(requestId);
+    const request = await this.repository.approveFriendRequest(requestId);
+    await this.notificationService.createFriendRequestAcceptedNotification(
+      request.userId,
+      request.contactId,
+      'Your friend request has been accepted',
+    );
+    return request;
   }
   async rejectFriendRequest(requestId: number) {
+    const request = await this.repository.rejectFriendRequest(requestId);
+    await this.notificationService.createFriendRequestRejectedNotification(
+      request.senderId,
+      request.receiverId,
+      'Your friend request has been rejected',
+    );
     return this.repository.rejectFriendRequest(requestId);
   }
 }
