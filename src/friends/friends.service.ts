@@ -79,7 +79,7 @@ export class FriendsService {
     await this.notificationService.createFriendRequestNotification(
       userId,
       friendId,
-      'You have a new friend request',
+      `Tu as reçu une demande d'ami`,
     );
     return this.repository.addFriendRequest(userId, friendId);
   }
@@ -91,7 +91,7 @@ export class FriendsService {
     await this.notificationService.createFriendRequestAcceptedNotification(
       request.userId,
       request.contactId,
-      'Your friend request has been accepted',
+      `Ta demande d'ami a été acceptée`,
     );
     return request;
   }

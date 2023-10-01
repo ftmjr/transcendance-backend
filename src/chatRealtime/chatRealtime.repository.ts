@@ -259,7 +259,7 @@ export class ChatRealtimeRepository {
     });
   }
 
-  async getMemberRooms(userId: User[`id`]): Promise<ChatRoom[]> {
+  async getMemberRooms(userId: User[`id`]): Promise<ChatRoomWithMembers[]> {
     return this.prisma.chatRoom.findMany({
       where: {
         members: {
@@ -267,6 +267,9 @@ export class ChatRealtimeRepository {
             memberId: userId,
           },
         },
+      },
+      include: {
+        members: true,
       },
     });
   }

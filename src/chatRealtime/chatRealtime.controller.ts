@@ -1,4 +1,4 @@
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Controller, Get, ParseIntPipe, Patch, Req } from '@nestjs/common';
 import { ChatRealtimeService } from './chatRealtime.service';
 import {
@@ -87,5 +87,28 @@ export class ChatRealtimeController {
   @Get('public')
   async getPublicRooms() {
     return this.service.getPublicRooms();
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @ApiOperation({ summary: 'Get all rooms where user is a member' })
+  @Get('rooms')
+  async getRooms(@Req() req: RequestWithUser) {
+    const userId = req.user.id;
+    return this.service.getUserRooms(userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @ApiOperation({
+    summary: 'Get all room members, can failed if user not a member',
+  })
+  @Get('room/:roomId')
+  async getRoomInfo(
+    @Req() req: RequestWithUser,
+    @Param('roomId', ParseIntPipe) roomId: number,
+  ) {
+    const userId = req.user.id;
+    return this.service.getRoomMembers(roomId, userId);
   }
 }

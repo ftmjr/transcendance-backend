@@ -28,7 +28,7 @@ export type UserWithoutSensitiveInfo = Omit<
 >;
 
 export function getRandomAvatarUrl(): string {
-  const serverBaseUrl = 'https://' + process.env.URL + '/api';
+  const serverBaseUrl = 'https://' + process.env.URL + '/api/uploads';
   const list = [
     'randomAvatars/icons8-bart-simpson-500.png',
     'randomAvatars/icons8-batman-500.png',
