@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { FriendsRepository } from './friends.repository';
+import {
+  ContactRequestWithReceiver,
+  ContactRequestWithSender,
+  FriendsRepository,
+} from './friends.repository';
 import { InvalidRequestError } from 'express-oauth2-jwt-bearer';
 import { Contact, ContactRequest } from '@prisma/client';
 import { NotificationService } from '../message/notification.service';
@@ -26,27 +30,31 @@ export class FriendsService {
     friendId: number,
   ): Promise<{
     status: FriendshipStatus;
-    data: Contact | ContactRequest | null;
+    data:
+      | Contact
+      | ContactRequestWithSender
+      | ContactRequestWithReceiver
+      | null;
   }> {
     const friend = await this.repository.getFriend(userId, friendId);
     if (!friend) {
-      // check for pending request
-      const requestSent = await this.repository.getSentFriendRequests(userId);
-      const request = requestSent.find((r) => r.receiverId === friendId);
-      if (request) {
+      // check for pending request userId sent to friendId
+      const requestSent = await this.checkIfRequestWasSent(userId, friendId);
+      if (requestSent) {
         return {
           status: FriendshipStatus.Pending,
-          data: request,
+          data: requestSent,
         };
       }
-      const requestReceived = await this.repository.getReceivedFriendRequests(
+      // check for pending request friendId sent to userId
+      const requestReceived = await this.checkIfRequestWasReceived(
         userId,
+        friendId,
       );
-      const request2 = requestReceived.find((r) => r.senderId === friendId);
-      if (request2) {
+      if (requestReceived) {
         return {
           status: FriendshipStatus.NeedApproval,
-          data: request2,
+          data: requestReceived,
         };
       }
       return {
@@ -59,6 +67,25 @@ export class FriendsService {
       data: friend,
     };
   }
+
+  async checkIfRequestWasSent(
+    userId: number,
+    friendId: number,
+  ): Promise<ContactRequestWithReceiver | null> {
+    const allRequestSent = await this.repository.getSentFriendRequests(userId);
+    return allRequestSent.find((r) => r.receiverId === friendId);
+  }
+
+  async checkIfRequestWasReceived(
+    userId: number,
+    friendId: number,
+  ): Promise<ContactRequestWithSender | null> {
+    const requestReceived = await this.repository.getReceivedFriendRequests(
+      userId,
+    );
+    return requestReceived.find((r) => r.senderId === friendId);
+  }
+
   async getSentFriendRequests(userId: number) {
     return this.repository.getSentFriendRequests(userId);
   }
@@ -76,12 +103,16 @@ export class FriendsService {
     if (friend) {
       throw new InvalidRequestError('User is already your friend');
     }
-    await this.notificationService.createFriendRequestNotification(
+    const contactRequest = await this.repository.addFriendRequest(
       userId,
       friendId,
+    );
+    await this.notificationService.createFriendRequestNotification(
+      friendId,
+      contactRequest.id,
       `Tu as reçu une demande d'ami`,
     );
-    return this.repository.addFriendRequest(userId, friendId);
+    return contactRequest;
   }
   async cancelFriendRequest(requestId: number) {
     return this.repository.cancelFriendRequest(requestId);

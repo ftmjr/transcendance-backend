@@ -6,6 +6,7 @@ import {
   NotificationStatus,
   User,
   Game,
+  ContactRequest,
 } from '@prisma/client';
 import { NotificationGateway } from './notification.gateway';
 
@@ -55,8 +56,8 @@ export class NotificationService {
   }
 
   async createFriendRequestNotification(
-    userId: User[`id`],
     friendId: User[`id`],
+    requestId: ContactRequest[`id`],
     message: string,
   ): Promise<void> {
     this.notificationRepository
@@ -65,7 +66,7 @@ export class NotificationService {
         type: NotificationType.FRIEND_REQUEST,
         title: 'Friend Request',
         message: message,
-        referenceId: userId,
+        referenceId: requestId,
       })
       .then((notification) => {
         this.notificationGateway.sendNotificationToUser(friendId, notification);

@@ -16,7 +16,7 @@ export class NotificationGateway
   @WebSocketServer() server: Server;
 
   afterInit(server: Server) {
-    console.log('WebSocket Initialized!');
+    // console.log('WebSocket Initialized!');
   }
 
   handleConnection(client: Socket, ...args: any[]) {
