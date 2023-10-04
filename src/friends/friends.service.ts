@@ -5,8 +5,9 @@ import {
   FriendsRepository,
 } from './friends.repository';
 import { InvalidRequestError } from 'express-oauth2-jwt-bearer';
-import { Contact, ContactRequest } from '@prisma/client';
+import { Contact, ContactRequest, User } from '@prisma/client';
 import { NotificationService } from '../message/notification.service';
+import { UsersService } from '../users/users.service';
 
 export enum FriendshipStatus {
   Friends = 'friends',
@@ -98,19 +99,19 @@ export class FriendsService {
   async removeRequest(userId: number, friendId: number) {
     return this.repository.removeRequest(userId, friendId);
   }
-  async addFriendRequest(userId: number, friendId: number) {
-    const friend = await this.repository.getFriend(userId, friendId);
+  async addFriendRequest(user: User, friendId: number) {
+    const friend = await this.repository.getFriend(user.id, friendId);
     if (friend) {
       throw new InvalidRequestError('User is already your friend');
     }
     const contactRequest = await this.repository.addFriendRequest(
-      userId,
+      user.id,
       friendId,
     );
     await this.notificationService.createFriendRequestNotification(
       friendId,
       contactRequest.id,
-      `Tu as reçu une demande d'ami`,
+      `Tu as reçu une demande d'ami de ${user.username}`,
     );
     return contactRequest;
   }
@@ -133,6 +134,6 @@ export class FriendsService {
       request.receiverId,
       'Your friend request has been rejected',
     );
-    return this.repository.rejectFriendRequest(requestId);
+    return request;
   }
 }

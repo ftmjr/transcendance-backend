@@ -156,7 +156,7 @@ export class UsersRepository {
     const { where } = params;
     return this.prisma.session.findUnique({ where });
   }
-  async getUserBlocked(userId: number) {
+  async getUserWithBlocked(userId: number) {
     return this.prisma.user.findUnique({
       where: {
         id: userId,
@@ -175,6 +175,7 @@ export class UsersRepository {
       },
     });
   }
+
   async blockUser(userId: number, blockedUserId: number) {
     return this.prisma.blockedUser.create({
       data: {
@@ -194,7 +195,7 @@ export class UsersRepository {
     }
   }
   async getBlockedUsers(userId: number): Promise<BlockedUserWithProfiles[]> {
-    return await this.prisma.blockedUser.findMany({
+    return this.prisma.blockedUser.findMany({
       where: {
         userId: userId,
       },

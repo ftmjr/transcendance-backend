@@ -9,9 +9,7 @@ import {
   Post,
   Query,
   Request,
-  UploadedFile,
   UseGuards,
-  UseInterceptors,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import {
@@ -119,9 +117,8 @@ export class UsersController {
     `,
   })
   @ApiResponse({ status: 200, description: 'return the blocked user' })
-  async blockUser(@Request() req, @Param('id') id: string) {
-    const blockUserId: number = parseInt(id);
-    return await this.usersService.blockUser(req.user.id, blockUserId);
+  async blockUser(@Request() req, @Param('id', ParseIntPipe) id: number) {
+    return await this.usersService.blockUser(req.user.id, id);
   }
 
   @ApiBearerAuth()
@@ -134,10 +131,23 @@ export class UsersController {
     `,
   })
   @ApiResponse({ status: 200, description: 'return  the unblocked user' })
-  unblockUser(@Request() req, @Param('id') id: string) {
-    const blockUserId: number = parseInt(id);
-    return this.usersService.unblockUser(req.user.id, blockUserId);
+  unblockUser(@Request() req, @Param('id', ParseIntPipe) id: number) {
+    return this.usersService.unblockUser(req.user.id, id);
   }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Get('check-blocked/:id')
+  @ApiOperation({
+    summary: 'Check if a user is blocked',
+    description: `
+      - check if a user is blocked
+    `,
+  })
+  async checkBlocked(@Request() req, @Param('id', ParseIntPipe) id: number) {
+    return await this.usersService.checkBlocked(req.user.id, id);
+  }
+
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
   @Post('username/:username')
