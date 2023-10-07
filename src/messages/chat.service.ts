@@ -4,20 +4,17 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import {
-  ChatRealtimeRepository,
-  ChatRoomWithMembers,
-} from './chatRealtime.repository';
+import { ChatRepository, ChatRoomWithMembers } from './chat.repository';
 import * as argon from 'argon2';
 import { getRandomAvatarUrl, UsersService } from '../users/users.service';
 import { Role, RoomType, Status } from '@prisma/client';
 import { CreateRoomDto, JoinRoomDto, UpdatePasswordDto } from './dto';
-import { NotificationService } from '../message/notification.service';
+import { NotificationService } from '../notifications/notification.service';
 
 @Injectable()
-export class ChatRealtimeService {
+export class ChatService {
   constructor(
-    private repository: ChatRealtimeRepository,
+    private repository: ChatRepository,
     private usersService: UsersService,
     private notificationService: NotificationService,
   ) {}
@@ -74,6 +71,21 @@ export class ChatRealtimeService {
     } catch (e) {
       throw new Error('Failed to add, User probably already in the room');
     }
+  }
+
+  // return true or throw error
+  async canListenToRoom(roomId: number, userId: number) {
+    const room = await this.getRoom({ roomId });
+    if (room.type === RoomType.PRIVATE || room.type === RoomType.PROTECTED) {
+      this.checkIfCanActInTheRoom(userId, room, [
+        Role.OWNER,
+        Role.ADMIN,
+        Role.USER,
+        Role.MUTED,
+        Role.BAN,
+      ]);
+    }
+    return true;
   }
 
   async getPublicRooms(): Promise<ChatRoomWithMembers[]> {

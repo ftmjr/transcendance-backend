@@ -22,7 +22,7 @@ export type MemberRoomWithUserProfiles = ChatRoomMember & {
 };
 
 @Injectable()
-export class ChatRealtimeRepository {
+export class ChatRepository {
   constructor(private prisma: PrismaService) {}
 
   async getRooms(params: {
@@ -186,7 +186,7 @@ export class ChatRealtimeRepository {
   }
 
   /*
-   * First, try to find an ADMIN from the chat room.
+   * First, try to find an ADMIN from the messages room.
    * Or any member who is not banned.
    * return null when no other member is found.
    */

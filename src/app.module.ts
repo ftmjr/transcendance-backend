@@ -4,22 +4,23 @@ import { PrismaModule } from './prisma/prisma.module';
 import { GamesModule } from './games/games.module';
 import { CompetitionModule } from './competition/competition.module';
 import { UsersModule } from './users/users.module';
-import { ChatRealtimeModule } from './chatRealtime/chatRealtime.module';
+import { MessagesModule } from './messages/messages.module';
 import { CacheModule } from '@nestjs/cache-manager';
 import { FilesModule } from './files/files.module';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { join } from 'path';
 import { FriendsModule } from './friends/friends.module';
-import { MessageModule } from './message/message.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
     PrismaModule,
     UsersModule,
+    NotificationsModule,
     AuthModule,
     GamesModule,
     CompetitionModule,
-    ChatRealtimeModule,
+    MessagesModule,
     CacheModule.register(),
     FilesModule,
     ServeStaticModule.forRoot({
@@ -27,7 +28,6 @@ import { MessageModule } from './message/message.module';
       serveRoot: '/uploads/',
     }),
     FriendsModule,
-    MessageModule,
   ],
   controllers: [],
   providers: [],

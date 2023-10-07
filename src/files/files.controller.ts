@@ -20,7 +20,7 @@ import { extname } from 'path'; // Import the extname function
 import { User } from '@prisma/client';
 import * as express from 'express';
 import { UsersService } from '../users/users.service';
-import { ChatRealtimeService } from '../chatRealtime/chatRealtime.service';
+import { ChatService } from '../messages/chat.service';
 
 type RequestWithUser = express.Request & { user: User };
 @Controller('files')

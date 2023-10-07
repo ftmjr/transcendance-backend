@@ -1,6 +1,6 @@
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Controller, Get, ParseIntPipe, Patch, Req } from '@nestjs/common';
-import { ChatRealtimeService } from './chatRealtime.service';
+import { ChatService } from './chat.service';
 import {
   CreateRoomDto,
   JoinRoomDto,
@@ -16,8 +16,8 @@ type RequestWithUser = express.Request & { user: User };
 
 @ApiTags('ChatActions')
 @Controller('chat')
-export class ChatRealtimeController {
-  constructor(private service: ChatRealtimeService) {}
+export class ChatController {
+  constructor(private service: ChatService) {}
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)

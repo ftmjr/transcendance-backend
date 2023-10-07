@@ -27,6 +27,13 @@ export type UserWithoutSensitiveInfo = Omit<
   'password' | 'twoFactorEnabled' | 'twoFactorSecret'
 >;
 
+export enum BlockedStatus {
+  Blocked = 'blocked',
+  BlockedBy = 'blockedBy',
+  Mutual = 'mutual',
+  None = 'none',
+}
+
 export function getRandomAvatarUrl(): string {
   const serverBaseUrl = 'https://' + process.env.URL + '/api/uploads';
   const list = [
@@ -161,6 +168,25 @@ export class UsersService {
       exclude(blockedUser, ['password']),
     );
   }
+
+  async checkBlocked(userId: number, friendId: number): Promise<BlockedStatus> {
+    const userWithBlocked = await this.getUserWithBlocked(userId);
+    const blocked = userWithBlocked.blockedUsers.find((b) => {
+      return b.blockedUserId === friendId;
+    });
+    const blockedBy = userWithBlocked.blockedFrom.find((b) => {
+      return b.userId === friendId;
+    });
+    if (blocked && blockedBy) {
+      return BlockedStatus.Mutual;
+    } else if (blocked) {
+      return BlockedStatus.Blocked;
+    } else if (blockedBy) {
+      return BlockedStatus.BlockedBy;
+    }
+    return BlockedStatus.None;
+  }
+
   // Return a user without password if found
   async getUserWithData(params: Partial<User>): Promise<User | null> {
     const user = await this.repository.getUsers({
@@ -228,11 +254,11 @@ export class UsersService {
     return this.repository.getByUserName(username);
   }
 
-  async getUserBlocked(userId) {
-    return await this.repository.getUserBlocked(userId);
+  async getUserWithBlocked(userId: number) {
+    return this.repository.getUserWithBlocked(userId);
   }
   async filterBlockedUsers(users, currentUser) {
-    const userBlocked = await this.getUserBlocked(currentUser.id);
+    const userBlocked = await this.getUserWithBlocked(currentUser.id);
     const blockedUserIds = userBlocked.blockedUsers.map(
       (blockedUser) => blockedUser.blockedUserId,
     );
