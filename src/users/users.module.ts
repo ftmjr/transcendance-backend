@@ -8,7 +8,7 @@ import { FriendsModule } from '../friends/friends.module';
 @Module({
   imports: [PrismaModule, FriendsModule],
   providers: [UsersRepository, UsersService],
-  exports: [UsersService],
   controllers: [UsersController],
+  exports: [UsersService],
 })
 export class UsersModule {}

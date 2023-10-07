@@ -1,7 +1,6 @@
 import {
   SubscribeMessage,
   WebSocketGateway,
-  OnGatewayInit,
   WebSocketServer,
   OnGatewayConnection,
   OnGatewayDisconnect,
@@ -11,13 +10,9 @@ import { User } from '@prisma/client';
 
 @WebSocketGateway({ namespace: 'notification' })
 export class NotificationGateway
-  implements OnGatewayInit, OnGatewayConnection, OnGatewayDisconnect
+  implements OnGatewayConnection, OnGatewayDisconnect
 {
   @WebSocketServer() server: Server;
-
-  afterInit(server: Server) {
-    // console.log('WebSocket Initialized!');
-  }
 
   handleConnection(client: Socket, ...args: any[]) {
     console.log(`Client connected on notification : ${client.id}`);
@@ -36,5 +31,6 @@ export class NotificationGateway
   sendNotificationToUser(userId: User[`id`], data: any) {
     const room = `notification:${userId}`;
     this.server.to(room).emit('notification', data);
+    console.log(`Notification sent to ${userId}`);
   }
 }

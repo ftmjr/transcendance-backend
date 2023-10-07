@@ -1,18 +1,22 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { User, PrivateMessage } from '@prisma/client';
 import { MessageRepository } from './message.repository';
-import { UserWithoutSensitiveInfo } from '../users/users.service';
+import { UsersService, UserWithoutSensitiveInfo } from '../users/users.service';
 import { CreateMessageDto } from './dto';
 
 @Injectable()
 export class MessageService {
-  constructor(private readonly messageRepository: MessageRepository) {}
+  constructor(
+    private readonly messageRepository: MessageRepository,
+    private readonly userService: UsersService,
+  ) {}
 
   async createPrivateMessage(
     data: CreateMessageDto,
-    sender: User,
+    senderId: number,
   ): Promise<PrivateMessage> {
     try {
+      await this.canListenToPrivateMessages(senderId, data.receiverId);
       return this.messageRepository.createPrivateMessage({
         text: data.content,
         receiver: {
@@ -22,12 +26,22 @@ export class MessageService {
         },
         sender: {
           connect: {
-            id: sender.id,
+            id: senderId,
           },
         },
       });
     } catch (error) {
       throw error;
+    }
+  }
+
+  async canListenToPrivateMessages(userId: number, friendId: number) {
+    const blockedStatus = await this.userService.checkBlocked(userId, friendId);
+    // blocked or mutually blocked
+    if (blockedStatus === 'blockedBy') {
+      throw new ForbiddenException('You are blocked by this user');
+    } else if (blockedStatus === 'blocked' || blockedStatus === 'mutual') {
+      throw new ForbiddenException('You blocked this user');
     }
   }
 

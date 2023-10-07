@@ -9,7 +9,7 @@ import {
 import { CreateGameSessionDto } from './dto';
 import { Game, User } from '@prisma/client';
 import { GamesService } from './games.service';
-import { NotificationService } from '../message/notification.service';
+import { NotificationService } from '../notifications/notification.service';
 import { UsersService } from '../users/users.service';
 
 @Injectable()
@@ -95,25 +95,23 @@ export class GameSessionService {
     const isAlreadyParticipant = gameSession.participants.some(
       (participant) => participant.userId === user.id,
     );
-    if (isAlreadyParticipant) {
-      throw new Error('User is already a participant');
+    if (!isAlreadyParticipant) {
+      const newParticipant = this.createGamer(
+        user.id,
+        user.username,
+        (user as any).profile?.avatar ?? '',
+        '',
+        false,
+      );
+      gameSession.participants.push(newParticipant);
+      this.updateGameSession(gameId, gameSession);
     }
-    const newParticipant = this.createGamer(
-      user.id,
-      user.username,
-      (user as any).profile?.avatar ?? '',
-      '',
-      false,
-    );
-    gameSession.participants.push(newParticipant);
-
     // Notify the host of the game session
     this.notificationService.createChallengeAcceptedNotification(
       gameSession.hostId,
       gameId,
-      `${user.username} has accepted the game invitation`,
+      `${user.username} a accepter ton challenge, allons-y`,
     );
-    this.updateGameSession(gameId, gameSession);
     return gameSession;
   }
 
@@ -129,9 +127,12 @@ export class GameSessionService {
       (participant) => participant.userId === user.id,
     );
     if (isAlreadyParticipant) {
-      throw new Error('User is already a participant');
+      const participantIndex = gameSession.participants.findIndex(
+        (participant) => participant.userId === user.id,
+      );
+      gameSession.participants.splice(participantIndex, 1);
+      this.updateGameSession(gameId, gameSession);
     }
-
     // Notify the host of the game session
     this.notificationService.createGameNotification(
       gameSession.hostId,

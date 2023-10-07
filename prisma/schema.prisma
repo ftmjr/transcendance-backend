@@ -282,7 +282,7 @@ model Notification {
   type        NotificationType
   status      NotificationStatus @default(UNREAD)
   title       String // Brief description, e.g., "Game Invite"
-  message     String // Detailed message, e.g., "User123 has invited you to a game."
+  message     String // Detailed notifications, e.g., "User123 has invited you to a game."
   referenceId Int? // ID of the related entity, e.g., Game ID, Other User ID, etc.
   createdAt   DateTime           @default(now())
   updatedAt   DateTime           @updatedAt

@@ -3,7 +3,7 @@ import { MulterModule } from '@nestjs/platform-express';
 import { FilesService } from './files.service';
 import { FilesController } from './files.controller';
 import { UsersModule } from '../users/users.module';
-import { ChatRealtimeModule } from '../chatRealtime/chatRealtime.module';
+import { MessagesModule } from '../messages/messages.module';
 
 @Module({
   imports: [
@@ -11,7 +11,7 @@ import { ChatRealtimeModule } from '../chatRealtime/chatRealtime.module';
       dest: './uploads',
     }),
     UsersModule,
-    ChatRealtimeModule,
+    MessagesModule,
   ],
   controllers: [FilesController],
   providers: [FilesService],

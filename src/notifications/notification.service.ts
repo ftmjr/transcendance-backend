@@ -29,10 +29,13 @@ export class NotificationService {
         title: 'Game Invite',
         message: message,
         referenceId: gameId,
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24), // 1 day
+        expiresAt: new Date(Date.now() + 1000 * 60 * 5), // 5 minutes
       })
       .then((notification) => {
         this.notificationGateway.sendNotificationToUser(userId, notification);
+      })
+      .catch((e) => {
+        console.error(e);
       });
   }
 

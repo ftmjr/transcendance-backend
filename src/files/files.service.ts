@@ -1,14 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { User } from '@prisma/client';
 import { UsersService } from '../users/users.service';
-import { ChatRealtimeService } from '../chatRealtime/chatRealtime.service';
-import { ChatRoomWithMembers } from '../chatRealtime/chatRealtime.repository';
+import { ChatService } from '../messages/chat.service';
+import { ChatRoomWithMembers } from '../messages/chat.repository';
 
 @Injectable()
 export class FilesService {
   constructor(
     private usersService: UsersService,
-    private chatService: ChatRealtimeService,
+    private chatService: ChatService,
   ) {}
   updateAvatarUrl(fileName: string, user: User) {
     const serverBaseUrl = 'https://' + process.env.URL + '/api';

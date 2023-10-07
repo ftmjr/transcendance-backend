@@ -6,7 +6,7 @@ import {
 } from './friends.repository';
 import { InvalidRequestError } from 'express-oauth2-jwt-bearer';
 import { Contact, ContactRequest, User } from '@prisma/client';
-import { NotificationService } from '../message/notification.service';
+import { NotificationService } from '../notifications/notification.service';
 import { UsersService } from '../users/users.service';
 
 export enum FriendshipStatus {
