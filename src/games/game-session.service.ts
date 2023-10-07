@@ -302,7 +302,7 @@ export class GameSessionService {
       monitors: monitors,
       eventsToPublishInRoom: [],
       rules: {
-        maxScore: 5, // default value
+        maxScore: 2, // default value
         maxTime: 300, // default value in seconds
       },
     };
