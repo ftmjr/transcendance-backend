@@ -176,22 +176,25 @@ export class GameRealtimeService {
       data,
     });
     const needToEnd = this.checkRulesToEndGame(gameSession);
-    if (needToEnd) {
-      this.handleGameEnding(gameSession, userId);
+    if (needToEnd.stop) {
+      this.handleGameEnding(gameSession, needToEnd.winnerId);
     }
   }
 
-  checkRulesToEndGame(gameSession: GameSession): boolean {
+  checkRulesToEndGame(gameSession: GameSession): {
+    winnerId: number | null;
+    stop: boolean;
+  } {
     const scores = this.arrayOfPlayersWithScore(gameSession);
     const maxScore = Math.max(...scores.map((s) => s.score));
     const winner = scores.find((s) => s.score === maxScore);
     if (winner && maxScore >= gameSession.rules.maxScore) {
-      return true;
+      return { winnerId: winner.userId, stop: true };
     }
     if (gameSession.rules.maxTime > 0) {
       // no rule yet for limit times
     }
-    return false;
+    return { winnerId: null, stop: false };
   }
 
   handleGameEnding(gameSession: GameSession, winnerId: number) {
@@ -204,8 +207,8 @@ export class GameRealtimeService {
     });
     gameSession.state = OnlineGameStates.FINISHED;
     for (const user of gameSession.participants) {
+      if (user.userId === 0) continue;
       if (user.userId === winnerId) {
-        if (user.userId === 0) continue;
         this.writeGameHistory(
           GameEvent.MATCH_WON,
           user.userId,
