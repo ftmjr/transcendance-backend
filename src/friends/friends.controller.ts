@@ -71,9 +71,9 @@ export class FriendsController {
     summary: 'send a friend request',
   })
   async addFriendRequest(@Request() req, @Param('id') id: string) {
-    const friendId = parseInt(id);
+    const targetId = parseInt(id);
 
-    return await this.friendsService.addFriendRequest(req.user.id, friendId);
+    return await this.friendsService.addFriendRequest(req.user.id, targetId);
   }
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)

@@ -71,17 +71,17 @@ export class FriendsService {
   async removeRequest(userId: number, friendId: number) {
     return this.repository.removeRequest(userId, friendId);
   }
-  async addFriendRequest(userId: number, friendId: number) {
-    const friend = await this.repository.getFriend(userId, friendId);
+  async addFriendRequest(userId: number, targetId: number) {
+    const friend = await this.repository.getFriend(userId, targetId);
     if (friend) {
       throw new InvalidRequestError('User is already your friend');
     }
     await this.notificationService.createFriendRequestNotification(
       userId,
-      friendId,
+      targetId,
       `Tu as reçu une demande d'ami`,
     );
-    return this.repository.addFriendRequest(userId, friendId);
+    return this.repository.addFriendRequest(userId, targetId);
   }
   async cancelFriendRequest(requestId: number) {
     return this.repository.cancelFriendRequest(requestId);
@@ -91,7 +91,7 @@ export class FriendsService {
     await this.notificationService.createFriendRequestAcceptedNotification(
       request.userId,
       request.contactId,
-      `Ta demande d'ami a été acceptée`,
+      `Your friend request was accepted!`,
     );
     return request;
   }

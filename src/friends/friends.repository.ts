@@ -104,11 +104,11 @@ export class FriendsRepository {
       },
     });
   }
-  async addFriendRequest(userId: number, friendId: number) {
+  async addFriendRequest(userId: number, targetId: number) {
     return this.prisma.contactRequest.create({
       data: {
         senderId: userId,
-        receiverId: friendId,
+        receiverId: targetId,
       },
     });
   }
@@ -145,7 +145,7 @@ export class FriendsRepository {
     });
   }
   async cancelFriendRequest(requestId: number) {
-    return this.prisma.contactRequest.delete({
+    return await this.prisma.contactRequest.delete({
       where: {
         id: requestId,
       },
