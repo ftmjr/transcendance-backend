@@ -39,7 +39,7 @@ async function main() {
     await Promise.all(awardPromises);
 
     const usersPassword = await argon.hash('NotSecure1234');
-    const userPromises = Array(15)
+    const userPromises = Array(10)
       .fill(null)
       .map((val, index) => {
         return prisma.user.upsert({
