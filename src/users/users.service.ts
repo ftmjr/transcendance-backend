@@ -91,6 +91,10 @@ export class UsersService {
     bio?: Profile[`bio`];
     provider?: 'google' | 'facebook' | 'github' | '42';
     providerId?: string;
+    data?: {
+      accessToken: string;
+      refreshToken: string;
+    };
   }) {
     const hashedPassword = await argon.hash(params.password);
     const providerChecker = (
@@ -117,6 +121,7 @@ export class UsersService {
             lastname: params.lastName,
             avatar: params.avatar ?? getRandomAvatarUrl(),
             bio: params.bio,
+            oauth: params.data ?? null,
           },
         },
       },
