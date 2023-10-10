@@ -398,6 +398,7 @@ export class UsersService {
     return this.repository.getSessions({
       where: { userId },
       take: limit,
+      orderBy: { expiresAt: 'desc' },
     });
   }
 
