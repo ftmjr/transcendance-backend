@@ -35,6 +35,10 @@ export class Strategy42 extends PassportStrategy(Strategy, '42') {
         avatar: _json.image.link,
       },
       from: '42',
+      data: {
+        accessToken,
+        refreshToken,
+      },
     };
     const user = await this.authService.createOrFindUserWithOauthData(data);
     done(null, user);
