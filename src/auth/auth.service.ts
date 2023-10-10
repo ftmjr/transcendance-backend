@@ -64,16 +64,13 @@ export class AuthService {
       });
       if (findUser) {
         if (findUser.googleId !== data.id && data.from === 'google') {
-          await this.usersService.updateUserProviderId(
-            findUser,
-            data.from,
-            data.id,
-          );
-          findUser.googleId = data.id;
+          return this.updateToAGoogleUser(findUser, data);
+        } else if (findUser.api42Id !== data.id && data.from === '42') {
+          return this.updateToA42User(findUser, data);
         }
         return findUser;
       }
-      return await this.usersService.createUserWithProfile({
+      return this.usersService.createUserWithProfile({
         username: data.username,
         email: data.email,
         password: `oauth-${data.from}-${data.id}`,
@@ -82,6 +79,7 @@ export class AuthService {
         avatar: data.profile.avatar,
         provider: data.from,
         providerId: data.id,
+        data: data.data,
       });
     } catch (err) {
       if (err?.code === 'P2002' && err?.meta?.target) {
@@ -332,6 +330,30 @@ export class AuthService {
 
   async generateQrCodeDataURL(otpAuthUrl: string) {
     return toDataURL(otpAuthUrl);
+  }
+
+  async updateToAGoogleUser(findUser: User, data: OauthData) {
+    if (findUser.googleId !== data.id && data.from === 'google') {
+      await this.usersService.updateUserProviderId(
+        findUser,
+        data.from,
+        data.id,
+      );
+      findUser.googleId = data.id;
+    }
+    return findUser;
+  }
+
+  async updateToA42User(findUser: User, data: OauthData) {
+    if (findUser.api42Id !== data.id && data.from === '42') {
+      await this.usersService.updateUserProviderId(
+        findUser,
+        data.from,
+        data.id,
+      );
+      findUser.api42Id = data.id;
+    }
+    return findUser;
   }
 
   isTwoFactorAuthenticationCodeValid(
