@@ -43,7 +43,12 @@ export class GameRealtimeService {
       event: GAME_EVENTS.ViewersRetrieved,
       data: { id: gameId, data: Array.from(gameSession.observers.values()) },
     });
-    this.writeGameHistory(GameEvent.GAME_STARTED, userId, gameId);
+    let competitorId = 0;
+    if (userId === gameSession.participants[0].userId)
+      competitorId = gameSession.participants[1].userId;
+    else
+      competitorId = gameSession.participants[0].userId;
+    this.writeGameHistory(GameEvent.GAME_STARTED, competitorId, userId, gameId);
     return gameSession;
   }
 
@@ -81,8 +86,14 @@ export class GameRealtimeService {
       this.gameSessionService.getGameSessionByClientId(clientId);
     if (!gameSession) throw 'Game session not found, in players';
     const gamer = gameSession.participants.find((g) => g.clientId === clientId);
+    let competitorId = 0;
+    if (gamer.userId === gameSession.participants[0].userId)
+      competitorId = gameSession.participants[1].userId;
+    else
+      competitorId = gameSession.participants[0].userId;
     this.writeGameHistory(
       GameEvent.PLAYER_LEFT,
+      competitorId,
       gamer.userId,
       gameSession.gameId,
     );
@@ -161,8 +172,14 @@ export class GameRealtimeService {
     } else {
       const score = gameSession.score.get(userId) ?? 0;
       gameSession.score.set(userId, score + 1);
+      let competitorId = 0;
+      if (userId === gameSession.participants[0].userId)
+        competitorId = gameSession.participants[1].userId;
+      else
+        competitorId = gameSession.participants[0].userId;
       this.writeGameHistory(
         GameEvent.ACTION_PERFORMED,
+        competitorId,
         userId,
         gameSession.gameId,
       );
@@ -208,21 +225,29 @@ export class GameRealtimeService {
     gameSession.state = OnlineGameStates.FINISHED;
     for (const user of gameSession.participants) {
       if (user.userId === 0) continue;
+      let competitorId = 0;
+      if (user.userId === gameSession.participants[0].userId)
+        competitorId = gameSession.participants[1].userId;
+      else
+        competitorId = gameSession.participants[0].userId;
       if (user.userId === winnerId) {
         this.writeGameHistory(
           GameEvent.MATCH_WON,
+          competitorId,
           user.userId,
           gameSession.gameId,
         );
       } else {
         this.writeGameHistory(
           GameEvent.MATCH_LOST,
+          competitorId,
           user.userId,
           gameSession.gameId,
         );
       }
       this.writeGameHistory(
         GameEvent.GAME_ENDED,
+        competitorId,
         user.userId,
         gameSession.gameId,
       );
@@ -231,12 +256,14 @@ export class GameRealtimeService {
 
   writeGameHistory(
     event: GameEvent,
+    competitorId: GameHistory[`competitorId`],
     userId: GameHistory[`userId`],
     gameId: number,
   ) {
     if (userId === 0) return;
     this.gamesService.addHistoryToGame({
       event: event,
+      competitorId : competitorId,
       user: {
         connect: {
           id: userId,

@@ -225,6 +225,7 @@ CREATE TABLE "GameHistory" (
     "gameId" INTEGER NOT NULL,
     "event" "GameEvent" NOT NULL,
     "userId" INTEGER NOT NULL,
+    "competitorId" INTEGER NOT NULL,
     "timestamp" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "GameHistory_pkey" PRIMARY KEY ("id")

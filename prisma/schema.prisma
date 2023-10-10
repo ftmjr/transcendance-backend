@@ -259,6 +259,7 @@ model GameHistory {
   game      Game      @relation(fields: [gameId], references: [id], onDelete: Cascade)
   event     GameEvent
   userId    Int
+  competitorId Int
   user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   timestamp DateTime  @default(now())
 }
