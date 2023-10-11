@@ -85,6 +85,23 @@ export class GameSessionService {
     }
   }
 
+  async addViewerToGameSession(gameId: number, user: User) {
+    const gameSession = this.gameSessions.get(gameId);
+    if (!gameSession) {
+      throw new Error('Game session not found');
+    }
+    const viewer = gameSession.observers.find((g) => g.userId === user.id);
+    if (viewer) return gameSession;
+    await this.gameService.addObserver(gameId, user.id).then((game) => {
+      gameSession.observers.push({
+        userId: user.id,
+        username: user.username,
+        clientId: '',
+      });
+    });
+    return gameSession;
+  }
+
   async acceptGameInvitation(gameId: number, user: User): Promise<GameSession> {
     const gameSession = this.gameSessions.get(gameId);
     if (!gameSession) {

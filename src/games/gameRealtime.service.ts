@@ -79,7 +79,8 @@ export class GameRealtimeService {
     // find game session where client is a player
     const gameSession =
       this.gameSessionService.getGameSessionByClientId(clientId);
-    if (!gameSession) throw 'Game session not found, in players';
+    if (!gameSession)
+      throw 'Game session not found, for this client in players';
     const gamer = gameSession.participants.find((g) => g.clientId === clientId);
     this.writeGameHistory(
       GameEvent.PLAYER_LEFT,
@@ -283,7 +284,10 @@ export class GameRealtimeService {
   ) {
     const { userId, username, clientId } = data;
     const viewer = gameSession.observers.find((g) => g.userId === userId);
-    if (viewer) return;
+    if (viewer) {
+      viewer.clientId = clientId;
+      return;
+    }
     const gameId = gameSession.gameId;
     await this.gamesService.addObserver(gameId, userId).then((game) => {
       gameSession.observers.push({

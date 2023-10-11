@@ -55,11 +55,8 @@ export class GamesRepository {
       where: { id: gameId },
       data: {
         observers: {
-          connect: {
-            gameId_userId: {
-              gameId,
-              userId,
-            },
+          create: {
+            userId,
           },
         },
       },
