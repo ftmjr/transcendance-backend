@@ -5,6 +5,7 @@ import {
   OnlineGameStates,
   GameMonitorState,
   Gamer,
+  GameRules,
 } from './interfaces';
 import { CreateGameSessionDto } from './dto';
 import { Game, User } from '@prisma/client';
@@ -40,9 +41,11 @@ export class GameSessionService {
       return this.createGameSession(participants, GameSessionType.Bot);
     } else if (!data.againstBot && data.opponent) {
       const opponent = await this.createOpponentGamer(false, data.opponent, '');
+      const rules = data.rules ?? { maxScore: 5, maxTime: 300 };
       const session = await this.createGameSession(
         [hostGamer, opponent],
         GameSessionType.PrivateGame,
+        rules,
       );
       // send notification to the opponent
       this.notificationService.createGameNotification(
@@ -74,6 +77,10 @@ export class GameSessionService {
           (user as any).profile?.avatar ?? '',
         ),
       );
+      await this.gameService.addParticipant(
+        availableGameSession.gameId,
+        user.id,
+      );
       this.notificationService.createChallengeAcceptedNotification(
         availableGameSession.hostId,
         availableGameSession.gameId,
@@ -92,6 +99,7 @@ export class GameSessionService {
     }
     const viewer = gameSession.observers.find((g) => g.userId === user.id);
     if (viewer) return gameSession;
+    await this.gameService.addObserver(gameId, user.id);
     await this.gameService.addObserver(gameId, user.id).then((game) => {
       gameSession.observers.push({
         userId: user.id,
@@ -295,6 +303,7 @@ export class GameSessionService {
   async createGameSession(
     participants: Gamer[],
     type: GameSessionType,
+    rules: GameRules = { maxScore: 5, maxTime: 300 },
   ): Promise<GameSession> {
     const monitors = Array<GameMonitorState>(participants.length).fill(
       GameMonitorState.InitGame,
@@ -308,7 +317,6 @@ export class GameSessionService {
     participants.forEach((p) => {
       score.set(p.userId, 0);
     });
-    // @TODO: in the future implement a way to create Sesssion for a competition
     const gameSession: GameSession = {
       gameId: game.id,
       hostId: participants[0].userId,
@@ -319,10 +327,7 @@ export class GameSessionService {
       state: OnlineGameStates.WAITING,
       monitors: monitors,
       eventsToPublishInRoom: [],
-      rules: {
-        maxScore: 2, // default value
-        maxTime: 300, // default value in seconds
-      },
+      rules,
     };
     this.gameSessions.set(game.id, gameSession);
     return gameSession;
@@ -333,9 +338,23 @@ export class GameSessionService {
     type: GameSessionType,
     competitionId?: number,
   ): Promise<Game> {
-    const name = type === GameSessionType.Bot ? 'Bot Game' : 'Challenge Game';
-    const description =
-      type === GameSessionType.Bot ? 'Against AI' : 'Challenge Game';
+    let name = 'Challenge Game';
+    let description = 'Challenge Game';
+    switch (type) {
+      case GameSessionType.Bot:
+        name = 'Bot Game';
+        description = 'Bot Game';
+        break;
+      case GameSessionType.QueListGame:
+        name = 'QueList Game';
+        description = 'A game created by a player waiting for an opponent';
+        break;
+      case GameSessionType.PrivateGame:
+      default:
+        name = 'Challenge Game';
+        description = 'A challenge game between two players';
+        break;
+    }
     return await this.gameService.createGame({
       name: name,
       description: description,
@@ -359,7 +378,7 @@ export class GameSessionService {
       return this.createGamer(0, 'Bot', '', '', false);
     }
     try {
-      const opponent = await this.userRepository.getUserWithData({
+      const opponent = await this.userRepository.getUser({
         id: OpponentId,
       });
       return this.createGamer(

@@ -13,6 +13,13 @@ export interface Game extends PrismaGame {
   competition?: Competition;
 }
 
+interface CompleteGameHistory {
+  gameId: number;
+  gameName: string;
+  winnerId: number;
+  histories: GameHistory[];
+}
+
 @Injectable()
 export class GamesService {
   constructor(private gamesRepository: GamesRepository) {}
@@ -80,6 +87,23 @@ export class GamesService {
 
   async getGameHistories(gameId: number): Promise<GameHistory[]> {
     return this.gamesRepository.getGameHistories({ where: { gameId } });
+  }
+
+  async getCompleteUserGameHistories(
+    userId: number,
+  ): Promise<CompleteGameHistory[]> {
+    const participationWithGame =
+      await this.gamesRepository.getUserParticipationWithGameHistories(userId);
+    return participationWithGame.map((participation) => {
+      const { game } = participation;
+      const { histories } = game;
+      return {
+        gameId: game.id,
+        gameName: game.name,
+        winnerId: game.winnerId,
+        histories,
+      };
+    });
   }
 
   async addHistoryToGame(
