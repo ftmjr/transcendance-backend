@@ -60,7 +60,6 @@ export class NotificationService {
 
   async createFriendRequestNotification(
     friendId: User[`id`],
-    requestId: ContactRequest[`id`],
     message: string,
   ): Promise<void> {
     this.notificationRepository
@@ -69,7 +68,7 @@ export class NotificationService {
         type: NotificationType.FRIEND_REQUEST,
         title: 'Friend Request',
         message: message,
-        referenceId: requestId,
+        referenceId: friendId,
       })
       .then((notification) => {
         this.notificationGateway.sendNotificationToUser(friendId, notification);
