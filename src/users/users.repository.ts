@@ -32,7 +32,7 @@ export class UsersRepository {
     where?: Prisma.UserWhereInput;
     orderBy?: Prisma.UserOrderByWithRelationInput;
     include?: Prisma.UserInclude;
-  }): Promise<User[]> {
+  }) {
     const { skip, take, cursor, where, orderBy, include } = params;
     return this.prisma.user.findMany({
       skip,
@@ -91,7 +91,7 @@ export class UsersRepository {
   async getUser(params: {
     where: Prisma.UserWhereUniqueInput;
     include?: Prisma.UserInclude;
-  }): Promise<User | null> {
+  }) {
     const { where, include } = params;
     return this.prisma.user.findUnique({ where, include });
   }
