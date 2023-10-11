@@ -215,6 +215,11 @@ export class GameRealtimeService {
           user.userId,
           gameSession.gameId,
         );
+        // no await for non blocking
+        this.gamesService.updateGame({
+          where: { id: gameSession.gameId },
+          data: { winner: { connect: { id: user.userId } } },
+        });
       } else {
         this.writeGameHistory(
           GameEvent.MATCH_LOST,

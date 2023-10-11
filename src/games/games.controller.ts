@@ -188,4 +188,19 @@ export class GamesController {
   ): Promise<GameSession> {
     return this.gameSessionService.addViewerToGameSession(gameId, req.user);
   }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Get('/history/:userId')
+  @ApiOperation({ summary: 'Get the game history of a user' })
+  @ApiResponse({
+    status: 200,
+    description: 'Retrieved the game history successfully.',
+  })
+  async getUserGameHistory(
+    @Req() req: RequestWithUser,
+    @Param('userId', ParseIntPipe) userId: number,
+  ) {
+    return this.gamesService.getCompleteUserGameHistories(userId);
+  }
 }

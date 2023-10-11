@@ -13,7 +13,7 @@ export interface Game extends PrismaGame {
   competition?: Competition;
 }
 
-interface CompleteGameHistory {
+export interface CompleteGameHistory {
   gameId: number;
   gameName: string;
   winnerId: number;
