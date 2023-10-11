@@ -150,7 +150,9 @@ export class UsersService {
     });
   }
 
-  async getUser(params: { id: User[`id`] }) {
+  async getUser(params: {
+    id: User[`id`];
+  }): Promise<User & { profile: Profile }> {
     const { id } = params;
     return this.repository.getUser({
       where: { id },
