@@ -10,7 +10,7 @@ import { LoginDto, SignupDto } from './dto';
 import { Request, Response } from 'express';
 import * as argon from 'argon2';
 import { ILoginData, OauthData, Tokens } from './interfaces';
-import { UsersService } from '../users/users.service';
+import { UsersService, UserWithData } from '../users/users.service';
 import { authenticator } from 'otplib';
 import { toDataURL } from 'qrcode';
 import { UpdatePasswordDto } from './dto/modifyPassword.dto';
@@ -195,7 +195,10 @@ export class AuthService {
     };
   }
 
-  async getUserFromJwt(userId: number, sessionId: number): Promise<User> {
+  async getUserFromJwt(
+    userId: number,
+    sessionId: number,
+  ): Promise<UserWithData> {
     const user = await this.usersService.getUserWithData({ id: userId });
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');

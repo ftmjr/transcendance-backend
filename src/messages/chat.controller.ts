@@ -9,10 +9,7 @@ import {
 } from './dto';
 import { AuthenticatedGuard } from '../auth/guards';
 import { Body, Post, Param, UseGuards } from '@nestjs/common';
-import * as express from 'express';
-import { User } from '@prisma/client';
-
-type RequestWithUser = express.Request & { user: User };
+import { RequestWithUser } from '../users/users.controller';
 
 @ApiTags('ChatActions')
 @Controller('chat')

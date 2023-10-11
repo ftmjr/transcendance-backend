@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import {
   BlockedUser,
+  Contact,
+  ContactRequest,
   GameEvent,
   Prisma,
   Profile,
@@ -11,8 +13,20 @@ import {
 import { UsersRepository } from './users.repository';
 import * as argon from 'argon2';
 import { FriendsService } from '../friends/friends.service';
+import { SchoolNetworkService } from './schoolNetwork.service';
 
-function exclude<User, Key extends keyof User>(
+export type UserWithData = User & {
+  profile?: Profile;
+  sessions: Session[];
+  blockedUsers: BlockedUser[];
+  blockedFrom: BlockedUser[];
+  contacts: Contact[];
+  contactedBy: Contact[];
+  sentContactRequests: ContactRequest[];
+  receivedContactRequests: ContactRequest[];
+};
+
+export function exclude<User, Key extends keyof User>(
   user: User,
   keys: Key[],
 ): Omit<User, Key> {
@@ -59,6 +73,7 @@ export class UsersService {
   constructor(
     private repository: UsersRepository,
     private friendsService: FriendsService,
+    private readonly schoolNetworkService: SchoolNetworkService,
   ) {}
 
   // Create a simple user with no profile
@@ -96,6 +111,7 @@ export class UsersService {
       refreshToken: string;
     };
   }) {
+    const oauthData = { ...params.data, coalitions: [] };
     const hashedPassword = await argon.hash(params.password);
     const providerChecker = (
       provider: 'google' | 'facebook' | 'github' | '42' | undefined,
@@ -106,7 +122,13 @@ export class UsersService {
       }
       return null;
     };
-
+    if (params.provider === '42' && params.data.accessToken) {
+      const coalitions = await this.schoolNetworkService.getCoalitions(
+        params.data.accessToken,
+        params.providerId,
+      );
+      oauthData.coalitions = coalitions;
+    }
     return this.repository.createUser({
       data: {
         username: params.username,
@@ -121,7 +143,7 @@ export class UsersService {
             lastname: params.lastName,
             avatar: params.avatar ?? getRandomAvatarUrl(),
             bio: params.bio,
-            oauth: params.data ?? null,
+            oauth: oauthData,
           },
         },
       },
@@ -130,7 +152,10 @@ export class UsersService {
 
   async getUser(params: { id: User[`id`] }) {
     const { id } = params;
-    return this.repository.getUser({ where: { id } });
+    return this.repository.getUser({
+      where: { id },
+      include: { profile: true },
+    });
   }
 
   async getUserProfile(user: User, id: number) {
@@ -193,7 +218,7 @@ export class UsersService {
   }
 
   // Return a user without password if found
-  async getUserWithData(params: Partial<User>): Promise<User | null> {
+  async getUserWithData(params: Partial<User>): Promise<UserWithData | null> {
     const user = await this.repository.getUsers({
       where: params,
       take: 1,
@@ -262,7 +287,7 @@ export class UsersService {
   async getUserWithBlocked(userId: number) {
     return this.repository.getUserWithBlocked(userId);
   }
-  async filterBlockedUsers(users, currentUser) {
+  async filterBlockedUsers(users: User[], currentUser: User) {
     const userBlocked = await this.getUserWithBlocked(currentUser.id);
     const blockedUserIds = userBlocked.blockedUsers.map(
       (blockedUser) => blockedUser.blockedUserId,
@@ -279,6 +304,7 @@ export class UsersService {
     return blockedUsers.map((user) => exclude(user, ['password']));
   }
 
+  // return users, but not blocked ones
   async getUsers(
     params: {
       skip?: number;
@@ -288,13 +314,13 @@ export class UsersService {
       orderBy?: Prisma.UserOrderByWithRelationInput;
       include?: Prisma.UserInclude;
     },
-    user,
+    user: User,
   ) {
-    const { skip, take, cursor, where, orderBy, include } = params;
     const users = await this.repository.getUsers(params);
-    const allUsers = users.map((user) => exclude(user, ['password']));
-    return await this.filterBlockedUsers(allUsers, user);
+    return this.filterBlockedUsers(users, user);
   }
+
+  // return all users, even blocked ones
   async getAllUsers(params: {
     skip?: number;
     take?: number;
@@ -306,6 +332,7 @@ export class UsersService {
     const users = await this.repository.getUsers(params);
     return users.map((user) => exclude(user, ['password']));
   }
+
   async blockUser(userId: number, blockedUserId: number): Promise<BlockedUser> {
     try {
       await this.friendsService.removeRequest(userId, blockedUserId);
@@ -336,17 +363,25 @@ export class UsersService {
     });
   }
 
-  async getPagingUsers(params: {
-    skip?: number;
-    take?: number;
-    cursor?: User[`id`];
+  async searchUsers(queryParams: {
+    query: string;
+    skip: number;
+    take: number;
+    orderBy?: Prisma.UserOrderByWithRelationInput;
   }) {
-    const { skip, take, cursor } = params;
+    const { query, skip, take, orderBy } = queryParams;
     const users = await this.repository.getUsers({
-      skip,
-      take,
-      cursor: cursor ? { id: cursor } : undefined,
-      include: { profile: true, gameHistories: true },
+      where: {
+        OR: [
+          { username: { contains: query } },
+          { email: { contains: query } },
+          { profile: { name: { contains: query } } },
+          { profile: { lastname: { contains: query } } },
+        ],
+      },
+      skip: skip ?? 0,
+      take: take ?? 10,
+      orderBy: orderBy ?? { username: 'asc' },
     });
     return users.map((user) => exclude(user, ['password']));
   }

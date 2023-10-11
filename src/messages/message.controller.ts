@@ -15,6 +15,7 @@ import { PrivateMessage } from '@prisma/client';
 import { AuthenticatedGuard } from '../auth/guards';
 import { UserWithoutSensitiveInfo } from '../users/users.service';
 import { ApiTags } from '@nestjs/swagger';
+import { RequestWithUser } from '../users/users.controller';
 
 @ApiTags('PrivateMessagesActions')
 @Controller('messages')
@@ -25,7 +26,7 @@ export class MessageController {
   @Post()
   async createPrivateMessage(
     @Body() createMessageDto: CreateMessageDto,
-    @Req() req: any,
+    @Req() req: RequestWithUser,
   ): Promise<PrivateMessage> {
     return this.messageService.createPrivateMessage(
       createMessageDto,
@@ -35,7 +36,7 @@ export class MessageController {
   @UseGuards(AuthenticatedGuard)
   @Get()
   async getUniqueConversations(
-    @Req() req: any,
+    @Req() req: RequestWithUser,
   ): Promise<UserWithoutSensitiveInfo[]> {
     return this.messageService.getUniqueConversations(req.user.id);
   }
@@ -46,7 +47,7 @@ export class MessageController {
     @Param('userTwoId', ParseIntPipe) userTwoId: number,
     @Query('skip', ParseIntPipe) skip: number,
     @Query('take', ParseIntPipe) take: number,
-    @Req() req: any,
+    @Req() req: RequestWithUser,
   ): Promise<PrivateMessage[]> {
     return this.messageService.getPrivateMessages(req.user.id, userTwoId, {
       skip,
