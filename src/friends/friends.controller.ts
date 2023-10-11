@@ -79,7 +79,7 @@ export class FriendsController {
   @UseGuards(AuthenticatedGuard)
   @Delete('sent/:id')
   @ApiOperation({
-    summary: 'Cancel a friend request',
+    summary: 'Cancel friend request I SENT',
   })
   async cancelFriendRequest(@Request() req, @Param('id') id: string) {
     const requestId = parseInt(id);
@@ -89,7 +89,7 @@ export class FriendsController {
   @UseGuards(AuthenticatedGuard)
   @Post('approve-friendship-request-for/:id')
   @ApiOperation({
-    summary: 'Approve a friend request',
+    summary: 'Accept friend request I RECEIVED',
   })
   async approveFriendRequest(
     @Request() req,
@@ -99,9 +99,9 @@ export class FriendsController {
   }
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @Post('reject/:id')
+  @Delete('reject/:id')
   @ApiOperation({
-    summary: 'Reject a friend request',
+    summary: 'Decline friend request I RECEIVED',
   })
   async rejectFriendRequest(
     @Request() req,
