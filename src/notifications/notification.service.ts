@@ -66,7 +66,7 @@ export class NotificationService {
       .createNotification({
         user: { connect: { id: friendId } },
         type: NotificationType.FRIEND_REQUEST,
-        title: 'Friend Request',
+        title: `Demande d'amitié`,
         message: message,
         referenceId: friendId,
       })
@@ -84,7 +84,7 @@ export class NotificationService {
       .createNotification({
         user: { connect: { id: userId } },
         type: NotificationType.FRIEND_REQUEST,
-        title: 'Friend Request Accepted',
+        title: `Demande d'ami acceptée`,
         message: message,
         referenceId: friendId,
       })
@@ -102,7 +102,7 @@ export class NotificationService {
       .createNotification({
         user: { connect: { id: userId } },
         type: NotificationType.FRIEND_REQUEST,
-        title: 'Friend Request Rejected',
+        title: `Demande d'ami refusée`,
         message: message,
         referenceId: friendId,
       })
