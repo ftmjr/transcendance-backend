@@ -17,7 +17,7 @@ export interface CompleteGameHistory {
   gameId: number;
   gameName: string;
   winnerId: number;
-  histories: GameHistory[];
+  histories: Record<number, GameHistory[]>; // {opponentId: GameHistory[]}
 }
 
 @Injectable()
@@ -97,13 +97,28 @@ export class GamesService {
     return participationWithGame.map((participation) => {
       const { game } = participation;
       const { histories } = game;
+      const opponentHistories = this.groupOpponentsHistories(histories);
       return {
         gameId: game.id,
         gameName: game.name,
         winnerId: game.winnerId,
-        histories,
+        histories: opponentHistories,
       };
     });
+  }
+
+  private groupOpponentsHistories(
+    gameHistories: GameHistory[],
+  ): Record<number, GameHistory[]> {
+    const opponentsHistories = {} as Record<number, GameHistory[]>;
+    const allOpponents = gameHistories.map((history) => history.userId);
+    const uniqueOpponents = [...new Set(allOpponents)];
+    uniqueOpponents.forEach((opponentId) => {
+      opponentsHistories[opponentId] = gameHistories.filter(
+        (history) => history.userId === opponentId,
+      );
+    });
+    return opponentsHistories;
   }
 
   async addHistoryToGame(

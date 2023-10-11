@@ -185,6 +185,11 @@ export class GamesRepository {
           },
         },
       },
+      orderBy: {
+        game: {
+          id: 'desc',
+        },
+      },
     });
   }
 
