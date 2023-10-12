@@ -13,6 +13,13 @@ export interface Game extends PrismaGame {
   competition?: Competition;
 }
 
+export interface CompleteGameHistory {
+  gameId: number;
+  gameName: string;
+  winnerId: number;
+  histories: Record<number, GameHistory[]>; // {opponentId: GameHistory[]}
+}
+
 @Injectable()
 export class GamesService {
   constructor(private gamesRepository: GamesRepository) {}
@@ -80,6 +87,38 @@ export class GamesService {
 
   async getGameHistories(gameId: number): Promise<GameHistory[]> {
     return this.gamesRepository.getGameHistories({ where: { gameId } });
+  }
+
+  async getCompleteUserGameHistories(
+    userId: number,
+  ): Promise<CompleteGameHistory[]> {
+    const participationWithGame =
+      await this.gamesRepository.getUserParticipationWithGameHistories(userId);
+    return participationWithGame.map((participation) => {
+      const { game } = participation;
+      const { histories } = game;
+      const opponentHistories = this.groupOpponentsHistories(histories);
+      return {
+        gameId: game.id,
+        gameName: game.name,
+        winnerId: game.winnerId,
+        histories: opponentHistories,
+      };
+    });
+  }
+
+  private groupOpponentsHistories(
+    gameHistories: GameHistory[],
+  ): Record<number, GameHistory[]> {
+    const opponentsHistories = {} as Record<number, GameHistory[]>;
+    const allOpponents = gameHistories.map((history) => history.userId);
+    const uniqueOpponents = [...new Set(allOpponents)];
+    uniqueOpponents.forEach((opponentId) => {
+      opponentsHistories[opponentId] = gameHistories.filter(
+        (history) => history.userId === opponentId,
+      );
+    });
+    return opponentsHistories;
   }
 
   async addHistoryToGame(

@@ -12,8 +12,8 @@ import { User } from '@prisma/client';
 import { AuthenticatedGuard } from '../auth/guards';
 import { NotificationService } from './notification.service';
 import * as express from 'express';
+import { RequestWithUser } from '../users/users.controller';
 
-type RequestWithUser = express.Request & { user: User };
 @Controller('notifications')
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}

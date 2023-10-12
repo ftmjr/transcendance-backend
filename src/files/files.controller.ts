@@ -16,13 +16,9 @@ import { AuthenticatedGuard } from '../auth/guards';
 import { ApiBearerAuth } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
-import { extname } from 'path'; // Import the extname function
-import { User } from '@prisma/client';
-import * as express from 'express';
-import { UsersService } from '../users/users.service';
-import { ChatService } from '../messages/chat.service';
+import { extname } from 'path';
+import { RequestWithUser } from '../users/users.controller'; // Import the extname function
 
-type RequestWithUser = express.Request & { user: User };
 @Controller('files')
 export class FilesController {
   constructor(private readonly filesService: FilesService) {}
