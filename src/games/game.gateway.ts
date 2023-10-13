@@ -16,8 +16,9 @@ import {
   GAME_STATE,
   PAD_DIRECTION,
   PadMovedData,
+  BallServedData,
 } from './interfaces';
-import { JoinGameEvent, GameActionDto } from './dto';
+import { JoinGameEvent, GameActionDto, GameUser } from './dto';
 import { GameSessionService } from './game-session.service';
 
 @WebSocketGateway({ namespace: 'game' })
@@ -74,70 +75,76 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage(GAME_EVENTS.PadMoved)
   async handlePadMove(
     @ConnectedSocket() client: Socket,
-    @MessageBody() gameAction: GameActionDto,
+    @MessageBody() received: { roomId: number; data: PadMovedData },
   ) {
-    const { roomId, user, isIA, actionData } = gameAction;
-    const info: PadMovedData = {
-      userId: isIA ? 0 : user.userId,
-      direction: actionData[0] as PAD_DIRECTION,
-    };
-    client.to(roomId.toString()).emit(GAME_EVENTS.PadMoved, {
-      id: roomId,
-      data: info,
-    });
+    // emit in the room to all other players except the sender
+    client.broadcast
+      .to(received.roomId.toString())
+      .emit(GAME_EVENTS.PadMoved, received);
   }
 
-  // Handle ball serve
   @SubscribeMessage(GAME_EVENTS.BallServed)
   async handleBallServe(
     @ConnectedSocket() client: Socket,
-    @MessageBody() gameAction: GameActionDto,
+    @MessageBody() received: { roomId: number; data: BallServedData },
   ) {
-    const { roomId, user, isIA, actionData } = gameAction;
-    client.to(roomId.toString()).emit(GAME_EVENTS.BallServed, {
-      id: roomId,
-      data: {
-        userId: isIA ? 0 : user.userId,
-        position: actionData[0],
-        direction: actionData[1],
-      },
-    });
+    // emit in the room to all other players except the sender
+    client.broadcast
+      .to(received.roomId.toString())
+      .emit(GAME_EVENTS.BallServed, received);
   }
 
   @SubscribeMessage(GAME_EVENTS.GameStateChanged)
-  async handleGameStateChange(client: Socket, gameAction: GameActionDto) {
-    const { roomId, user, isIA, actionData } = gameAction;
-    const data = actionData as GAME_STATE[];
+  async handleGameStateChange(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    received: { roomId: number; user: GameUser; gameState: GAME_STATE },
+  ) {
+    const { roomId, user, gameState } = received;
     const gameSession = this.gameSessionService.getGameSession(roomId);
-    if (!gameSession) {
-      console.log(`Game with id ${roomId} does not exist`);
-      return;
-    }
-    switch (data[0]) {
-      case GAME_STATE.waiting:
-        this.gameRealtimeService.SyncMonitorsStates(
-          data[0],
-          user.userId,
-          gameSession,
-        );
-        break;
-      case GAME_STATE.playing:
-        this.gameRealtimeService.SyncMonitorsStates(
-          data[0],
-          user.userId,
-          gameSession,
-        );
-        break;
-      case GAME_STATE.scored:
-        this.gameRealtimeService.handleScoreUpdate(
-          data[0],
-          user.userId,
-          gameSession,
-          isIA,
-        );
-        break;
-    }
-    // send any game events
+    if (!gameSession) return;
+    this.gameRealtimeService.SyncMonitorsStates(
+      gameState,
+      user.userId,
+      gameSession,
+    );
+    this.handleGameEvents(gameSession);
+  }
+
+  @SubscribeMessage(GAME_EVENTS.Scored)
+  async handleScored(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    received: { roomId: number; user: GameUser; isIa: boolean },
+  ) {
+    const { roomId, user, isIa } = received;
+    const gameSession = this.gameSessionService.getGameSession(roomId);
+    if (!gameSession) return;
+    this.gameRealtimeService.handleScoreUpdate(user.userId, gameSession, isIa);
+    this.handleGameEvents(gameSession);
+  }
+
+  @SubscribeMessage(GAME_EVENTS.reloadPlayersList)
+  async handleReloadPlayersList(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() received: { roomId: number },
+  ) {
+    const { roomId } = received;
+    const gameSession = this.gameSessionService.getGameSession(roomId);
+    if (!gameSession) return;
+    this.gameRealtimeService.reloadPlayersList(gameSession);
+    this.handleGameEvents(gameSession);
+  }
+
+  @SubscribeMessage(GAME_EVENTS.reloadViewersList)
+  async handleReloadViewersList(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() received: { roomId: number },
+  ) {
+    const { roomId } = received;
+    const gameSession = this.gameSessionService.getGameSession(roomId);
+    if (!gameSession) return;
+    this.gameRealtimeService.reloadViewersList(gameSession);
     this.handleGameEvents(gameSession);
   }
 
