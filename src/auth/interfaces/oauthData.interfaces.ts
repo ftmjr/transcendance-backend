@@ -8,5 +8,8 @@ export interface OauthData {
     lastName: string;
     avatar: string;
   };
-  data?: any;
+  data: {
+    accessToken: string;
+    refreshToken: string;
+  };
 }

@@ -11,7 +11,7 @@ import {
   Request,
   UseGuards,
 } from '@nestjs/common';
-import { UsersService } from './users.service';
+import { UsersService, UserWithData } from './users.service';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -19,12 +19,19 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { AuthenticatedGuard } from '../auth/guards';
-import { PaginationQuery } from './dto/pagination-query.dto';
+import { PaginationQuery, SearchQuery } from './dto';
+import { SchoolNetworkService } from './schoolNetwork.service';
+import * as express from 'express';
+
+export type RequestWithUser = express.Request & { user: UserWithData };
 
 @ApiTags('UserActions')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(
+    private readonly usersService: UsersService,
+    private readonly schoolNetworkService: SchoolNetworkService,
+  ) {}
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
   @Get()
@@ -32,10 +39,14 @@ export class UsersController {
     summary: 'get all users',
     description: `
       - fetch all users from the database
+      - but not blocked users
     `,
   })
   @ApiResponse({ status: 200, description: 'return an array of users' })
-  getUsers(@Request() req, @Query() queryParams: PaginationQuery) {
+  getUsers(
+    @Request() req: RequestWithUser,
+    @Query() queryParams: PaginationQuery,
+  ) {
     const skip: number = parseInt(queryParams.skip);
     const take: number = parseInt(queryParams.take);
     const id: number = req.user.id;
@@ -43,7 +54,11 @@ export class UsersController {
       {
         skip,
         take,
-        include: { profile: true, sessions: false, gameHistories: true },
+        include: {
+          profile: true,
+          sessions: false,
+          gameHistories: true,
+        },
         where: {
           OR: [
             { blockedUsers: { none: { blockedUserId: id } } }, // Users who have blocked the current user
@@ -54,6 +69,7 @@ export class UsersController {
       req.user,
     );
   }
+
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
   @Get('all')
@@ -61,10 +77,14 @@ export class UsersController {
     summary: 'get all users',
     description: `
       - fetch all users from the database
+      - fetch even blocked users
     `,
   })
   @ApiResponse({ status: 200, description: 'return an array of users' })
-  getAllUsers(@Request() req, @Query() queryParams: PaginationQuery) {
+  getAllUsers(
+    @Request() req: RequestWithUser,
+    @Query() queryParams: PaginationQuery,
+  ) {
     const skip: number = parseInt(queryParams.skip);
     const take: number = parseInt(queryParams.take);
     const orderBy = queryParams.orderBy;
@@ -86,7 +106,10 @@ export class UsersController {
     `,
   })
   @ApiResponse({ status: 200, description: 'return a user profile' })
-  async getUserProfile(@Request() req, @Param('id', ParseIntPipe) id: number) {
+  async getUserProfile(
+    @Request() req: RequestWithUser,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
     const users = await this.usersService.getUserProfile(req.user, id);
     if (!users) {
       throw new NotFoundException();
@@ -104,7 +127,7 @@ export class UsersController {
     `,
   })
   @ApiResponse({ status: 200, description: 'return an array of blocked users' })
-  async getBlockedUsers(@Request() req) {
+  async getBlockedUsers(@Request() req: RequestWithUser) {
     return await this.usersService.getBlockedUsers(req.user.id);
   }
   @ApiBearerAuth()
@@ -117,7 +140,10 @@ export class UsersController {
     `,
   })
   @ApiResponse({ status: 200, description: 'return the blocked user' })
-  async blockUser(@Request() req, @Param('id', ParseIntPipe) id: number) {
+  async blockUser(
+    @Request() req: RequestWithUser,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
     return await this.usersService.blockUser(req.user.id, id);
   }
 
@@ -131,7 +157,10 @@ export class UsersController {
     `,
   })
   @ApiResponse({ status: 200, description: 'return  the unblocked user' })
-  unblockUser(@Request() req, @Param('id', ParseIntPipe) id: number) {
+  unblockUser(
+    @Request() req: RequestWithUser,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
     return this.usersService.unblockUser(req.user.id, id);
   }
 
@@ -144,7 +173,10 @@ export class UsersController {
       - check if a user is blocked
     `,
   })
-  async checkBlocked(@Request() req, @Param('id', ParseIntPipe) id: number) {
+  async checkBlocked(
+    @Request() req: RequestWithUser,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
     return await this.usersService.checkBlocked(req.user.id, id);
   }
 
@@ -158,7 +190,10 @@ export class UsersController {
     `,
   })
   @ApiResponse({ status: 200, description: 'return  the updated user' })
-  updateUsername(@Request() req, @Param('username') username: string) {
+  updateUsername(
+    @Request() req: RequestWithUser,
+    @Param('username') username: string,
+  ) {
     if (username.startsWith('42-')) {
       throw new ConflictException('Username starting with 42- not allowed!');
     }
@@ -192,5 +227,22 @@ export class UsersController {
   })
   async getStatistic() {
     return await this.usersService.getAppStatistics();
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Get('search')
+  @ApiOperation({
+    summary: 'Search for users',
+  })
+  async searchUsers(@Query() queryParams: SearchQuery) {
+    const skip: number = parseInt(queryParams.skip) || 0;
+    const take: number = parseInt(queryParams.take) || 10;
+    return await this.usersService.searchUsers({
+      query: queryParams.query,
+      skip,
+      take,
+      orderBy: queryParams.orderBy,
+    });
   }
 }

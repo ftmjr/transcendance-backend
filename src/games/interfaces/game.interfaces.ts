@@ -31,6 +31,13 @@ export enum GameSessionType {
   PrivateGame,
 }
 
+export type ManagedTheme = 'Classic' | 'Arcade' | 'Soccer';
+export interface GameRules {
+  maxScore: number;
+  maxTime: number;
+  theme?: ManagedTheme;
+}
+
 export interface GameSession {
   gameId: number;
   hostId: number;
@@ -42,15 +49,7 @@ export interface GameSession {
   monitors: Array<GameMonitorState>;
   eventsToPublishInRoom: {
     event: GAME_EVENTS;
-    data: { id: number; data: unknown };
+    data: { roomId: number; data: unknown };
   }[];
-  rules: {
-    maxScore: number;
-    maxTime: number;
-  };
-}
-
-export interface PadMovedData {
-  userId: number;
-  direction: PAD_DIRECTION;
+  rules: GameRules;
 }

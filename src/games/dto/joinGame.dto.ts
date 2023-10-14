@@ -15,11 +15,11 @@ export class GameUser {
 }
 
 export class JoinGameEvent {
-  user: GameUser;
-
   @IsNumber()
   @IsNotEmpty()
   roomId: number;
+
+  user: GameUser;
 
   @IsNumber()
   @IsNotEmpty()

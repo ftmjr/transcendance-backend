@@ -8,6 +8,12 @@ import {
 } from '@prisma/client';
 import { PrismaService } from 'src/prisma/prisma.service';
 
+interface ParticipationWithGameHistory extends GameParticipation {
+  game: Game & {
+    histories: GameHistory[];
+  };
+}
+
 @Injectable()
 export class GamesRepository {
   constructor(private prisma: PrismaService) {}
@@ -55,11 +61,8 @@ export class GamesRepository {
       where: { id: gameId },
       data: {
         observers: {
-          connect: {
-            gameId_userId: {
-              gameId,
-              userId,
-            },
+          create: {
+            userId,
           },
         },
       },
@@ -151,6 +154,42 @@ export class GamesRepository {
       where,
       orderBy,
       include,
+    });
+  }
+
+  getParticipation(params: {
+    where: Prisma.GameParticipationWhereInput;
+    include?: Prisma.GameParticipationInclude;
+  }): Promise<GameParticipation[]> {
+    const { where, include } = params;
+    return this.prisma.gameParticipation.findMany({ where, include });
+  }
+
+  getGameHistory(params: {
+    where: Prisma.GameHistoryWhereUniqueInput;
+    include?: Prisma.GameHistoryInclude;
+  }): Promise<GameHistory | null> {
+    const { where, include } = params;
+    return this.prisma.gameHistory.findUnique({ where, include });
+  }
+
+  getUserParticipationWithGameHistories(
+    userId: number,
+  ): Promise<ParticipationWithGameHistory[]> {
+    return this.prisma.gameParticipation.findMany({
+      where: { userId },
+      include: {
+        game: {
+          include: {
+            histories: true,
+          },
+        },
+      },
+      orderBy: {
+        game: {
+          id: 'desc',
+        },
+      },
     });
   }
 

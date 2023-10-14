@@ -33,15 +33,21 @@ export class GameRealtimeService {
     }
     gameSession.eventsToPublishInRoom.push({
       event: GAME_EVENTS.HostChanged,
-      data: { id: gameId, data: gameSession.hostId },
+      data: { roomId: gameId, data: gameSession.hostId },
     });
     gameSession.eventsToPublishInRoom.push({
       event: GAME_EVENTS.PlayersRetrieved,
-      data: { id: gameId, data: Array.from(gameSession.participants.values()) },
+      data: {
+        roomId: gameId,
+        data: Array.from(gameSession.participants.values()),
+      },
     });
     gameSession.eventsToPublishInRoom.push({
       event: GAME_EVENTS.ViewersRetrieved,
-      data: { id: gameId, data: Array.from(gameSession.observers.values()) },
+      data: {
+        roomId: gameId,
+        data: Array.from(gameSession.observers.values()),
+      },
     });
     let competitorId = 0;
     if (userId === gameSession.participants[0].userId)
@@ -67,15 +73,21 @@ export class GameRealtimeService {
     });
     gameSession.eventsToPublishInRoom.push({
       event: GAME_EVENTS.HostChanged,
-      data: { id: roomId, data: gameSession.hostId },
+      data: { roomId: roomId, data: gameSession.hostId },
     });
     gameSession.eventsToPublishInRoom.push({
       event: GAME_EVENTS.PlayersRetrieved,
-      data: { id: roomId, data: Array.from(gameSession.participants.values()) },
+      data: {
+        roomId: roomId,
+        data: Array.from(gameSession.participants.values()),
+      },
     });
     gameSession.eventsToPublishInRoom.push({
       event: GAME_EVENTS.ViewersRetrieved,
-      data: { id: roomId, data: Array.from(gameSession.observers.values()) },
+      data: {
+        roomId: roomId,
+        data: Array.from(gameSession.observers.values()),
+      },
     });
     return gameSession;
   }
@@ -84,7 +96,8 @@ export class GameRealtimeService {
     // find game session where client is a player
     const gameSession =
       this.gameSessionService.getGameSessionByClientId(clientId);
-    if (!gameSession) throw 'Game session not found, in players';
+    if (!gameSession)
+      throw 'Game session not found, for this client in players';
     const gamer = gameSession.participants.find((g) => g.clientId === clientId);
     let competitorId = 0;
     if (gamer.userId === gameSession.participants[0].userId)
@@ -100,7 +113,7 @@ export class GameRealtimeService {
     gameSession.eventsToPublishInRoom.push({
       event: GAME_EVENTS.GameMonitorStateChanged,
       data: {
-        id: gameSession.gameId,
+        roomId: gameSession.gameId,
         data: GameMonitorState.Ended,
       },
     });
@@ -138,7 +151,7 @@ export class GameRealtimeService {
     ) {
       gameSession.eventsToPublishInRoom.push({
         event: GAME_EVENTS.GameMonitorStateChanged,
-        data: { id: gameSession.gameId, data: GameMonitorState.InitGame },
+        data: { roomId: gameSession.gameId, data: GameMonitorState.InitGame },
       });
     } else if (
       this.checkAllMonitorsSameState(
@@ -152,22 +165,15 @@ export class GameRealtimeService {
       gameSession.eventsToPublishInRoom.push({
         event: GAME_EVENTS.GameMonitorStateChanged,
         data: {
-          id: gameSession.gameId,
+          roomId: gameSession.gameId,
           data: GameMonitorState.PlayingSceneLoaded,
         },
       });
     }
   }
 
-  handleScoreUpdate(
-    state: GAME_STATE,
-    userId: number,
-    gameSession: GameSession,
-    isBot = false,
-  ) {
-    if (state !== GAME_STATE.scored) return;
+  handleScoreUpdate(userId: number, gameSession: GameSession, isBot = false) {
     if (isBot) {
-      // bot id is 0
       gameSession.score.set(0, gameSession.score.get(0) + 1);
     } else {
       const score = gameSession.score.get(userId) ?? 0;
@@ -185,7 +191,7 @@ export class GameRealtimeService {
       );
     }
     const data = {
-      id: gameSession.gameId,
+      roomId: gameSession.gameId,
       data: this.arrayOfPlayersWithScore(gameSession),
     };
     gameSession.eventsToPublishInRoom.push({
@@ -218,7 +224,7 @@ export class GameRealtimeService {
     gameSession.eventsToPublishInRoom.push({
       event: GAME_EVENTS.GameMonitorStateChanged,
       data: {
-        id: gameSession.gameId,
+        roomId: gameSession.gameId,
         data: GameMonitorState.Ended,
       },
     });
@@ -237,6 +243,11 @@ export class GameRealtimeService {
           user.userId,
           gameSession.gameId,
         );
+        // no await for non blocking
+        this.gamesService.updateGame({
+          where: { id: gameSession.gameId },
+          data: { winner: { connect: { id: user.userId } } },
+        });
       } else {
         this.writeGameHistory(
           GameEvent.MATCH_LOST,
@@ -277,6 +288,26 @@ export class GameRealtimeService {
     });
   }
 
+  reloadPlayersList(gameSession: GameSession) {
+    gameSession.eventsToPublishInRoom.push({
+      event: GAME_EVENTS.PlayersRetrieved,
+      data: {
+        roomId: gameSession.gameId,
+        data: Array.from(gameSession.participants.values()),
+      },
+    });
+  }
+
+  reloadViewersList(gameSession: GameSession) {
+    gameSession.eventsToPublishInRoom.push({
+      event: GAME_EVENTS.ViewersRetrieved,
+      data: {
+        roomId: gameSession.gameId,
+        data: Array.from(gameSession.observers.values()),
+      },
+    });
+  }
+
   private setGamerMonitorState(
     gameSession: GameSession,
     userId: number,
@@ -310,7 +341,10 @@ export class GameRealtimeService {
   ) {
     const { userId, username, clientId } = data;
     const viewer = gameSession.observers.find((g) => g.userId === userId);
-    if (viewer) return;
+    if (viewer) {
+      viewer.clientId = clientId;
+      return;
+    }
     const gameId = gameSession.gameId;
     await this.gamesService.addObserver(gameId, userId).then((game) => {
       gameSession.observers.push({

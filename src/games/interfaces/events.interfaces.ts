@@ -1,30 +1,21 @@
-import { Gamer } from './game.interfaces';
-
 export enum GAME_EVENTS {
-  ViewGame = 'view-game',
-  showViewer = 'reloadViewersList',
-  ViewersRetrieved = 'viewers-retrieved',
-  ViewerAdded = 'viewer-added',
   JoinGame = 'joinGame',
-  showPlayers = 'reloadPlayersList',
-  PlayersRetrieved = 'players-retrieved',
-  PlayerAdded = 'player-added',
+  HostChanged = 'hostChanged',
+  GameMonitorStateChanged = 'gameMonitorStateChanged',
+  GameStateChanged = 'gameStateChanged',
+  Scored = 'scored',
+  ScoreChanged = 'scoreChanged',
   PadMoved = 'padMoved',
   BallServed = 'ballServed',
-  GameStateChanged = 'gameStateChanged',
-  GameMonitorStateChanged = 'gameMonitorStateChanged',
-  HostChanged = 'hostChanged',
-  ScoreChanged = 'scoreChanged',
+  PlayersRetrieved = 'players-retrieved',
+  PlayerAdded = 'player-added',
+  ViewersRetrieved = 'viewers-retrieved',
+  ViewerAdded = 'viewer-added',
+  reloadPlayersList = 'reloadPlayersList',
+  reloadViewersList = 'reloadViewersList',
 }
 
 export enum GameUserType {
   Player,
   Viewer,
-}
-
-export interface JoinGameData {
-  user: Gamer;
-  roomId: number;
-  userType: GameUserType;
-  competitionId?: number;
 }

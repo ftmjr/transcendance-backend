@@ -9,6 +9,8 @@ import {
   Controller,
   Delete,
   Get,
+  Param,
+  ParseIntPipe,
   Post,
   Req,
   UseGuards,
@@ -17,11 +19,9 @@ import { GamesService } from './games.service';
 import { CreateGameSessionDto } from './dto';
 import { AuthenticatedGuard } from '../auth/guards';
 import { GameSessionService } from './game-session.service';
-import { User } from '@prisma/client';
 import { GameSession } from './interfaces';
-import * as express from 'express';
+import { RequestWithUser } from '../users/users.controller';
 
-type RequestWithUser = express.Request & { user: User };
 @ApiTags('Game')
 @Controller('game')
 export class GamesController {
@@ -144,7 +144,7 @@ export class GamesController {
   })
   async getUserStatus(
     @Req() req: RequestWithUser,
-    @Body() { userId }: { userId: number },
+    @Param('userId', ParseIntPipe) userId: number,
   ): Promise<{
     status: 'playing' | 'inQueue' | 'free';
     gameSession?: GameSession;
@@ -172,5 +172,35 @@ export class GamesController {
   > {
     const user = req.user;
     return this.gameSessionService.getUsersGameStatus(userIds, user);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Get('/watch-game/:gameId')
+  @ApiOperation({ summary: 'Watch a game' })
+  @ApiResponse({
+    status: 200,
+    description: 'Retrieved the game successfully.',
+  })
+  async watchGame(
+    @Req() req: RequestWithUser,
+    @Param('gameId', ParseIntPipe) gameId: number,
+  ): Promise<GameSession> {
+    return this.gameSessionService.addViewerToGameSession(gameId, req.user);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Get('/history/:userId')
+  @ApiOperation({ summary: 'Get the game history of a user' })
+  @ApiResponse({
+    status: 200,
+    description: 'Retrieved the game history successfully.',
+  })
+  async getUserGameHistory(
+    @Req() req: RequestWithUser,
+    @Param('userId', ParseIntPipe) userId: number,
+  ) {
+    return this.gamesService.getCompleteUserGameHistories(userId);
   }
 }
