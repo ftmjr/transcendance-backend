@@ -49,12 +49,7 @@ export interface GameSession {
   monitors: Array<GameMonitorState>;
   eventsToPublishInRoom: {
     event: GAME_EVENTS;
-    data: { id: number; data: unknown };
+    data: { roomId: number; data: unknown };
   }[];
   rules: GameRules;
-}
-
-export interface PadMovedData {
-  userId: number;
-  direction: PAD_DIRECTION;
 }

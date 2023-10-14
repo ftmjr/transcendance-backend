@@ -33,15 +33,21 @@ export class GameRealtimeService {
     }
     gameSession.eventsToPublishInRoom.push({
       event: GAME_EVENTS.HostChanged,
-      data: { id: gameId, data: gameSession.hostId },
+      data: { roomId: gameId, data: gameSession.hostId },
     });
     gameSession.eventsToPublishInRoom.push({
       event: GAME_EVENTS.PlayersRetrieved,
-      data: { id: gameId, data: Array.from(gameSession.participants.values()) },
+      data: {
+        roomId: gameId,
+        data: Array.from(gameSession.participants.values()),
+      },
     });
     gameSession.eventsToPublishInRoom.push({
       event: GAME_EVENTS.ViewersRetrieved,
-      data: { id: gameId, data: Array.from(gameSession.observers.values()) },
+      data: {
+        roomId: gameId,
+        data: Array.from(gameSession.observers.values()),
+      },
     });
     this.writeGameHistory(GameEvent.GAME_STARTED, userId, gameId);
     return gameSession;
@@ -62,15 +68,21 @@ export class GameRealtimeService {
     });
     gameSession.eventsToPublishInRoom.push({
       event: GAME_EVENTS.HostChanged,
-      data: { id: roomId, data: gameSession.hostId },
+      data: { roomId: roomId, data: gameSession.hostId },
     });
     gameSession.eventsToPublishInRoom.push({
       event: GAME_EVENTS.PlayersRetrieved,
-      data: { id: roomId, data: Array.from(gameSession.participants.values()) },
+      data: {
+        roomId: roomId,
+        data: Array.from(gameSession.participants.values()),
+      },
     });
     gameSession.eventsToPublishInRoom.push({
       event: GAME_EVENTS.ViewersRetrieved,
-      data: { id: roomId, data: Array.from(gameSession.observers.values()) },
+      data: {
+        roomId: roomId,
+        data: Array.from(gameSession.observers.values()),
+      },
     });
     return gameSession;
   }
@@ -90,7 +102,7 @@ export class GameRealtimeService {
     gameSession.eventsToPublishInRoom.push({
       event: GAME_EVENTS.GameMonitorStateChanged,
       data: {
-        id: gameSession.gameId,
+        roomId: gameSession.gameId,
         data: GameMonitorState.Ended,
       },
     });
@@ -128,7 +140,7 @@ export class GameRealtimeService {
     ) {
       gameSession.eventsToPublishInRoom.push({
         event: GAME_EVENTS.GameMonitorStateChanged,
-        data: { id: gameSession.gameId, data: GameMonitorState.InitGame },
+        data: { roomId: gameSession.gameId, data: GameMonitorState.InitGame },
       });
     } else if (
       this.checkAllMonitorsSameState(
@@ -142,22 +154,15 @@ export class GameRealtimeService {
       gameSession.eventsToPublishInRoom.push({
         event: GAME_EVENTS.GameMonitorStateChanged,
         data: {
-          id: gameSession.gameId,
+          roomId: gameSession.gameId,
           data: GameMonitorState.PlayingSceneLoaded,
         },
       });
     }
   }
 
-  handleScoreUpdate(
-    state: GAME_STATE,
-    userId: number,
-    gameSession: GameSession,
-    isBot = false,
-  ) {
-    if (state !== GAME_STATE.scored) return;
+  handleScoreUpdate(userId: number, gameSession: GameSession, isBot = false) {
     if (isBot) {
-      // bot id is 0
       gameSession.score.set(0, gameSession.score.get(0) + 1);
     } else {
       const score = gameSession.score.get(userId) ?? 0;
@@ -169,7 +174,7 @@ export class GameRealtimeService {
       );
     }
     const data = {
-      id: gameSession.gameId,
+      roomId: gameSession.gameId,
       data: this.arrayOfPlayersWithScore(gameSession),
     };
     gameSession.eventsToPublishInRoom.push({
@@ -202,7 +207,7 @@ export class GameRealtimeService {
     gameSession.eventsToPublishInRoom.push({
       event: GAME_EVENTS.GameMonitorStateChanged,
       data: {
-        id: gameSession.gameId,
+        roomId: gameSession.gameId,
         data: GameMonitorState.Ended,
       },
     });
@@ -252,6 +257,26 @@ export class GameRealtimeService {
         connect: {
           id: gameId,
         },
+      },
+    });
+  }
+
+  reloadPlayersList(gameSession: GameSession) {
+    gameSession.eventsToPublishInRoom.push({
+      event: GAME_EVENTS.PlayersRetrieved,
+      data: {
+        roomId: gameSession.gameId,
+        data: Array.from(gameSession.participants.values()),
+      },
+    });
+  }
+
+  reloadViewersList(gameSession: GameSession) {
+    gameSession.eventsToPublishInRoom.push({
+      event: GAME_EVENTS.ViewersRetrieved,
+      data: {
+        roomId: gameSession.gameId,
+        data: Array.from(gameSession.observers.values()),
       },
     });
   }

@@ -7,10 +7,15 @@ export enum PAD_DIRECTION {
 export enum GAME_STATE {
   waiting,
   playing,
-  scored,
 }
 
-export type BallServedData = [
-  { x: number; y: number },
-  { x: number; y: number },
-];
+export interface PadMovedData {
+  userId: number;
+  direction: PAD_DIRECTION;
+}
+
+export interface BallServedData {
+  userId: number;
+  position: { x: number; y: number };
+  direction: { x: number; y: number };
+}
