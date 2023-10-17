@@ -51,7 +51,8 @@ export class GameSessionService {
       this.notificationService.createGameNotification(
         opponent.userId,
         session.gameId,
-        `Tu as été defié par ${host.username} pour une partie privée`,
+        `Tu as été defié par <a href="/users/show/${host.id}">${host.username}</a> pour une partie privée,
+          max score: ${rules.maxScore} points.`,
       );
       return session;
     } else {
@@ -81,10 +82,10 @@ export class GameSessionService {
         availableGameSession.gameId,
         user.id,
       );
-      this.notificationService.createChallengeAcceptedNotification(
+      this.notificationService.createHasJoinedGameNotification(
         availableGameSession.hostId,
         availableGameSession.gameId,
-        `${user.username} has accepted the game invitation`,
+        `<a href="/users/show/${user.id}">${user.username}</a> a été ajouté à la partie`,
       );
       return availableGameSession;
     } else {
@@ -159,10 +160,10 @@ export class GameSessionService {
       this.updateGameSession(gameId, gameSession);
     }
     // Notify the host of the game session
-    this.notificationService.createGameNotification(
+    this.notificationService.createGameInviteRejectedNotification(
       gameSession.hostId,
       gameId,
-      `The game invitation has been refused by ${user.username}`,
+      `L'invitation a été rejete par <a href="/users/show/${user.id}">${user.username}</a>`,
     );
 
     if (gameSession.participants.length === 1) {

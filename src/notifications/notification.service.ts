@@ -39,6 +39,24 @@ export class NotificationService {
       });
   }
 
+  async createGameInviteRejectedNotification(
+    userId: User[`id`],
+    gameId: Game[`id`],
+    message: string,
+  ): Promise<void> {
+    this.notificationRepository
+      .createNotification({
+        user: { connect: { id: userId } },
+        type: NotificationType.GAME_INVITE,
+        title: 'Game Invite Rejected',
+        message: message,
+        referenceId: gameId,
+      })
+      .then((notification) => {
+        this.notificationGateway.sendNotificationToUser(userId, notification);
+      });
+  }
+
   async createChallengeAcceptedNotification(
     userId: number,
     gameId: number,
@@ -52,6 +70,24 @@ export class NotificationService {
         message: message,
         referenceId: gameId,
         expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24), // 1 day
+      })
+      .then((notification) => {
+        this.notificationGateway.sendNotificationToUser(userId, notification);
+      });
+  }
+
+  async createHasJoinedGameNotification(
+    userId: number,
+    gameId: number,
+    message: string,
+  ): Promise<void> {
+    this.notificationRepository
+      .createNotification({
+        user: { connect: { id: userId } },
+        type: NotificationType.GAME_EVENT,
+        title: 'Joined Game',
+        message: message,
+        referenceId: gameId,
       })
       .then((notification) => {
         this.notificationGateway.sendNotificationToUser(userId, notification);
