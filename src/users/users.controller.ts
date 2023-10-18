@@ -149,7 +149,7 @@ export class UsersController {
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @Delete('block/:id')
+  @Delete('unblock/:id')
   @ApiOperation({
     summary: 'remove a user from blocked users',
     description: `

@@ -177,6 +177,7 @@ export class UsersService {
         gameHistories: true,
       },
     });
+    console.log(otherProfile);
     return this.filterBlockedUsers([otherProfile], user);
   }
   async getUserWithFriends(userId: User[`id`]) {
@@ -297,10 +298,10 @@ export class UsersService {
     const blockedFromIds = userBlocked.blockedFrom.map(
       (blockedFrom) => blockedFrom.userId,
     );
-
     const blockedUsers = users.filter((user) => {
       return (
-        !blockedUserIds.includes(user.id) && !blockedFromIds.includes(user.id)
+        // !blockedUserIds.includes(user.id) && 
+        !blockedFromIds.includes(user.id)
       );
     });
     return blockedUsers.map((user) => exclude(user, ['password']));
