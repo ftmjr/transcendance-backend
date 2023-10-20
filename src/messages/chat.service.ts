@@ -40,7 +40,7 @@ export class ChatService {
   ) {
     const room = await this.getRoom({ roomId: info.roomId });
     if (!room) {
-      throw new NotFoundException('Room not found');
+      throw new NotFoundException(`Salle de chat introuvable`);
     }
     if (room.type === RoomType.PRIVATE) {
       // only admin and owner can add member to private room
@@ -49,11 +49,11 @@ export class ChatService {
       // anyone can join a protected room, if they have the password
       if (!info.password) {
         throw new UnauthorizedException(
-          'Password is required, for protected rooms',
+          `Vous devez fournir un mot de passe pour rejoindre cette salle de chat`,
         );
       }
       if (!(await argon.verify(room.password, info.password))) {
-        throw new ForbiddenException('Wrong password');
+        throw new ForbiddenException(`Mot de passe incorrect`);
       }
     }
     try {
@@ -321,6 +321,10 @@ export class ChatService {
   }
 
   /* utility functions */
+
+  /*
+   * Try to find a room by id or name
+   */
   async getRoom(info: {
     roomId?: number;
     name?: string;
@@ -336,6 +340,14 @@ export class ChatService {
       throw new NotFoundException('Room not found');
     }
   }
+
+  /*
+   * Check if the user can act in the room, if not throw error
+   * return the member object
+   * @param actorId the user who is trying to act
+   * @param chatRoom the room where the user is trying to act
+   * @param grantedRoles the roles that are allowed to act
+   */
   checkIfCanActInTheRoom(
     actorId: number,
     chatRoom: ChatRoomWithMembers,
@@ -343,10 +355,10 @@ export class ChatService {
   ) {
     const member = chatRoom.members.find((m) => m.memberId === actorId);
     if (!member) {
-      throw new UnauthorizedException('You are not member of this room');
+      throw new UnauthorizedException(`Vous n'êtes pas membre de cette salle`);
     }
     if (!grantedRoles.includes(member.role)) {
-      throw new ForbiddenException('You are not allowed to do this');
+      throw new ForbiddenException(`Vous n'avez pas la permission, ou le rôle`);
     }
     return member;
   }
