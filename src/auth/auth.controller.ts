@@ -31,6 +31,7 @@ import { UsersService } from '../users/users.service';
 import { TwoFaDto } from './dto/twoFa.dto';
 import { UpdatePasswordDto } from './dto/modifyPassword.dto';
 import { UpdateUserInfoDto } from './dto/updateUserInfo.dto';
+import { RequestWithUser } from '../users/users.controller';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -302,7 +303,7 @@ export class AuthController {
     summary: 'Disable 2FA',
     description: 'Set "two"twoFactorEnabled" to false,',
   })
-  async turnOffTwoFactorAuthentication(@Req() request) {
+  async turnOffTwoFactorAuthentication(@Req() request: RequestWithUser) {
     return this.usersService.turnOffTwoFactorAuthentication(request.user.id);
   }
 
@@ -312,7 +313,7 @@ export class AuthController {
     summary: 'Return my info',
   })
   @Get('me')
-  async getMe(@Request() request) {
+  async getMe(@Request() request: RequestWithUser) {
     return request.user;
   }
 
@@ -323,7 +324,10 @@ export class AuthController {
     summary: 'modify User password to a new one',
     description: 'return true when it is done',
   })
-  async modifyPassword(@Req() request, @Body() body: UpdatePasswordDto) {
+  async modifyPassword(
+    @Req() request: RequestWithUser,
+    @Body() body: UpdatePasswordDto,
+  ) {
     return this.authService.modifyPassword(request.user, body);
   }
 
@@ -334,7 +338,10 @@ export class AuthController {
     summary: 'modify User info, firstName, lastName and biography',
     description: 'return user',
   })
-  async modifyUserInfo(@Req() request, @Body() body: UpdateUserInfoDto) {
+  async modifyUserInfo(
+    @Req() request: RequestWithUser,
+    @Body() body: UpdateUserInfoDto,
+  ) {
     return this.authService.updateUserInfo(request.user, body);
   }
 
@@ -344,7 +351,7 @@ export class AuthController {
     summary: 'Return last user sessions',
   })
   @Get('sessions')
-  async getLastSessions(@Request() request) {
-    return this.authService.getLastSessions(request.user.userId);
+  async getLastSessions(@Request() request: RequestWithUser) {
+    return this.authService.getLastSessions(request.user.id);
   }
 }
