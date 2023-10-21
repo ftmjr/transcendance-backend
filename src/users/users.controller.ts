@@ -92,7 +92,7 @@ export class UsersController {
       skip,
       take,
       orderBy,
-      include: { profile: true, sessions: false, gameHistories: true },
+      include: { profile: true, sessions: false },
     });
   }
 
@@ -115,6 +115,27 @@ export class UsersController {
       throw new NotFoundException();
     }
     return users[0];
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Get('short-profile/:id')
+  @ApiOperation({
+    summary: 'get a user short profile',
+    description: `
+      - fetch a user profile status and avatar info from the database
+    `,
+  })
+  @ApiResponse({ status: 200, description: 'return a user short profile' })
+  async getUserShortProfile(
+    @Request() req: RequestWithUser,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    const profile = await this.usersService.getUserShortProfile(id);
+    if (!profile) {
+      throw new NotFoundException();
+    }
+    return profile;
   }
 
   @ApiBearerAuth()

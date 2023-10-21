@@ -26,6 +26,11 @@ export type UserWithData = User & {
   receivedContactRequests: ContactRequest[];
 };
 
+export type ShortBio = Pick<
+  UserWithData,
+  'id' | 'profile' | 'username' | 'email' | 'updatedAt'
+>;
+
 export function exclude<User, Key extends keyof User>(
   user: User,
   keys: Key[],
@@ -179,6 +184,20 @@ export class UsersService {
     });
     return this.filterBlockedUsers([otherProfile], user);
   }
+
+  async getUserShortProfile(id: number): Promise<ShortBio> {
+    return this.repository.getUserWithSelectedFields({
+      where: { id },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        profile: true,
+        updatedAt: true,
+      },
+    });
+  }
+
   async getUserWithFriends(userId: User[`id`]) {
     return this.repository.getUser({
       where: {
@@ -380,6 +399,9 @@ export class UsersService {
           { profile: { name: { contains: query } } },
           { profile: { lastname: { contains: query } } },
         ],
+      },
+      include: {
+        profile: true,
       },
       skip: skip ?? 0,
       take: take ?? 10,
