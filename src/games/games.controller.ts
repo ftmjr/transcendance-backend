@@ -203,4 +203,19 @@ export class GamesController {
   ) {
     return this.gamesService.getCompleteUserGameHistories(userId);
   }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Get('/simple-history/:userId')
+  @ApiOperation({ summary: 'Get the game simple history of a user' })
+  @ApiResponse({
+    status: 200,
+    description: 'Retrieved the game history successfully.',
+  })
+  async getUserSimpleGameHistory(
+    @Req() req: RequestWithUser,
+    @Param('userId', ParseIntPipe) userId: number,
+  ) {
+    return this.gamesService.getUserGameHistories(userId);
+  }
 }
