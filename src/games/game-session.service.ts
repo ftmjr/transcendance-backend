@@ -1,3 +1,4 @@
+// src/games/games-session.service.ts
 import { Injectable } from '@nestjs/common';
 import {
   GameSession,

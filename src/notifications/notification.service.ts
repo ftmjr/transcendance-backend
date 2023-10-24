@@ -95,6 +95,7 @@ export class NotificationService {
   }
 
   async createFriendRequestNotification(
+    sourceUserId: User[`id`],
     friendId: User[`id`],
     message: string,
   ): Promise<void> {
@@ -104,7 +105,7 @@ export class NotificationService {
         type: NotificationType.FRIEND_REQUEST,
         title: `Demande d'amitié`,
         message: message,
-        referenceId: friendId,
+        referenceId: sourceUserId,
       })
       .then((notification) => {
         this.notificationGateway.sendNotificationToUser(friendId, notification);

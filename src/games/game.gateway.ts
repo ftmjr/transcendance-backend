@@ -1,3 +1,4 @@
+// src/games/game.gateway.ts
 import {
   ConnectedSocket,
   MessageBody,

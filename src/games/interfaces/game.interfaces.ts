@@ -1,3 +1,4 @@
+// src/games/interfaces/game.interfaces.ts
 import { GAME_EVENTS } from './events.interfaces';
 import { PAD_DIRECTION } from './gameActions.interface';
 

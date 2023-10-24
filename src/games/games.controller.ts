@@ -1,3 +1,4 @@
+// src/games/games.controller.ts
 import {
   ApiBearerAuth,
   ApiOperation,
