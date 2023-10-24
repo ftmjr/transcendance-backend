@@ -23,9 +23,7 @@ export class ChatController {
     @Req() req: RequestWithUser,
     @Body() createRoomDto: CreateRoomDto,
   ) {
-    // Assume ownerId is obtained from the request after authentication
-    const ownerId = 1; // replace with actual ownerId
-    return this.service.createRoom(createRoomDto, ownerId);
+    return this.service.createRoom(createRoomDto);
   }
 
   @ApiBearerAuth()

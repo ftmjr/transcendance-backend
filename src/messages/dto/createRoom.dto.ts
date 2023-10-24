@@ -5,7 +5,7 @@ import { RoomType } from '@prisma/client';
 export class CreateRoomDto {
   @ApiProperty()
   @IsNotEmpty()
-  ownerId: number;
+  ownerId: number; // the id of the owner of the room
 
   @ApiProperty()
   @IsNotEmpty()
@@ -13,13 +13,13 @@ export class CreateRoomDto {
 
   @ApiProperty()
   @IsNotEmpty()
-  type: RoomType;
+  type: RoomType; //  PUBLIC: 'PUBLIC', PRIVATE: 'PRIVATE', PROTECTED: 'PROTECTED'
 
   @ApiProperty()
   @IsOptional()
   password?: string;
 
   @ApiProperty()
-  @IsNotEmpty()
+  @IsOptional()
   avatar?: string;
 }

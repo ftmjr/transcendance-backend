@@ -76,7 +76,7 @@ export class ChatRepository {
   async createRoom(
     params: { data: Prisma.ChatRoomCreateInput },
     memberId: User[`id`],
-  ): Promise<ChatRoom> {
+  ): Promise<ChatRoomWithMembers> {
     const { data } = params;
     return this.prisma.chatRoom.create({
       data: {
@@ -87,6 +87,9 @@ export class ChatRepository {
             role: Role.OWNER,
           },
         },
+      },
+      include: {
+        members: true,
       },
     });
   }

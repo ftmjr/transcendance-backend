@@ -19,11 +19,11 @@ export class ChatService {
     private notificationService: NotificationService,
   ) {}
 
-  async createRoom(info: CreateRoomDto, ownerId: number) {
+  async createRoom(info: CreateRoomDto) {
     if (info.type === RoomType.PROTECTED && !info.password) {
       throw new Error('Password is required, for protected room');
     }
-    if (info.type === RoomType.PROTECTED && info.password) {
+    if (info.password) {
       info.password = await argon.hash(info.password); // hash password before save to database
     }
     const data = {
@@ -32,6 +32,7 @@ export class ChatService {
       avatar: info.avatar ?? getRandomAvatarUrl(),
       password: info.password,
     };
+    const ownerId = info.ownerId;
     return this.repository.createRoom({ data }, ownerId);
   }
   async addUserToARoom(
