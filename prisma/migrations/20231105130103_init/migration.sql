@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "GameEvent" ADD VALUE 'IA_ACTION_PERFORMED';
