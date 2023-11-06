@@ -2,27 +2,28 @@
 import { Injectable } from '@nestjs/common';
 import { GameSessionService } from './game-session.service';
 import {
+  BallServedData,
   GAME_EVENTS,
-  GAME_STATE,
   GameMonitorState,
   GameSession,
-  OnlineGameStates,
+  GameSessionType,
+  PadMovedData,
 } from './interfaces';
 import { GameEvent, GameHistory } from '@prisma/client';
 import { GamesService } from './games.service';
 import { JoinGameEvent } from './dto';
+import GameEngine from './engine';
+import { GameGateway } from './game.gateway';
 
 @Injectable()
 export class GameRealtimeService {
-  constructor(
-    private gameSessionService: GameSessionService,
-    private gamesService: GamesService,
-  ) {}
+  constructor(private gameSessionService: GameSessionService) {}
 
   clientPlayerConnected(
     gameId: number,
     userId: number,
     clientId: string,
+    gameGateway: GameGateway,
   ): GameSession {
     const gameSession = this.gameSessionService.getGameSession(gameId);
     if (!gameSession) {
@@ -50,7 +51,15 @@ export class GameRealtimeService {
         data: Array.from(gameSession.observers.values()),
       },
     });
+    gameSession.eventsToPublishInRoom.push({
+      event: GAME_EVENTS.GameMonitorStateChanged,
+      data: {
+        roomId: gameId,
+        data: gameSession.state,
+      },
+    });
     this.writeGameHistory(GameEvent.GAME_STARTED, userId, gameId);
+    this.createEngine(gameSession, gameGateway);
     return gameSession;
   }
 
@@ -74,15 +83,22 @@ export class GameRealtimeService {
     gameSession.eventsToPublishInRoom.push({
       event: GAME_EVENTS.PlayersRetrieved,
       data: {
-        roomId: roomId,
+        roomId,
         data: Array.from(gameSession.participants.values()),
       },
     });
     gameSession.eventsToPublishInRoom.push({
       event: GAME_EVENTS.ViewersRetrieved,
       data: {
-        roomId: roomId,
+        roomId,
         data: Array.from(gameSession.observers.values()),
+      },
+    });
+    gameSession.eventsToPublishInRoom.push({
+      event: GAME_EVENTS.GameMonitorStateChanged,
+      data: {
+        roomId,
+        data: gameSession.state,
       },
     });
     return gameSession;
@@ -92,8 +108,7 @@ export class GameRealtimeService {
     // find game session where client is a player
     const gameSession =
       this.gameSessionService.getGameSessionByClientId(clientId);
-    if (!gameSession)
-      throw 'Game session not found, for this client in players';
+    if (!gameSession) return;
     const gamer = gameSession.participants.find((g) => g.clientId === clientId);
     this.writeGameHistory(
       GameEvent.PLAYER_LEFT,
@@ -107,84 +122,122 @@ export class GameRealtimeService {
         data: GameMonitorState.Ended,
       },
     });
-    gameSession.state = OnlineGameStates.FINISHED;
+    this.setAllMonitorsState(gameSession, GameMonitorState.Ended);
+    gameSession.state = GameMonitorState.Ended;
+    gameSession.gameEngine?.pauseLoop();
     return gameSession;
   }
 
-  SyncMonitorsStates(
-    state: GAME_STATE,
-    userId: number,
+  handleGameStateChanged(
     gameSession: GameSession,
+    userId: number,
+    newState: GameMonitorState,
   ) {
-    // we need to move each player monitor to InitGame state
-    if (state === GAME_STATE.waiting) {
-      // update monitor states to ready depending on userId index
-      this.setGamerMonitorState(gameSession, userId, GameMonitorState.InitGame);
-      // update directly for Ai player if any
-      this.setGamerMonitorState(gameSession, 0, GameMonitorState.InitGame);
-    } else if (state === GAME_STATE.playing) {
-      // update monitor states to playing depending on userId index
-      this.setGamerMonitorState(
-        gameSession,
-        userId,
-        GameMonitorState.PlayingSceneLoaded,
-      );
-      // update directly for Ai player if any
-      this.setGamerMonitorState(
-        gameSession,
-        0,
-        GameMonitorState.PlayingSceneLoaded,
-      );
-    }
-    if (
-      this.checkAllMonitorsSameState(gameSession, GameMonitorState.InitGame)
-    ) {
-      gameSession.eventsToPublishInRoom.push({
-        event: GAME_EVENTS.GameMonitorStateChanged,
-        data: { roomId: gameSession.gameId, data: GameMonitorState.InitGame },
-      });
-    } else if (
-      this.checkAllMonitorsSameState(
-        gameSession,
-        GameMonitorState.PlayingSceneLoaded,
-      )
-    ) {
-      this.gameSessionService.updateGameSession(gameSession.gameId, {
-        state: OnlineGameStates.PLAYING,
-      });
-      gameSession.eventsToPublishInRoom.push({
-        event: GAME_EVENTS.GameMonitorStateChanged,
-        data: {
-          roomId: gameSession.gameId,
-          data: GameMonitorState.PlayingSceneLoaded,
-        },
-      });
+    if (gameSession.state === newState) return;
+    this.setGamerMonitorState(gameSession, userId, newState);
+    switch (newState) {
+      case GameMonitorState.Ready:
+        if (
+          this.checkAllMonitorsSameState(gameSession, GameMonitorState.Ready)
+        ) {
+          this.setAllMonitorsState(gameSession, GameMonitorState.Play);
+          gameSession.eventsToPublishInRoom.push({
+            event: GAME_EVENTS.GameMonitorStateChanged,
+            data: {
+              roomId: gameSession.gameId,
+              data: GameMonitorState.Play,
+            },
+          });
+          gameSession.state = GameMonitorState.Play;
+        }
+        break;
+      case GameMonitorState.Pause:
+        this.setAllMonitorsState(gameSession, GameMonitorState.Pause);
+        gameSession.eventsToPublishInRoom.push({
+          event: GAME_EVENTS.GameMonitorStateChanged,
+          data: {
+            roomId: gameSession.gameId,
+            data: GameMonitorState.Pause,
+          },
+        });
+        gameSession.state = GameMonitorState.Pause;
+        gameSession.gameEngine?.pauseLoop();
+        break;
+      case GameMonitorState.Ended:
+        this.handlePlayerLeftGame(gameSession, userId);
+        break;
     }
   }
 
-  handleScoreUpdate(userId: number, gameSession: GameSession, isBot = false) {
-    if (isBot) {
-      gameSession.score.set(0, gameSession.score.get(0) + 1);
-    } else {
-      const score = gameSession.score.get(userId) ?? 0;
-      gameSession.score.set(userId, score + 1);
+  handlePlayerLeftGame(gameSession: GameSession, userId: number) {
+    this.writeGameHistory(GameEvent.PLAYER_LEFT, userId, gameSession.gameId);
+    const gamer = gameSession.participants.find((g) => g.userId === userId);
+    if (!gamer) return;
+    gameSession.eventsToPublishInRoom.push({
+      event: GAME_EVENTS.PlayerLeft,
+      data: {
+        roomId: gameSession.gameId,
+        data: gamer,
+      },
+    });
+    // if one player stays we set him as the winner and end the game
+    if (gameSession.participants.length === 1) {
+      if (gameSession.participants[0].userId !== 0) {
+        this.handleGameEnding(gameSession, gameSession.participants[0].userId);
+      } else {
+        gameSession.eventsToPublishInRoom.push({
+          event: GAME_EVENTS.GameStateChanged,
+          data: {
+            roomId: gameSession.gameId,
+            data: GameMonitorState.Ended,
+          },
+        });
+      }
+    }
+  }
+  handlePadMoved(gameSession: GameSession, data: PadMovedData) {
+    if (!gameSession.gameEngine) return;
+    const engineData = gameSession.gameEngine.paddleMove(
+      data.userId,
+      data.direction,
+    );
+    gameSession.eventsToPublishInRoom.push({
+      event: GAME_EVENTS.PadMoved,
+      data: {
+        roomId: gameSession.gameId,
+        data: engineData,
+      },
+    });
+  }
+
+  handleIaPadSpeed(gameSession: GameSession, speed: number) {
+    if (!gameSession.gameEngine) return;
+    gameSession.gameEngine.setIaSpeed(speed);
+  }
+
+  handleBallServed(gameSession: GameSession, data: BallServedData) {
+    if (!gameSession.gameEngine) return;
+    gameSession.gameEngine.serveBall(data.userId);
+  }
+
+  public onScoreRoutine(userId: number, gameId: number) {
+    const gameSession = this.gameSessionService.getGameSession(gameId);
+    if (!gameSession) return;
+    const score = gameSession.score.get(userId) ?? 0;
+    gameSession.score.set(userId, score + 1);
+    if (userId !== 0)
+      this.writeGameHistory(GameEvent.ACTION_PERFORMED, userId, gameId);
+    else {
       this.writeGameHistory(
-        GameEvent.ACTION_PERFORMED,
-        userId,
-        gameSession.gameId,
+        GameEvent.IA_ACTION_PERFORMED,
+        gameSession.hostId,
+        gameId,
       );
     }
-    const data = {
-      roomId: gameSession.gameId,
-      data: this.arrayOfPlayersWithScore(gameSession),
-    };
-    gameSession.eventsToPublishInRoom.push({
-      event: GAME_EVENTS.ScoreChanged,
-      data,
-    });
     const needToEnd = this.checkRulesToEndGame(gameSession);
     if (needToEnd.stop) {
       this.handleGameEnding(gameSession, needToEnd.winnerId);
+      gameSession.gameEngine.pauseLoop();
     }
   }
 
@@ -205,14 +258,7 @@ export class GameRealtimeService {
   }
 
   handleGameEnding(gameSession: GameSession, winnerId: number) {
-    gameSession.eventsToPublishInRoom.push({
-      event: GAME_EVENTS.GameMonitorStateChanged,
-      data: {
-        roomId: gameSession.gameId,
-        data: GameMonitorState.Ended,
-      },
-    });
-    gameSession.state = OnlineGameStates.FINISHED;
+    gameSession.state = GameMonitorState.Ended;
     for (const user of gameSession.participants) {
       if (user.userId === 0) continue;
       if (user.userId === winnerId) {
@@ -222,10 +268,7 @@ export class GameRealtimeService {
           gameSession.gameId,
         );
         // no await for non blocking
-        this.gamesService.updateGame({
-          where: { id: gameSession.gameId },
-          data: { winner: { connect: { id: user.userId } } },
-        });
+        this.gameSessionService.setTheWinner(gameSession, user.userId);
       } else {
         this.writeGameHistory(
           GameEvent.MATCH_LOST,
@@ -239,6 +282,29 @@ export class GameRealtimeService {
         gameSession.gameId,
       );
     }
+    gameSession.eventsToPublishInRoom.push({
+      event: GAME_EVENTS.GameMonitorStateChanged,
+      data: {
+        roomId: gameSession.gameId,
+        data: GameMonitorState.Ended,
+      },
+    });
+  }
+
+  private createEngine(gameSession: GameSession, gameGateway: GameGateway) {
+    if (gameSession.gameEngine) return;
+    // if we have to player we create it
+    if (gameSession.participants.length === 2) {
+      gameSession.gameEngine = new GameEngine(
+        gameSession.gameId,
+        gameSession.participants,
+        this,
+        gameGateway,
+        gameSession.score,
+      );
+      gameSession.gameEngine.activateLoop(); // 60 times per second
+      return;
+    }
   }
 
   writeGameHistory(
@@ -247,19 +313,7 @@ export class GameRealtimeService {
     gameId: number,
   ) {
     if (userId === 0) return;
-    this.gamesService.addHistoryToGame({
-      event: event,
-      user: {
-        connect: {
-          id: userId,
-        },
-      },
-      game: {
-        connect: {
-          id: gameId,
-        },
-      },
-    });
+    this.gameSessionService.writeGameHistory(event, userId, gameId);
   }
 
   reloadPlayersList(gameSession: GameSession) {
@@ -287,10 +341,21 @@ export class GameRealtimeService {
     userId: number,
     state: GameMonitorState,
   ) {
+    if (gameSession.type === GameSessionType.Bot) {
+      this.setAllMonitorsState(gameSession, state);
+      return;
+    }
     const gamer = gameSession.participants.find((g) => g.userId === userId);
     if (!gamer) return;
     const index = gameSession.participants.indexOf(gamer);
     gameSession.monitors[index] = state;
+  }
+
+  private setAllMonitorsState(
+    gameSession: GameSession,
+    state: GameMonitorState,
+  ) {
+    gameSession.monitors = gameSession.monitors.map(() => state);
   }
 
   private checkAllMonitorsSameState(
@@ -313,19 +378,10 @@ export class GameRealtimeService {
     gameSession: GameSession,
     data: { userId: number; username: string; clientId: string },
   ) {
-    const { userId, username, clientId } = data;
-    const viewer = gameSession.observers.find((g) => g.userId === userId);
-    if (viewer) {
-      viewer.clientId = clientId;
-      return;
-    }
-    const gameId = gameSession.gameId;
-    await this.gamesService.addObserver(gameId, userId).then((game) => {
-      gameSession.observers.push({
-        userId,
-        username,
-        clientId,
-      });
+    await this.gameSessionService.addViewerToGameSession(gameSession.gameId, {
+      id: data.userId,
+      username: data.username,
+      clientId: data.clientId,
     });
   }
 }

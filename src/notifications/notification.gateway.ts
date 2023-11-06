@@ -14,11 +14,11 @@ export class NotificationGateway
 {
   @WebSocketServer() server: Server;
 
-  handleConnection(client: Socket, ...args: any[]) {
-    console.log(`Client connected on notification : ${client.id}`);
+  handleConnection(_client: Socket, ...args: any[]) {
+    // console.log(`Client connected on notification : ${client.id}`);
   }
 
-  handleDisconnect(client: Socket) {
+  handleDisconnect(_client: Socket) {
     // console.log(`Client disconnected on notification : ${client.id}`);
   }
 
@@ -31,6 +31,5 @@ export class NotificationGateway
   sendNotificationToUser(userId: User[`id`], data: any) {
     const room = `notification:${userId}`;
     this.server.to(room).emit('notification', data);
-    console.log(`Notification sent to ${userId}`);
   }
 }

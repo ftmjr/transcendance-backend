@@ -11,16 +11,16 @@ import {
 import { Server, Socket } from 'socket.io';
 import { GameRealtimeService } from './gameRealtime.service';
 import {
+  BallServedData,
   GAME_EVENTS,
+  GameMonitorState,
   GameSession,
   GameUserType,
-  GAME_STATE,
-  PAD_DIRECTION,
   PadMovedData,
-  BallServedData,
 } from './interfaces';
-import { JoinGameEvent, GameActionDto, GameUser } from './dto';
+import { GameUser, JoinGameEvent } from './dto';
 import { GameSessionService } from './game-session.service';
+import { GameStateDataPacket } from './engine';
 
 @WebSocketGateway({ namespace: 'game' })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
@@ -31,9 +31,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private gameSessionService: GameSessionService,
   ) {}
 
-  handleConnection(client: Socket, ...args: any[]) {
-    console.log('New game client connected', client.id);
-  }
+  handleConnection(client: Socket, ...args: any[]) {}
 
   handleDisconnect(@ConnectedSocket() client: Socket): any {
     try {
@@ -54,6 +52,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         joinData.roomId,
         joinData.user.userId,
         client.id,
+        this,
       );
       const roomName = `${joinData.roomId}`;
       await client.join(roomName);
@@ -71,58 +70,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       await client.join(roomName);
       this.handleGameEvents(gameSession);
     }
-  }
-
-  @SubscribeMessage(GAME_EVENTS.PadMoved)
-  async handlePadMove(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() received: { roomId: number; data: PadMovedData },
-  ) {
-    // emit in the room to all other players except the sender
-    client.broadcast
-      .to(received.roomId.toString())
-      .emit(GAME_EVENTS.PadMoved, received);
-  }
-
-  @SubscribeMessage(GAME_EVENTS.BallServed)
-  async handleBallServe(
-    @ConnectedSocket() client: Socket,
-    @MessageBody() received: { roomId: number; data: BallServedData },
-  ) {
-    // emit in the room to all other players except the sender
-    client.broadcast
-      .to(received.roomId.toString())
-      .emit(GAME_EVENTS.BallServed, received);
-  }
-
-  @SubscribeMessage(GAME_EVENTS.GameStateChanged)
-  async handleGameStateChange(
-    @ConnectedSocket() client: Socket,
-    @MessageBody()
-    received: { roomId: number; user: GameUser; gameState: GAME_STATE },
-  ) {
-    const { roomId, user, gameState } = received;
-    const gameSession = this.gameSessionService.getGameSession(roomId);
-    if (!gameSession) return;
-    this.gameRealtimeService.SyncMonitorsStates(
-      gameState,
-      user.userId,
-      gameSession,
-    );
-    this.handleGameEvents(gameSession);
-  }
-
-  @SubscribeMessage(GAME_EVENTS.Scored)
-  async handleScored(
-    @ConnectedSocket() client: Socket,
-    @MessageBody()
-    received: { roomId: number; user: GameUser; isIa: boolean },
-  ) {
-    const { roomId, user, isIa } = received;
-    const gameSession = this.gameSessionService.getGameSession(roomId);
-    if (!gameSession) return;
-    this.gameRealtimeService.handleScoreUpdate(user.userId, gameSession, isIa);
-    this.handleGameEvents(gameSession);
   }
 
   @SubscribeMessage(GAME_EVENTS.reloadPlayersList)
@@ -149,6 +96,75 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.handleGameEvents(gameSession);
   }
 
+  @SubscribeMessage(GAME_EVENTS.GameStateChanged)
+  async handleGameStateChanged(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    received: {
+      roomId: number;
+      user: GameUser;
+      gameState: GameMonitorState;
+    },
+  ) {
+    const { roomId, gameState, user } = received;
+    const gameSession = this.gameSessionService.getGameSession(roomId);
+    if (!gameSession) return;
+    this.gameRealtimeService.handleGameStateChanged(
+      gameSession,
+      user.userId,
+      gameState,
+    );
+    this.handleGameEvents(gameSession);
+  }
+
+  @SubscribeMessage(GAME_EVENTS.PadMoved)
+  async handlePadMoved(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    received: {
+      roomId: number;
+      data: PadMovedData;
+    },
+  ) {
+    const { roomId, data } = received;
+    const gameSession = this.gameSessionService.getGameSession(roomId);
+    if (!gameSession) return;
+    this.gameRealtimeService.handlePadMoved(gameSession, data);
+    this.handleGameEvents(gameSession);
+  }
+
+  @SubscribeMessage(GAME_EVENTS.IaPadSpeed)
+  async handleIaPadSpeed(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    received: {
+      roomId: number;
+      data: number;
+    },
+  ) {
+    const { roomId, data } = received;
+    const gameSession = this.gameSessionService.getGameSession(roomId);
+    if (!gameSession) return;
+    this.gameRealtimeService.handleIaPadSpeed(gameSession, data);
+    this.handleGameEvents(gameSession);
+  }
+
+  @SubscribeMessage(GAME_EVENTS.BallServed)
+  async handleBallServed(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    received: {
+      roomId: number;
+      data: BallServedData;
+    },
+  ) {
+    const { roomId, data } = received;
+    const gameSession = this.gameSessionService.getGameSession(roomId);
+    if (!gameSession) return;
+    this.gameRealtimeService.handleBallServed(gameSession, data);
+    this.handleGameEvents(gameSession);
+  }
+
   private handleGameEvents(gameSession: GameSession) {
     const roomName = `${gameSession.gameId}`;
     gameSession.eventsToPublishInRoom.forEach((eventObj) => {
@@ -160,5 +176,26 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       0,
       gameSession.eventsToPublishInRoom.length,
     );
+  }
+
+  public sendGameObjectState(data: GameStateDataPacket, roomId: number) {
+    const roomName = `${roomId}`;
+    this.server.to(roomName).emit(GAME_EVENTS.GameObjectState, {
+      roomId,
+      data,
+    });
+  }
+  public sendScored(
+    roomId: number,
+    scores: Array<{ userId: number; score: number }>,
+  ) {
+    const roomName = `${roomId}`;
+    this.server.to(roomName).emit(GAME_EVENTS.ScoreChanged, {
+      roomId,
+      data: scores,
+    });
+    const gameSession = this.gameSessionService.getGameSession(roomId);
+    if (!gameSession) return;
+    this.handleGameEvents(gameSession);
   }
 }
