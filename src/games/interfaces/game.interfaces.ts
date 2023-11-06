@@ -1,6 +1,7 @@
 // src/games/interfaces/game.interfaces.ts
 import { GAME_EVENTS } from './events.interfaces';
 import { PAD_DIRECTION } from './gameActions.interface';
+import GameEngine from '../engine';
 
 export interface Gamer {
   userId: number;
@@ -11,18 +12,13 @@ export interface Gamer {
 }
 
 export enum GameMonitorState {
-  Waiting, // waiting for players to join
-  Ready, // all players are ready, waiting for users to click on start
-  InitGame, // players have accepted to start, server allowing the game scene to start
-  PlayingSceneLoaded, // playing scene loading finished on all clients
-  Ended, // game ended by server or by a player (disconnection)
-}
-
-export enum OnlineGameStates {
-  WAITING,
-  PLAYING,
-  PLAYING_AI,
-  FINISHED,
+  Waiting,
+  Preloading,
+  Menu,
+  Ready,
+  Play,
+  Pause,
+  Ended,
 }
 
 export enum GameSessionType {
@@ -46,11 +42,12 @@ export interface GameSession {
   participants: Gamer[];
   observers: Gamer[];
   score: Map<number, number>;
-  state: OnlineGameStates;
+  state: GameMonitorState;
   monitors: Array<GameMonitorState>;
   eventsToPublishInRoom: {
     event: GAME_EVENTS;
     data: { roomId: number; data: unknown };
   }[];
+  gameEngine?: GameEngine;
   rules: GameRules;
 }

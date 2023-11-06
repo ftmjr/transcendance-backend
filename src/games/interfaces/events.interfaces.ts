@@ -3,9 +3,9 @@ export enum GAME_EVENTS {
   HostChanged = 'hostChanged',
   GameMonitorStateChanged = 'gameMonitorStateChanged',
   GameStateChanged = 'gameStateChanged',
-  Scored = 'scored',
   ScoreChanged = 'scoreChanged',
   PadMoved = 'padMoved',
+  IaPadSpeed = 'iaPadSpeed',
   BallServed = 'ballServed',
   PlayersRetrieved = 'players-retrieved',
   PlayerAdded = 'player-added',
@@ -13,6 +13,8 @@ export enum GAME_EVENTS {
   ViewerAdded = 'viewer-added',
   reloadPlayersList = 'reloadPlayersList',
   reloadViewersList = 'reloadViewersList',
+  GameObjectState = 'gameObjectState',
+  PlayerLeft = 'player-left',
 }
 
 export enum GameUserType {
