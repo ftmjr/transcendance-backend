@@ -5,7 +5,6 @@ export enum GAME_EVENTS {
   GameStateChanged = 'gameStateChanged',
   ScoreChanged = 'scoreChanged',
   PadMoved = 'padMoved',
-  IaPadSpeed = 'iaPadSpeed',
   BallServed = 'ballServed',
   PlayersRetrieved = 'players-retrieved',
   PlayerAdded = 'player-added',

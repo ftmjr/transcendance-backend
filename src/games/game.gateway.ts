@@ -133,22 +133,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.handleGameEvents(gameSession);
   }
 
-  @SubscribeMessage(GAME_EVENTS.IaPadSpeed)
-  async handleIaPadSpeed(
-    @ConnectedSocket() client: Socket,
-    @MessageBody()
-    received: {
-      roomId: number;
-      data: number;
-    },
-  ) {
-    const { roomId, data } = received;
-    const gameSession = this.gameSessionService.getGameSession(roomId);
-    if (!gameSession) return;
-    this.gameRealtimeService.handleIaPadSpeed(gameSession, data);
-    this.handleGameEvents(gameSession);
-  }
-
   @SubscribeMessage(GAME_EVENTS.BallServed)
   async handleBallServed(
     @ConnectedSocket() client: Socket,
@@ -166,6 +150,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   private handleGameEvents(gameSession: GameSession) {
+    if (!gameSession) return;
     const roomName = `${gameSession.gameId}`;
     gameSession.eventsToPublishInRoom.forEach((eventObj) => {
       const { event, data } = eventObj;

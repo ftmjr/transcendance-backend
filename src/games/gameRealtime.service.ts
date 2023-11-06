@@ -210,11 +210,6 @@ export class GameRealtimeService {
     });
   }
 
-  handleIaPadSpeed(gameSession: GameSession, speed: number) {
-    if (!gameSession.gameEngine) return;
-    gameSession.gameEngine.setIaSpeed(speed);
-  }
-
   handleBallServed(gameSession: GameSession, data: BallServedData) {
     if (!gameSession.gameEngine) return;
     gameSession.gameEngine.serveBall(data.userId);

@@ -12,7 +12,7 @@ const BALL_RADIUS = 20; // Radius of the ball
 const BALL_DIAMETER = BALL_RADIUS * 2; // Diameter of the ball
 const PADDLE_WIDTH = 32; // Width of the paddle
 const PADDLE_HEIGHT = 128; // Height of the paddle
-
+const IA_VELOCITY = 375;
 export interface PaddleEngineData {
   userId: number;
   direction: PAD_DIRECTION;
@@ -88,6 +88,30 @@ class Paddle {
       this.body.setVelocityY(currentVelocity * IA_DECELERATION_FACTOR);
     } else {
       this.body.setVelocityY(currentVelocity * DECELERATION_FACTOR);
+    }
+  }
+  updateAiPlayer(ballPosition: { x: number; y: number }) {
+    if (this.id !== 0) return;
+    const min_position = 300;
+    const max_position = 1300;
+    // code to check if ball is in a surface between min_position and max_position
+    if (ballPosition.x > min_position && ballPosition.x < max_position) {
+      const speedArray = [
+        IA_VELOCITY,
+        IA_VELOCITY * 1.5,
+        IA_VELOCITY * 1.8,
+      ];
+      // select one of the element of speedArray randomly
+      const randomSpeed =
+        speedArray[Math.floor(Math.random() * speedArray.length)];
+      const distance = ballPosition.y - this.body.y;
+      if (distance > 32) {
+        this.body.setVelocityY(randomSpeed);
+        return;
+      } else if (distance < -32) {
+        this.body.setVelocityY(-randomSpeed);
+        return;
+      }
     }
   }
 
@@ -262,7 +286,6 @@ export default class GameEngine {
       height: 750,
       gravity: { x: 0, y: 0 },
     });
-    // physics.world.setBounds(0, 0, 1334, 750, true, true, true, true);
     physics.world.setBoundsCollision(true, true, true, true);
     return physics;
   }
@@ -306,6 +329,7 @@ export default class GameEngine {
       // @ts-expect-error : no type for collide
       (_ball: Body, _leftLine: Body) => {
         this.resetBall();
+        this.lastToScore = this.paddles[1].id;
         this._realtimeService.onScoreRoutine(this.paddles[1].id, this.roomId);
         const scores = this.arrayOfPlayersWithScore();
         this._gameGateway.sendScored(this.roomId, scores);
@@ -317,6 +341,7 @@ export default class GameEngine {
       // @ts-expect-error : no type for collide
       (_ball: Body, _rightLine: Body) => {
         this.resetBall();
+        this.lastToScore = this.paddles[0].id;
         this._realtimeService.onScoreRoutine(this.paddles[0].id, this.roomId);
         const scores = this.arrayOfPlayersWithScore();
         this._gameGateway.sendScored(this.roomId, scores);
@@ -343,16 +368,10 @@ export default class GameEngine {
     return paddle.move(direction);
   }
 
-  setIaSpeed(speed: number) {
-    const paddle = this.paddles.find((paddle) => paddle.id === 0);
-    if (!paddle) return;
-    paddle.body.setVelocityY(speed);
-  }
-
   // called from the incoming players data from the network
   serveBall(_userId: number) {
     const xDirection = Math.random() < 0.5 ? -1 : 1;
-    const speedX = xDirection * 200;
+    const speedX = xDirection * 300;
 
     // generate random number between -80 and 80
     const speedY = Math.random() * 160 - 80;
@@ -365,14 +384,25 @@ export default class GameEngine {
     this.ball.needToServe = true;
   }
 
+  private updateAiPlayer() {
+    const ballPosition = { x: this.ball.body.x, y: this.ball.body.y };
+    const aiPlayer = this.paddles.find((paddle) => paddle.id === 0);
+    if (aiPlayer) {
+      aiPlayer.updateAiPlayer(ballPosition);
+    }
+  }
+
   activateLoop(): void {
     if (this.isLoopActive) {
       return;
     }
-
     let tick = 0;
     this.timer = setInterval(() => {
       this.physics.world.update(tick * 1000, this.timePerFrame);
+      this.updateBallState();
+      this.updatePaddleState();
+      this.updateScoresState();
+      this.updateAiPlayer();
       this.physics.world.postUpdate();
       tick++;
       this.paddles.forEach((paddle) => paddle.applyDeceleration());
@@ -429,24 +459,15 @@ export default class GameEngine {
   /*
    * Code Optimiser for data
    */
-  updatePaddleState(userId: number, direction: PAD_DIRECTION): void {
-    const paddle = this.paddles.find((p) => p.id === userId);
-    if (!paddle) return;
-
-    const updatedPaddleState = {
-      userId: paddle.id,
-      position: { x: paddle.body.x, y: paddle.body.y },
-      speed: { x: paddle.body.velocity.x, y: paddle.body.velocity.y },
-      direction: direction,
-    };
-
-    // Update the specific paddle state in the gameState
-    const currentPaddles = this.gameState.paddles;
-    const paddleIndex = currentPaddles.findIndex((p) => p.userId === userId);
-    if (paddleIndex !== -1) {
-      currentPaddles[paddleIndex] = updatedPaddleState;
-      this.gameState.paddles = currentPaddles;
-    }
+  updatePaddleState(): void {
+    this.gameState.paddles = this.paddles.map((p) => {
+      return {
+        userId: p.id,
+        position: { x: p.body.x, y: p.body.y },
+        speed: { x: p.body.velocity.x, y: p.body.velocity.y },
+        direction: PAD_DIRECTION.none,
+      };
+    });
   }
 
   updateBallState(): void {
@@ -472,27 +493,6 @@ export default class GameEngine {
       );
     }
   }
-
-  // sendNewGameStateToUsers() {
-  //   this.timestamp = Date.now();
-  //   const data: GameStateDataPacket = {
-  //     timestamp: this.timestamp,
-  //     paddles: this.paddles.map((paddle) => {
-  //       return {
-  //         userId: paddle.id,
-  //         position: { x: paddle.body.x, y: paddle.body.y },
-  //         speed: { x: paddle.body.velocity.x, y: paddle.body.velocity.y },
-  //         direction: PAD_DIRECTION.none,
-  //       };
-  //     }),
-  //     ball: {
-  //       position: { x: this.ball.body.x, y: this.ball.body.y },
-  //       speed: { x: this.ball.body.velocity.x, y: this.ball.body.velocity.y },
-  //     },
-  //     scores: this.arrayOfPlayersWithScore(),
-  //   };
-  //   this._gameGateway.sendGameObjectState(data, this.roomId);
-  // }
 
   private arrayOfPlayersWithScore(): { userId: number; score: number }[] {
     return Array.from(this.scores.entries()).map(([userId, score]) => ({
