@@ -96,11 +96,7 @@ class Paddle {
     const max_position = 1300;
     // code to check if ball is in a surface between min_position and max_position
     if (ballPosition.x > min_position && ballPosition.x < max_position) {
-      const speedArray = [
-        IA_VELOCITY,
-        IA_VELOCITY * 1.5,
-        IA_VELOCITY * 1.8,
-      ];
+      const speedArray = [IA_VELOCITY, IA_VELOCITY * 1.5, IA_VELOCITY * 1.8];
       // select one of the element of speedArray randomly
       const randomSpeed =
         speedArray[Math.floor(Math.random() * speedArray.length)];
@@ -350,15 +346,10 @@ export default class GameEngine {
   }
 
   private handleBallPaddleCollision(ballBody: Body, paddleBody: Body): void {
-    // Calculate the difference between the ball's x-position and the paddle's x-position
-    const xOffset = ballBody.x - paddleBody.x;
-    // Calculate the difference between the ball's y-position and the paddle's y-position
     const yOffset = ballBody.y - paddleBody.y;
-    // Adjust the ball's x-speed based on the xOffset
-    const newVelocityX = ballBody.velocity.x + xOffset * 5;
     // Adjust the ball's y-speed based on the yOffset
     const newVelocityY = ballBody.velocity.y + yOffset * 5;
-    ballBody.setVelocity(newVelocityX, newVelocityY);
+    ballBody.setVelocityY(newVelocityY);
   }
 
   // return directly data with the correct direction so client can interpolate

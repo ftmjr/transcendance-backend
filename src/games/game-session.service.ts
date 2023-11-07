@@ -72,6 +72,13 @@ export class GameSessionService {
   }
 
   async joinQueue(user: User): Promise<GameSession> {
+    // check if user is already in a game session
+    const userGameStatus = this.getUserGameStatus(user.id, user);
+    if (userGameStatus.status === 'playing') {
+      throw new UnauthorizedException('User is already playing');
+    } else if (userGameStatus.status === 'inQueue') {
+      return userGameStatus.gameSession;
+    }
     const availableGameSession = this.findAvailableQueueGameSession();
     if (availableGameSession) {
       // Add the user to the game session and return it.
@@ -199,7 +206,15 @@ export class GameSessionService {
     status: 'playing' | 'inQueue' | 'free';
     gameSession?: GameSession;
   } {
+    const toDelete = [];
     for (const gameSession of this.gameSessions.values()) {
+      if (gameSession.state === GameMonitorState.Ended) {
+        gameSession.gameEngine?.stopLoop();
+        if (gameSession.hostId === checker.id) {
+          toDelete.push(gameSession.gameId);
+        }
+        continue;
+      }
       const participant = gameSession.participants.find(
         (p) => p.userId === userId,
       );
@@ -207,6 +222,9 @@ export class GameSessionService {
         const status = this.isPlaying(gameSession) ? 'playing' : 'inQueue';
         return { status, gameSession };
       }
+    }
+    for (const gameId of toDelete) {
+      this.gameSessions.delete(gameId);
     }
     return { status: 'free' };
   }

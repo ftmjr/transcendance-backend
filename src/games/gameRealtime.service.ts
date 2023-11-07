@@ -110,21 +110,23 @@ export class GameRealtimeService {
       this.gameSessionService.getGameSessionByClientId(clientId);
     if (!gameSession) return;
     const gamer = gameSession.participants.find((g) => g.clientId === clientId);
-    this.writeGameHistory(
-      GameEvent.PLAYER_LEFT,
-      gamer.userId,
-      gameSession.gameId,
-    );
-    gameSession.eventsToPublishInRoom.push({
-      event: GAME_EVENTS.GameMonitorStateChanged,
-      data: {
-        roomId: gameSession.gameId,
-        data: GameMonitorState.Ended,
-      },
-    });
-    this.setAllMonitorsState(gameSession, GameMonitorState.Ended);
-    gameSession.state = GameMonitorState.Ended;
-    gameSession.gameEngine?.pauseLoop();
+    if (gamer) {
+      this.writeGameHistory(
+        GameEvent.PLAYER_LEFT,
+        gamer.userId,
+        gameSession.gameId,
+      );
+      gameSession.eventsToPublishInRoom.push({
+        event: GAME_EVENTS.GameMonitorStateChanged,
+        data: {
+          roomId: gameSession.gameId,
+          data: GameMonitorState.Ended,
+        },
+      });
+      this.setAllMonitorsState(gameSession, GameMonitorState.Ended);
+      gameSession.state = GameMonitorState.Ended;
+      gameSession.gameEngine?.pauseLoop();
+    }
     return gameSession;
   }
 
@@ -170,9 +172,9 @@ export class GameRealtimeService {
   }
 
   handlePlayerLeftGame(gameSession: GameSession, userId: number) {
-    this.writeGameHistory(GameEvent.PLAYER_LEFT, userId, gameSession.gameId);
     const gamer = gameSession.participants.find((g) => g.userId === userId);
     if (!gamer) return;
+    this.writeGameHistory(GameEvent.PLAYER_LEFT, userId, gameSession.gameId);
     gameSession.eventsToPublishInRoom.push({
       event: GAME_EVENTS.PlayerLeft,
       data: {
@@ -180,6 +182,10 @@ export class GameRealtimeService {
         data: gamer,
       },
     });
+    // remove the gamer from the game session
+    gameSession.participants = gameSession.participants.filter(
+      (g) => g.userId !== userId,
+    );
     // if one player stays we set him as the winner and end the game
     if (gameSession.participants.length === 1) {
       if (gameSession.participants[0].userId !== 0) {
