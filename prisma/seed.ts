@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-const serverBaseUrl = 'https://localhost/api/uploads';
+const serverBaseUrl = '/api/uploads';
 async function main() {
   try {
     const awardPromises = [
