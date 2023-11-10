@@ -113,7 +113,7 @@ export class ChatService {
     const room = await this.getRoom({ roomId });
     const owner = this.checkIfCanActInTheRoom(actorId, room, [Role.OWNER]);
     if (owner.memberId === userId) {
-      throw new Error('You cannot promote yourself');
+      throw new UnauthorizedException('You cannot promote yourself');
     }
     const member = this.checkIfCanActInTheRoom(actorId, room, [
       Role.MUTED,
@@ -127,22 +127,22 @@ export class ChatService {
     });
   }
 
+  // actorId is the user who is trying to act
   async setUserAsMuted(roomId: number, userId: number, actorId: number) {
     try {
       const room = await this.getRoom({ roomId });
       this.checkIfCanActInTheRoom(actorId, room, [Role.OWNER, Role.ADMIN]);
-      const member = this.checkIfCanActInTheRoom(actorId, room, [
+      const member = this.checkIfCanActInTheRoom(userId, room, [
         Role.MUTED,
         Role.BAN,
         Role.USER,
-        Role.ADMIN,
       ]);
       return this.repository.updateChatRoomMember({
         where: { id: member.id },
         data: { role: Role.MUTED },
       });
     } catch (e) {
-      throw new Error('Failed to mute user');
+      throw new UnauthorizedException('Failed to mute user');
     }
   }
 
@@ -150,18 +150,17 @@ export class ChatService {
     try {
       const room = await this.getRoom({ roomId });
       this.checkIfCanActInTheRoom(actorId, room, [Role.OWNER, Role.ADMIN]);
-      const member = this.checkIfCanActInTheRoom(actorId, room, [
+      const member = this.checkIfCanActInTheRoom(userId, room, [
         Role.MUTED,
         Role.BAN,
         Role.USER,
-        Role.ADMIN,
       ]);
       return this.repository.updateChatRoomMember({
         where: { id: member.id },
         data: { role: Role.BAN },
       });
     } catch (e) {
-      throw new Error('Failed to ban user');
+      throw new UnauthorizedException('Failed to ban user');
     }
   }
 
@@ -169,7 +168,7 @@ export class ChatService {
     try {
       const room = await this.getRoom({ roomId });
       this.checkIfCanActInTheRoom(actorId, room, [Role.OWNER, Role.ADMIN]);
-      const member = this.checkIfCanActInTheRoom(actorId, room, [
+      const member = this.checkIfCanActInTheRoom(userId, room, [
         Role.MUTED,
         Role.BAN,
         Role.USER,
