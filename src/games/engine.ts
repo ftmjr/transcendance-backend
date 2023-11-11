@@ -346,7 +346,7 @@ export default class GameEngine {
   }
 
   private handleBallPaddleCollision(ballBody: Body, paddleBody: Body): void {
-    const yOffset = ballBody.y - paddleBody.y;// To DO
+    const yOffset = ballBody.y - paddleBody.y; // To DO
     // Adjust the ball's y-speed based on the yOffset
     const newVelocityY = ballBody.velocity.y + yOffset * 5;
     ballBody.setVelocityY(newVelocityY);
