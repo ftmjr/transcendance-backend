@@ -297,7 +297,7 @@ export class ChatService {
   }
 
   async changeUserStatus(userId: number, status: Status) {
-    return this.usersService.changeStatus(userId, status);
+    // return this.usersService.changeStatus(userId, status);
   }
 
   async changeChatAvatar(roomId: number, userId: number, url: string) {
