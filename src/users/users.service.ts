@@ -182,7 +182,6 @@ export class UsersService {
         gameHistories: true,
       },
     });
-    console.log(otherProfile);
     return this.filterBlockedUsers([otherProfile], user);
   }
 

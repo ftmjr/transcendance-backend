@@ -34,6 +34,10 @@ export class StatusGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!userId) throw new Error('User ID is required');
       const id = Number(userId);
       await this.usersService.changeStatus(id, Status.Online);
+      this.server.emit('statusUpdate', {
+        userId: id,
+        status: Status.Online,
+      });
     } catch (e) {
       client.disconnect();
     }
@@ -45,6 +49,10 @@ export class StatusGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (userId) {
         const id = Number(userId);
         await this.usersService.changeStatus(id, Status.Offline);
+        this.server.emit('statusUpdate', {
+          userId: id,
+          status: Status.Offline,
+        });
       }
     } catch (e) {
       this.logger.error(`Failed to handle disconnect: ${e.message}`);
@@ -61,7 +69,7 @@ export class StatusGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!userId) throw new Error('User ID is required');
       const id = Number(userId);
       await this.usersService.changeStatus(id, newStatus);
-      client.broadcast.emit('statusUpdate', {
+      this.server.emit('statusUpdate', {
         userId: id,
         status: newStatus,
       });
