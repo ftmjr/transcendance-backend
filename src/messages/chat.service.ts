@@ -7,8 +7,8 @@ import {
 import { ChatRepository, ChatRoomWithMembers } from './chat.repository';
 import * as argon from 'argon2';
 import { getRandomAvatarUrl, UsersService } from '../users/users.service';
-import { Role, RoomType, Status } from '@prisma/client';
-import { CreateRoomDto, JoinRoomDto, UpdatePasswordDto } from './dto';
+import { Role, RoomType } from '@prisma/client';
+import { CreateRoomDto, UpdatePasswordDto } from './dto';
 import { NotificationService } from '../notifications/notification.service';
 
 @Injectable()

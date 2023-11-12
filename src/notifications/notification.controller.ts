@@ -8,10 +8,8 @@ import {
   ParseIntPipe,
   Delete,
 } from '@nestjs/common';
-import { User } from '@prisma/client';
 import { AuthenticatedGuard } from '../auth/guards';
 import { NotificationService } from './notification.service';
-import * as express from 'express';
 import { RequestWithUser } from '../users/users.controller';
 
 @Controller('notifications')

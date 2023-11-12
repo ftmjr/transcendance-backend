@@ -311,15 +311,15 @@ export class UsersService {
   }
   async filterBlockedUsers(users: User[], currentUser: User) {
     const userBlocked = await this.getUserWithBlocked(currentUser.id);
-    const blockedUserIds = userBlocked.blockedUsers.map(
-      (blockedUser) => blockedUser.blockedUserId,
-    );
+    // const blockedUserIds = userBlocked.blockedUsers.map(
+    //   (blockedUser) => blockedUser.blockedUserId,
+    // );
     const blockedFromIds = userBlocked.blockedFrom.map(
       (blockedFrom) => blockedFrom.userId,
     );
     const blockedUsers = users.filter((user) => {
       return (
-        // !blockedUserIds.includes(user.id) && 
+        // !blockedUserIds.includes(user.id) &&
         !blockedFromIds.includes(user.id)
       );
     });

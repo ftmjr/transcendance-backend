@@ -14,11 +14,11 @@ export class NotificationGateway
 {
   @WebSocketServer() server: Server;
 
-  handleConnection(_client: Socket, ...args: any[]) {
+  handleConnection(client: Socket, ...args: any[]) {
     // console.log(`Client connected on notification : ${client.id}`);
   }
 
-  handleDisconnect(_client: Socket) {
+  handleDisconnect(client: Socket) {
     // console.log(`Client disconnected on notification : ${client.id}`);
   }
 

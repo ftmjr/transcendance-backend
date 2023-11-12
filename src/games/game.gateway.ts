@@ -31,7 +31,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private gameSessionService: GameSessionService,
   ) {}
 
-  handleConnection(client: Socket, ...args: any[]) {}
+  handleConnection(client: Socket, ...args: any[]) {
+    // empty to avoid logging too much
+  }
 
   handleDisconnect(@ConnectedSocket() client: Socket): any {
     try {
