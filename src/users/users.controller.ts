@@ -112,7 +112,7 @@ export class UsersController {
   ) {
     const users = await this.usersService.getUserProfile(req.user, id);
     if (!users) {
-      throw new NotFoundException();
+      throw new NotFoundException('User not found, or blocked');
     }
     return users[0];
   }
