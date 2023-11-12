@@ -93,8 +93,12 @@ export class GamesController {
   async getAllGameSessions(
     @Req() req: RequestWithUser,
   ): Promise<GameSession[]> {
-    const user = req.user;
-    return this.gameSessionService.getUserGameSessions(user.id);
+    try {
+      const user = req.user;
+      return this.gameSessionService.getUserGameSessions(user.id);
+    } catch (e) {
+      return [];
+    }
   }
 
   @ApiBearerAuth()

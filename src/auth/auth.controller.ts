@@ -1,28 +1,26 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  UseGuards,
-  Redirect,
-  Request,
-  Response,
-  Body,
-  Req,
-  UnauthorizedException,
   HttpCode,
+  Post,
+  Redirect,
+  Req,
+  Request,
   Res,
+  Response,
+  UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { Status } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { LoginDataDto, LoginDto, RefreshDataDto, SignupDto } from './dto';
 import {
+  ApiBearerAuth,
   ApiCookieAuth,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
   ApiTags,
-  ApiProperty,
 } from '@nestjs/swagger';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { AuthenticatedGuard } from './guards';
@@ -113,11 +111,7 @@ export class AuthController {
     @Response({ passthrough: true }) res,
   ): Promise<{ accessToken: string }> {
     const refreshToken = req.cookies['REFRESH_TOKEN'] ?? '';
-    const token = await this.authService.refreshAccessToken(refreshToken, res);
-    if (!token) {
-      await this.usersService.changeStatus(req.user.id, Status.Offline);
-    }
-    return token;
+    return this.authService.refreshAccessToken(refreshToken, res);
   }
 
   @Get('logout')
@@ -181,7 +175,6 @@ export class AuthController {
       req.user,
     );
     const localUrl: string = process.env.URL;
-    await this.usersService.changeStatus(req.user.id, Status.Online);
     return {
       url: `https://${localUrl}/auth/oauth-auth?token=${loginData.accessToken}`,
       statusCode: 302,
@@ -199,7 +192,9 @@ export class AuthController {
     description: 'redirection to auth callback for 42',
   })
   @UseGuards(AuthGuard('42'))
-  Login42() {}
+  Login42() {
+    // empty
+  }
 
   @Redirect()
   @Get('42/callback')
@@ -230,7 +225,6 @@ export class AuthController {
       req.user,
     );
     const localUrl: string = process.env.URL;
-    await this.usersService.changeStatus(req.user.id, Status.Online);
     return {
       url: `https://${localUrl}/auth/oauth-auth?token=${loginData.accessToken}`,
       statusCode: 302,

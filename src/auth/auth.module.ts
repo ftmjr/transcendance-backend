@@ -9,6 +9,7 @@ import { GoogleStrategy } from './strategies/google.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 import { Strategy42 } from './strategies/42.strategy';
 import { ConfigModule } from '@nestjs/config';
+import { StatusGateway } from './status.gateway';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ConfigModule } from '@nestjs/config';
     GoogleStrategy,
     Strategy42,
     ConfigModule,
+    StatusGateway,
   ],
   exports: [AuthService, JwtModule],
 })

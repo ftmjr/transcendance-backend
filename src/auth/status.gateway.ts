@@ -21,14 +21,14 @@ interface ClientToServerEvents {
   updateStatus: (e: { userId: number; status: Status }) => void;
 }
 @WebSocketGateway({ namespace: 'auth' })
-export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+export class StatusGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server = new Server<
     ServerToClientEvents,
     ClientToServerEvents
   >();
-  private logger = new Logger('ChatGateway');
+  private logger = new Logger('StatusGateway');
   constructor(private usersService: UsersService) {}
-  async handleConnection(client: Socket, ...args: any[]): Promise<number[]> {
+  async handleConnection(client: Socket, ...args: any[]) {
     try {
       const userId = client.handshake.query.userId;
       if (!userId) throw new Error('User ID is required');
@@ -36,7 +36,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       await this.usersService.changeStatus(id, Status.Online);
     } catch (e) {
       client.disconnect();
-      return [];
     }
   }
 

@@ -296,10 +296,6 @@ export class ChatService {
     return this.repository.getMemberRooms(userId);
   }
 
-  async changeUserStatus(userId: number, status: Status) {
-    // return this.usersService.changeStatus(userId, status);
-  }
-
   async changeChatAvatar(roomId: number, userId: number, url: string) {
     const room = await this.getRoom({ roomId });
     this.checkIfCanActInTheRoom(userId, room, [Role.OWNER, Role.ADMIN]);

@@ -30,29 +30,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {}
 
   private logger = new Logger('ChatGateway');
-  async handleConnection(client: Socket, ...args: any[]): Promise<number[]> {
+  async handleConnection(client: Socket, ...args: any[]) {
     try {
       const userId = client.handshake.query.userId;
       if (!userId) throw new Error('User ID is required');
-      const id = Number(userId);
-      await this.chatService.changeUserStatus(id, Status.Online);
       client.join(`mp:${userId}`);
     } catch (e) {
       client.emit('connectionError', e.message);
       client.disconnect();
-      return [];
     }
   }
 
   async handleDisconnect(client: Socket): Promise<void> {
-    try {
-      const userId = client.handshake.query.userId;
-      if (userId) {
-        await this.chatService.changeUserStatus(Number(userId), Status.Offline);
-      }
-    } catch (e) {
-      this.logger.error(`Failed to handle disconnect: ${e.message}`);
-    }
+    // empty
   }
 
   @SubscribeMessage('joinRoom')
