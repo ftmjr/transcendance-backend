@@ -69,16 +69,16 @@ class Paddle {
   }
 
   private initializeBody(): void {
-    this.body.setBounce(DEFAULT_BOUNCE.x, DEFAULT_BOUNCE.y);
-    this.body.setImmovable(true);
     this.body.pushable = false;
-    this.body.setMass(1000);
-    this.body.setCollideWorldBounds(
-      true,
-      DEFAULT_BOUNCE.x,
-      DEFAULT_BOUNCE.y,
-      undefined,
-    );
+    this.body
+      .setBounce(DEFAULT_BOUNCE.x, DEFAULT_BOUNCE.y)
+      .setImmovable(true)
+      .setCollideWorldBounds(
+        true,
+        DEFAULT_BOUNCE.x,
+        DEFAULT_BOUNCE.y,
+        undefined,
+      );
   }
 
   applyDeceleration(): void {
@@ -140,17 +140,17 @@ class Ball {
     public startPosition: { x: number; y: number },
     public maxSpeed: number,
   ) {
-    this.body = physics.add.body(
-      startPosition.x - BALL_RADIUS,
-      startPosition.y - BALL_RADIUS,
-      BALL_DIAMETER,
-      BALL_DIAMETER,
-    );
-    this.body.setCircle(BALL_RADIUS);
-    this.body.setBounce(1, 1);
-    this.body.setMass(1);
-    this.body.setCollideWorldBounds(true, 1, 1, undefined);
-    this.body.setMaxVelocity(maxSpeed, maxSpeed);
+    this.body = physics.add
+      .body(
+        startPosition.x - BALL_RADIUS,
+        startPosition.y - BALL_RADIUS,
+        BALL_DIAMETER,
+        BALL_DIAMETER,
+      )
+      .setCircle(BALL_RADIUS)
+      .setBounce(1, 1)
+      .setCollideWorldBounds(true, 1, 1, undefined)
+      .setMaxVelocity(maxSpeed, maxSpeed);
   }
 
   serve(velocity: { x: number; y: number }) {
@@ -348,7 +348,7 @@ export default class GameEngine {
   private handleBallPaddleCollision(ballBody: Body, paddleBody: Body): void {
     const yOffset = ballBody.y - paddleBody.y; // To DO
     // Adjust the ball's y-speed based on the yOffset
-    const newVelocityY = ballBody.velocity.y + yOffset * 5;
+    const newVelocityY = ballBody.velocity.y + yOffset * 10;
     ballBody.setVelocityY(newVelocityY);
   }
 
@@ -362,7 +362,7 @@ export default class GameEngine {
   // called from the incoming players data from the network
   serveBall(_userId: number) {
     const xDirection = Math.random() < 0.5 ? -1 : 1;
-    const speedX = xDirection * 300;
+    const speedX = xDirection * 375;
 
     // generate random number between -80 and 80
     const speedY = Math.random() * 160 - 80;
@@ -370,6 +370,7 @@ export default class GameEngine {
   }
 
   private resetBall() {
+    this.ball.body.setVelocity(0, 0); // Stop the ball
     this.ball.body.reset(667, 375); // Reset ball to the center
     this.ball.body.setEnable(false);
     this.ball.needToServe = true;
