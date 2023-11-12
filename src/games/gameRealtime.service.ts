@@ -10,7 +10,6 @@ import {
   PadMovedData,
 } from './interfaces';
 import { GameEvent, GameHistory } from '@prisma/client';
-import { GamesService } from './games.service';
 import { JoinGameEvent } from './dto';
 import GameEngine from './engine';
 import { GameGateway } from './game.gateway';
@@ -58,7 +57,6 @@ export class GameRealtimeService {
         data: gameSession.state,
       },
     });
-    this.writeGameHistory(GameEvent.GAME_STARTED, userId, gameId);
     this.createEngine(gameSession, gameGateway);
     return gameSession;
   }
@@ -139,6 +137,11 @@ export class GameRealtimeService {
     this.setGamerMonitorState(gameSession, userId, newState);
     switch (newState) {
       case GameMonitorState.Ready:
+        this.writeGameHistory(
+          GameEvent.GAME_STARTED,
+          userId,
+          gameSession.gameId,
+        );
         if (
           this.checkAllMonitorsSameState(gameSession, GameMonitorState.Ready)
         ) {
