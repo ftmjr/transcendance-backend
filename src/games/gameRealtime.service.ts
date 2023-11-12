@@ -137,11 +137,6 @@ export class GameRealtimeService {
     this.setGamerMonitorState(gameSession, userId, newState);
     switch (newState) {
       case GameMonitorState.Ready:
-        this.writeGameHistory(
-          GameEvent.GAME_STARTED,
-          userId,
-          gameSession.gameId,
-        );
         if (
           this.checkAllMonitorsSameState(gameSession, GameMonitorState.Ready)
         ) {
@@ -351,6 +346,9 @@ export class GameRealtimeService {
     }
     const gamer = gameSession.participants.find((g) => g.userId === userId);
     if (!gamer) return;
+    if (state === GameMonitorState.Ready) {
+      this.writeGameHistory(GameEvent.GAME_STARTED, userId, gameSession.gameId);
+    }
     const index = gameSession.participants.indexOf(gamer);
     gameSession.monitors[index] = state;
   }

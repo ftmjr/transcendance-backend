@@ -101,10 +101,10 @@ class Paddle {
       const randomSpeed =
         speedArray[Math.floor(Math.random() * speedArray.length)];
       const distance = ballPosition.y - this.body.y;
-      if (distance > 32) {
+      if (distance > 32 / 4) {
         this.body.setVelocityY(randomSpeed);
         return;
-      } else if (distance < -32) {
+      } else if (distance < -(32 / 4)) {
         this.body.setVelocityY(-randomSpeed);
         return;
       }
@@ -440,7 +440,6 @@ export default class GameEngine {
    */
   resumeLoop(): void {
     if (this.isLoopActive) {
-      console.warn('Game loop is already active.');
       return;
     }
 
