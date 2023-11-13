@@ -337,6 +337,19 @@ export class GameSessionService {
     return undefined;
   }
 
+  getAllGameSessionsByClientId(clientId: string): GameSession[] {
+    const gameSessions: GameSession[] = [];
+    for (const gameSession of this.gameSessions.values()) {
+      const participant = gameSession.participants.find(
+        (p) => p.clientId === clientId,
+      );
+      if (participant) {
+        gameSessions.push(gameSession);
+      }
+    }
+    return gameSessions;
+  }
+
   async createGameSession(
     participants: Gamer[],
     type: GameSessionType,

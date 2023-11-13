@@ -13,6 +13,7 @@ import { GameEvent, GameHistory } from '@prisma/client';
 import { JoinGameEvent } from './dto';
 import GameEngine from './engine';
 import { GameGateway } from './game.gateway';
+import { session } from 'passport';
 
 @Injectable()
 export class GameRealtimeService {
@@ -104,16 +105,32 @@ export class GameRealtimeService {
 
   handleDisconnect(clientId: string) {
     // find game session where client is a player
-    const gameSession =
-      this.gameSessionService.getGameSessionByClientId(clientId);
-    if (!gameSession) return;
-    const gamer = gameSession.participants.find((g) => g.clientId === clientId);
-    if (gamer) {
+    const gameSessions =
+      this.gameSessionService.getAllGameSessionsByClientId(clientId);
+    if (gameSessions.length === 0) return;
+    // filter by game sessions  not ended
+    const notEndedGameSessions = gameSessions.filter(
+      (session) => session.state !== GameMonitorState.Ended,
+    );
+    if (notEndedGameSessions.length === 0) return;
+    // we end all ended game sessions
+    for (const gameSession of notEndedGameSessions) {
+      const gamer = gameSession.participants.find(
+        (g) => g.clientId === clientId,
+      );
+      if (!gamer) continue;
       this.writeGameHistory(
         GameEvent.PLAYER_LEFT,
         gamer.userId,
         gameSession.gameId,
       );
+      gameSession.eventsToPublishInRoom.push({
+        event: GAME_EVENTS.PlayerLeft,
+        data: {
+          roomId: gameSession.gameId,
+          data: gamer,
+        },
+      });
       gameSession.eventsToPublishInRoom.push({
         event: GAME_EVENTS.GameMonitorStateChanged,
         data: {
@@ -121,11 +138,10 @@ export class GameRealtimeService {
           data: GameMonitorState.Ended,
         },
       });
-      this.setAllMonitorsState(gameSession, GameMonitorState.Ended);
-      gameSession.state = GameMonitorState.Ended;
       gameSession.gameEngine?.pauseLoop();
+      gameSession.state = GameMonitorState.Ended;
     }
-    return gameSession;
+    return notEndedGameSessions;
   }
 
   handleGameStateChanged(
