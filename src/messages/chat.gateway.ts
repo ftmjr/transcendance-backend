@@ -104,12 +104,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         { content, receiverId },
         senderId,
       );
+      this.logger.log(
+        `Client with userId: ${senderId} send to : ${receiverId}`,
+      );
       this.server.to(`mp:${senderId}`).emit('newMP', message);
-      this.server.to(`mp:${receiverId}`).emit('newMP', message);
+      client.broadcast.to(`mp:${receiverId}`).emit('newMP', message);
     } catch (e) {
-      this.server
-        .to(`chat-room:${receiverId}`)
-        .emit('failedToSendMessage', e.message);
+      this.server.to(`mp:${senderId}`).emit('failedToSendMessage', e.message);
     }
   }
 }
