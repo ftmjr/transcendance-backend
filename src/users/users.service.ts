@@ -523,11 +523,19 @@ export class UsersService {
       const loss = user.gameHistories.filter(
         (history) => history.event === GameEvent.MATCH_LOST,
       ).length;
-      const score = wins - loss;
+      const score = wins; // Only consider wins for score
       return { ...user, score };
     });
-    return usersWithScore.sort((a, b) => b.score - a.score);
+    return usersWithScore.sort((a, b) => {
+      // Sort by wins, and if tied, then by total score
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      } else {
+        return b.score - a.score;
+      }
+    });
   }
+
 
   async getAppStatistics() {
     const stats = await this.repository.getStats();
