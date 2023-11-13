@@ -185,33 +185,31 @@ export class GameRealtimeService {
       (g) => g.userId !== userId,
     );
     // if one player stays we set him as the winner and end the game
-    if (gameSession.participants.length === 1) {
-      if (gameSession.participants[0].userId !== 0) {
-        this.handleGameEnding(gameSession, gameSession.participants[0].userId);
-      } else {
-        gameSession.eventsToPublishInRoom.push({
-          event: GAME_EVENTS.GameStateChanged,
-          data: {
-            roomId: gameSession.gameId,
-            data: GameMonitorState.Ended,
-          },
-        });
-      }
+    if (
+      gameSession.participants.length === 1 &&
+      gameSession.participants[0].userId !== 0
+    ) {
+      this.handleGameEnding(gameSession, gameSession.participants[0].userId);
+    } else {
+      gameSession.eventsToPublishInRoom.push({
+        event: GAME_EVENTS.GameStateChanged,
+        data: {
+          roomId: gameSession.gameId,
+          data: GameMonitorState.Ended,
+        },
+      });
     }
   }
   handlePadMoved(gameSession: GameSession, data: PadMovedData) {
     if (!gameSession.gameEngine) return;
-    const engineData = gameSession.gameEngine.paddleMove(
-      data.userId,
-      data.direction,
-    );
-    gameSession.eventsToPublishInRoom.push({
-      event: GAME_EVENTS.PadMoved,
-      data: {
-        roomId: gameSession.gameId,
-        data: engineData,
-      },
-    });
+    gameSession.gameEngine.paddleMove(data.userId, data.direction);
+    // gameSession.eventsToPublishInRoom.push({
+    //   event: GAME_EVENTS.PadMoved,
+    //   data: {
+    //     roomId: gameSession.gameId,
+    //     data: engineData,
+    //   },
+    // });
   }
 
   handleBallServed(gameSession: GameSession, data: BallServedData) {

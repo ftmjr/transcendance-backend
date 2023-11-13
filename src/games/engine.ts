@@ -12,7 +12,7 @@ const BALL_RADIUS = 20; // Radius of the ball
 const BALL_DIAMETER = BALL_RADIUS * 2; // Diameter of the ball
 const PADDLE_WIDTH = 32; // Width of the paddle
 const PADDLE_HEIGHT = 128; // Height of the paddle
-const IA_VELOCITY = 375;
+const IA_VELOCITY = 700;
 export interface PaddleEngineData {
   userId: number;
   direction: PAD_DIRECTION;
@@ -96,15 +96,22 @@ class Paddle {
     const max_position = 1300;
     // code to check if ball is in a surface between min_position and max_position
     if (ballPosition.x > min_position && ballPosition.x < max_position) {
-      const speedArray = [IA_VELOCITY, IA_VELOCITY * 1.5, IA_VELOCITY * 1.8];
+      const speedArray = [
+        IA_VELOCITY,
+        IA_VELOCITY * 1.2,
+        IA_VELOCITY * 1.4,
+        IA_VELOCITY * 1.5,
+        IA_VELOCITY * 1.6,
+        IA_VELOCITY * 1.8,
+      ];
       // select one of the element of speedArray randomly
       const randomSpeed =
         speedArray[Math.floor(Math.random() * speedArray.length)];
       const distance = ballPosition.y - this.body.y;
-      if (distance > 32 / 4) {
+      if (distance > 32) {
         this.body.setVelocityY(randomSpeed);
         return;
-      } else if (distance < -(32 / 4)) {
+      } else if (distance < -32) {
         this.body.setVelocityY(-randomSpeed);
         return;
       }
