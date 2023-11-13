@@ -536,7 +536,6 @@ export class UsersService {
     });
   }
 
-
   async getAppStatistics() {
     const stats = await this.repository.getStats();
     return stats;

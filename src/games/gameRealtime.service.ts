@@ -202,14 +202,17 @@ export class GameRealtimeService {
   }
   handlePadMoved(gameSession: GameSession, data: PadMovedData) {
     if (!gameSession.gameEngine) return;
-    gameSession.gameEngine.paddleMove(data.userId, data.direction);
-    // gameSession.eventsToPublishInRoom.push({
-    //   event: GAME_EVENTS.PadMoved,
-    //   data: {
-    //     roomId: gameSession.gameId,
-    //     data: engineData,
-    //   },
-    // });
+    const engineData = gameSession.gameEngine.paddleMove(
+      data.userId,
+      data.direction,
+    );
+    gameSession.eventsToPublishInRoom.push({
+      event: GAME_EVENTS.PadMoved,
+      data: {
+        roomId: gameSession.gameId,
+        data: engineData,
+      },
+    });
   }
 
   handleBallServed(gameSession: GameSession, data: BallServedData) {

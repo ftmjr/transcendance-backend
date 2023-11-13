@@ -57,7 +57,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this,
       );
       const roomName = `${joinData.roomId}`;
-      await client.join(roomName);
+      const rooms = Object.keys(client.rooms);
+      if (!rooms.includes(roomName)) {
+        client.join(roomName);
+      }
       this.handleGameEvents(gameSession);
       return {
         worked: true,
@@ -69,6 +72,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.id,
       );
       const roomName = `${joinData.roomId}`;
+      const rooms = Object.keys(client.rooms);
+      if (!rooms.includes(roomName)) {
+        client.join(roomName);
+      }
       await client.join(roomName);
       this.handleGameEvents(gameSession);
     }

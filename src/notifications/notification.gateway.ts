@@ -25,7 +25,9 @@ export class NotificationGateway
   @SubscribeMessage('join')
   handleJoin(client: Socket, userId: string) {
     const room = `notification:${userId}`;
-    client.join(room);
+    // check if client has already joined the room
+    const rooms = Object.keys(client.rooms);
+    if (!rooms.includes(room)) client.join(room);
   }
 
   sendNotificationToUser(userId: User[`id`], data: any) {

@@ -34,7 +34,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       const userId = client.handshake.query.userId;
       if (!userId) throw new Error('User ID is required');
-      client.join(`mp:${userId}`);
+      // checki if already joined room `mp:${userId}`
+      const rooms = Object.keys(client.rooms);
+      if (!rooms.includes(`mp:${userId}`)) {
+        client.join(`mp:${userId}`);
+        this.logger.log(
+          `Client connected to chat room: ${userId} - and joined mp:${userId}`,
+        );
+      }
     } catch (e) {
       client.emit('connectionError', e.message);
       client.disconnect();
@@ -52,8 +59,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ): Promise<void> {
     try {
       const { roomId, userId } = data;
-      await this.chatService.canListenToRoom(userId, roomId);
-      client.join(`chat-room:${roomId}`);
+      // check if client has already joined the room
+      const rooms = Object.keys(client.rooms);
+      if (!rooms.includes(`chat-room:${roomId}`)) {
+        await this.chatService.canListenToRoom(userId, roomId);
+        client.join(`chat-room:${roomId}`);
+      }
     } catch (e) {
       client.emit('failedToJoinRoom', e.message);
     }
