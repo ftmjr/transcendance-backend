@@ -13,6 +13,8 @@ const BALL_DIAMETER = BALL_RADIUS * 2; // Diameter of the ball
 const PADDLE_WIDTH = 32; // Width of the paddle
 const PADDLE_HEIGHT = 128; // Height of the paddle
 const IA_VELOCITY = 700;
+const BALL_MAX_SPEED = 400;
+
 export interface PaddleEngineData {
   userId: number;
   direction: PAD_DIRECTION;
@@ -141,16 +143,21 @@ class Paddle {
 
 class Ball {
   public needToServe = true;
+  private readonly startPosition: { x: number; y: number };
   public body: Body;
   constructor(
     physics: ArcadePhysics,
-    public startPosition: { x: number; y: number },
+    startPosition: { x: number; y: number },
     public maxSpeed: number,
   ) {
+    this.startPosition = {
+      x: startPosition.x - BALL_RADIUS,
+      y: startPosition.y - BALL_RADIUS,
+    };
     this.body = physics.add
       .body(
-        startPosition.x - BALL_RADIUS,
-        startPosition.y - BALL_RADIUS,
+        this.startPosition.x,
+        this.startPosition.y,
         BALL_DIAMETER,
         BALL_DIAMETER,
       )
@@ -166,6 +173,13 @@ class Ball {
     this.body.setEnable(true);
     this.body.reset(this.startPosition.x, this.startPosition.y);
     this.body.setVelocity(velocity.x, velocity.y);
+  }
+
+  resetBall(){
+    this.body.setVelocity(0, 0); // Stop the ball
+    this.body.reset(this.startPosition.x, this.startPosition.y); // Reset ball to the center
+    this.body.setEnable(false);
+    this.needToServe = true;
   }
 }
 
@@ -303,7 +317,7 @@ export default class GameEngine {
   }
 
   private initializeBall(): Ball {
-    return new Ball(this.physics, { x: 667, y: 375 }, 375);
+    return new Ball(this.physics, { x: 667, y: 375 }, BALL_MAX_SPEED);
   }
 
   private initializeColliders(): void {
@@ -331,7 +345,7 @@ export default class GameEngine {
       leftLine,
       // @ts-expect-error : no type for collide
       (_ball: Body, _leftLine: Body) => {
-        this.resetBall();
+        this.ball.resetBall();
         this.lastToScore = this.paddles[1].id;
         this._realtimeService.onScoreRoutine(this.paddles[1].id, this.roomId);
         const scores = this.arrayOfPlayersWithScore();
@@ -343,7 +357,7 @@ export default class GameEngine {
       rightLine,
       // @ts-expect-error : no type for collide
       (_ball: Body, _rightLine: Body) => {
-        this.resetBall();
+        this.ball.resetBall();
         this.lastToScore = this.paddles[0].id;
         this._realtimeService.onScoreRoutine(this.paddles[0].id, this.roomId);
         const scores = this.arrayOfPlayersWithScore();
@@ -374,13 +388,6 @@ export default class GameEngine {
     // generate random number between -80 and 80
     const speedY = Math.random() * 160 - 80;
     this.ball.serve({ x: speedX, y: speedY });
-  }
-
-  private resetBall() {
-    this.ball.body.setVelocity(0, 0); // Stop the ball
-    this.ball.body.reset(667, 375); // Reset ball to the center
-    this.ball.body.setEnable(false);
-    this.ball.needToServe = true;
   }
 
   private updateAiPlayer() {

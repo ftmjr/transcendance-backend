@@ -103,43 +103,38 @@ export class GameRealtimeService {
     return gameSession;
   }
 
-  handleDisconnect(clientId: string) {
+  handleSocketDisconnection(clientId: string) {
     // find game session where client is a player
     const gameSessions =
       this.gameSessionService.getAllGameSessionsByClientId(clientId);
-    if (gameSessions.length === 0) return;
+    if (gameSessions.length === 0) return [];
     // filter by game sessions  not ended
     const notEndedGameSessions = gameSessions.filter(
       (session) => session.state !== GameMonitorState.Ended,
     );
-    if (notEndedGameSessions.length === 0) return;
+    if (notEndedGameSessions.length === 0) return [];
     // we end all ended game sessions
     for (const gameSession of notEndedGameSessions) {
       const gamer = gameSession.participants.find(
         (g) => g.clientId === clientId,
       );
       if (!gamer) continue;
-      this.writeGameHistory(
-        GameEvent.PLAYER_LEFT,
-        gamer.userId,
-        gameSession.gameId,
-      );
-      gameSession.eventsToPublishInRoom.push({
-        event: GAME_EVENTS.PlayerLeft,
-        data: {
-          roomId: gameSession.gameId,
-          data: gamer,
-        },
-      });
-      gameSession.eventsToPublishInRoom.push({
-        event: GAME_EVENTS.GameMonitorStateChanged,
-        data: {
-          roomId: gameSession.gameId,
-          data: GameMonitorState.Ended,
-        },
-      });
-      gameSession.gameEngine?.pauseLoop();
-      gameSession.state = GameMonitorState.Ended;
+      if (gameSession.type !== GameSessionType.Bot) {
+        gameSession.eventsToPublishInRoom.push({
+          event: GAME_EVENTS.PlayerLeft,
+          data: {
+            roomId: gameSession.gameId,
+            data: gamer,
+          },
+        });
+      }
+      if (gameSession.state >= GameMonitorState.Ready) {
+        this.writeGameHistory(
+          GameEvent.PLAYER_LEFT,
+          gamer.userId,
+          gameSession.gameId,
+        );
+      }
     }
     return notEndedGameSessions;
   }
@@ -180,12 +175,12 @@ export class GameRealtimeService {
         gameSession.gameEngine?.pauseLoop();
         break;
       case GameMonitorState.Ended:
-        this.handlePlayerLeftGame(gameSession, userId);
+        this.handlePlayerLeftGameWithGrace(gameSession, userId);
         break;
     }
   }
 
-  handlePlayerLeftGame(gameSession: GameSession, userId: number) {
+  handlePlayerLeftGameWithGrace(gameSession: GameSession, userId: number) {
     const gamer = gameSession.participants.find((g) => g.userId === userId);
     if (!gamer) return;
     this.writeGameHistory(GameEvent.PLAYER_LEFT, userId, gameSession.gameId);
@@ -216,6 +211,7 @@ export class GameRealtimeService {
       });
     }
   }
+
   handlePadMoved(gameSession: GameSession, data: PadMovedData) {
     if (!gameSession.gameEngine) return;
     const engineData = gameSession.gameEngine.paddleMove(
@@ -273,6 +269,7 @@ export class GameRealtimeService {
     return { winnerId: null, stop: false };
   }
 
+  // called to end the game and set the winner and the looser
   handleGameEnding(gameSession: GameSession, winnerId: number) {
     gameSession.state = GameMonitorState.Ended;
     for (const user of gameSession.participants) {

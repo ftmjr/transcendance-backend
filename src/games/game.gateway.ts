@@ -37,7 +37,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   handleDisconnect(@ConnectedSocket() client: Socket): any {
     try {
-      const gameSessions = this.gameRealtimeService.handleDisconnect(client.id);
+      const gameSessions = this.gameRealtimeService.handleSocketDisconnection(
+        client.id,
+      );
+      if (!gameSessions) return;
       for (const gameSession of gameSessions) {
         this.handleGameEvents(gameSession);
       }
