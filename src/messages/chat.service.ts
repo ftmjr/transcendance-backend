@@ -85,7 +85,6 @@ export class ChatService {
         Role.ADMIN,
         Role.USER,
         Role.MUTED,
-        Role.BAN,
       ]);
     }
     return true;
@@ -101,7 +100,6 @@ export class ChatService {
       Role.OWNER,
       Role.ADMIN,
       Role.USER,
-      Role.SUPER_MODERATOR,
     ]);
     return this.repository.createRoomMessage({
       data: {

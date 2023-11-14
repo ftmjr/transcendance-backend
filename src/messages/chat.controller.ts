@@ -5,6 +5,7 @@ import {
   Get,
   ParseIntPipe,
   Patch,
+  Query,
   Req,
 } from '@nestjs/common';
 import { ChatService } from './chat.service';
@@ -18,6 +19,7 @@ import {
 import { AuthenticatedGuard } from '../auth/guards';
 import { Body, Post, Param, UseGuards } from '@nestjs/common';
 import { RequestWithUser } from '../users/users.controller';
+import {ChatRoomMessage, PrivateMessage} from '@prisma/client';
 
 @ApiTags('ChatActions')
 @Controller('chat')
@@ -50,6 +52,21 @@ export class ChatController {
       },
       actorId,
     );
+  }
+
+  @UseGuards(AuthenticatedGuard)
+  @Get('/:roomId')
+  @ApiOperation({})
+  async getRoomMessage(
+    @Req() req: RequestWithUser,
+    @Param('roomId', ParseIntPipe) roomId: number,
+    @Query('skip', ParseIntPipe) skip: number,
+    @Query('take', ParseIntPipe) take: number,
+  ): Promise<ChatRoomMessage[]> {
+    return this.service.getRoomMessages(req.user.id, roomId, {
+      skip,
+      take,
+    });
   }
 
   @ApiBearerAuth()
