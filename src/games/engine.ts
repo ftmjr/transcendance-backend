@@ -175,7 +175,7 @@ class Ball {
     this.body.setVelocity(velocity.x, velocity.y);
   }
 
-  resetBall(){
+  resetBall() {
     this.body.setVelocity(0, 0); // Stop the ball
     this.body.reset(this.startPosition.x, this.startPosition.y); // Reset ball to the center
     this.body.setEnable(false);
