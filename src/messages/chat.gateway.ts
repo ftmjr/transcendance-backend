@@ -33,7 +33,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     try {
       const userId = client.handshake.query.userId;
       if (!userId) throw new Error('User ID is required');
-      // checki if already joined room `mp:${userId}`
       const rooms = Object.keys(client.rooms);
       if (!rooms.includes(`mp:${userId}`)) {
         client.join(`mp:${userId}`);
@@ -91,11 +90,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('userIsTypingInRoom')
   async handleUserIsTypingInRoom(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { senderId: number; roomId: number },
+    @MessageBody() data: { senderId: number; roomId: number; username: string },
   ): Promise<void> {
-    const { roomId, senderId } = data;
+    const { roomId, senderId, username } = data;
     try {
-      client.broadcast.to(`chat-room:${roomId}`).emit('userIsTyping', senderId);
+      client.broadcast
+        .to(`chat-room:${roomId}`)
+        .emit('receivedUserIsTypingInRoom', {
+          senderId,
+          roomId,
+          username,
+        });
     } catch (e) {
       this.server
         .to(`chat-room:${roomId}`)
@@ -111,7 +116,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ): Promise<void> {
     const { roomId } = data;
     try {
-      this.server.to(`chat-room:${roomId}`).emit('reloadRoomMembers');
+      this.server.to(`chat-room:${roomId}`).emit('reloadRoomMembers', roomId);
     } catch (e) {
       this.server
         .to(`chat-room:${roomId}`)
@@ -140,7 +145,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   // handle sending user is typing a private message
-  @SubscribeMessage('userIsTyping')
+  @SubscribeMessage('mpUserIsTyping')
   async handleUserIsTyping(
     @ConnectedSocket() client: Socket,
     @MessageBody()
@@ -148,7 +153,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ): Promise<void> {
     const { senderId, receiverId } = data;
     try {
-      client.broadcast.to(`mp:${receiverId}`).emit('userIsTyping', senderId);
+      client.broadcast
+        .to(`mp:${receiverId}`)
+        .emit('receivedUserIsTyping', senderId);
+    } catch (e) {
+      this.server.to(`mp:${senderId}`).emit('failedToSendMessage', e.message);
+    }
+  }
+
+  // Handle sending a call to reload room members and roles
+  @SubscribeMessage('reloadMpConversation')
+  async handleRefreshConversation(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { senderId: number; receiverId: number },
+  ): Promise<void> {
+    const { senderId, receiverId } = data;
+    try {
+      client.broadcast.to(`mp:${receiverId}`).emit('reloadMp', senderId);
     } catch (e) {
       this.server.to(`mp:${senderId}`).emit('failedToSendMessage', e.message);
     }
