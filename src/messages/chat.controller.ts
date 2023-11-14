@@ -1,11 +1,19 @@
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { Controller, Get, ParseIntPipe, Patch, Req } from '@nestjs/common';
+import {
+  Controller,
+  Delete,
+  Get,
+  ParseIntPipe,
+  Patch,
+  Req,
+} from '@nestjs/common';
 import { ChatService } from './chat.service';
 import {
   CreateRoomDto,
   JoinRoomDto,
-  LeaveRoomDto,
+  RemoveFromRoomDto,
   UpdatePasswordDto,
+  UpdateRoleDto,
 } from './dto';
 import { AuthenticatedGuard } from '../auth/guards';
 import { Body, Post, Param, UseGuards } from '@nestjs/common';
@@ -57,18 +65,28 @@ export class ChatController {
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @Post('leave-room')
+  @Get('leave-room/:roomId')
   async leaveRoom(
     @Req() req: RequestWithUser,
-    @Body() leaveRoomDto: LeaveRoomDto,
+    @Param('roomId', ParseIntPipe) roomId: number,
   ) {
-    const { roomId, userId } = leaveRoomDto;
+    return this.service.removeMyselfFromRoom(roomId, req.user.id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Post('remove-member/:roomId')
+  async removeFromRoom(
+    @Req() req: RequestWithUser,
+    @Body() deleteFromRoomDto: RemoveFromRoomDto,
+  ) {
+    const { roomId, userId } = deleteFromRoomDto;
     return this.service.removeUserFromRoom(roomId, userId, req.user.id);
   }
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @Post('delete-room/:roomId')
+  @Delete('delete-room/:roomId')
   async deleteRoom(
     @Req() req: RequestWithUser,
     @Param('roomId', ParseIntPipe) roomId: number,
@@ -96,7 +114,24 @@ export class ChatController {
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
   @ApiOperation({
-    summary: 'Get all room members, can failed if user not a member',
+    summary: 'Get current role if member of room or null if not a member',
+    description: 'state: (true or false) if member and,  role',
+  })
+  @Get('room-role/:roomId')
+  async getRoomRole(
+    @Req() req: RequestWithUser,
+    @Param('roomId', ParseIntPipe) roomId: number,
+  ) {
+    const userId = req.user.id;
+    return this.service.checkUserIsMember(roomId, userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @ApiOperation({
+    summary:
+      'Get all room members, can failed if user not a member, for private room',
+    description: 'return array of members',
   })
   @Get('room/:roomId')
   async getRoomInfo(
@@ -105,5 +140,30 @@ export class ChatController {
   ) {
     const userId = req.user.id;
     return this.service.getRoomMembers(roomId, userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @ApiOperation({
+    summary: 'update the role of a user',
+  })
+  @Post('promote/:roomId')
+  async changeMemberRole(
+    @Req() req: RequestWithUser,
+    @Param('roomId', ParseIntPipe) roomId: number,
+    @Body() updateMemberDto: UpdateRoleDto,
+  ) {
+    const actorId = req.user.id;
+    return this.service.changeMemberRole(roomId, updateMemberDto, actorId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @ApiOperation({
+    summary: 'unMute all users that time is expired',
+  })
+  @Get('checkMuted')
+  async unMuteAllUnMuteTimePassed() {
+    return this.service.unMuteAllWaitingMutedUsers();
   }
 }

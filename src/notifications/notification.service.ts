@@ -166,6 +166,69 @@ export class NotificationService {
       });
   }
 
+  // notification when a room is destroyed
+  async createChatRoomDestroyedNotification(
+    members: Array<User[`id`]>,
+    roomId: number,
+    message: string,
+  ) {
+    const notificationsCreatedPromises = members.map((member) => {
+      return this.notificationRepository.createNotification({
+        user: { connect: { id: member } },
+        type: NotificationType.PRIVATE_MESSAGE,
+        title: 'Chat Room Destroyed',
+        message: message,
+        referenceId: roomId,
+      });
+    });
+    Promise.all(notificationsCreatedPromises).then((notifications) => {
+      notifications.forEach((notification) => {
+        this.notificationGateway.sendNotificationToUser(
+          notification.userId,
+          notification,
+        );
+      });
+    });
+  }
+
+  // create notification when a user is promoted in a room
+  async createChatRoomPromotionNotification(
+    userId: User[`id`],
+    roomId: number,
+    message: string,
+  ) {
+    this.notificationRepository
+      .createNotification({
+        user: { connect: { id: userId } },
+        type: NotificationType.PRIVATE_MESSAGE,
+        title: 'Promoted in Chat Room',
+        message: message,
+        referenceId: roomId,
+      })
+      .then((notification) => {
+        this.notificationGateway.sendNotificationToUser(userId, notification);
+      });
+  }
+
+  // create notification when removed from a room
+  async createChatRoomRemovedNotification(
+    userId: User[`id`],
+    roomId: number,
+    message: string,
+  ) {
+    this.notificationRepository
+      .createNotification({
+        user: { connect: { id: userId } },
+        type: NotificationType.PRIVATE_MESSAGE,
+        title: 'Removed from Chat Room',
+        message: message,
+        referenceId: roomId,
+      })
+      .then((notification) => {
+        this.notificationGateway.sendNotificationToUser(userId, notification);
+      });
+  }
+
   async getNotificationsForUser(userId: number): Promise<Notification[]> {
     return this.notificationRepository.getNotificationsForUser(userId);
   }

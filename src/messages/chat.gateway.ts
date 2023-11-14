@@ -14,7 +14,6 @@ import {
   ClientToServerEvents,
 } from './interfaces/chat.interface';
 import { ChatService } from './chat.service';
-import { Status } from '@prisma/client';
 import { MessageService } from './message.service';
 
 @WebSocketGateway({ namespace: 'chat' })
@@ -38,9 +37,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const rooms = Object.keys(client.rooms);
       if (!rooms.includes(`mp:${userId}`)) {
         client.join(`mp:${userId}`);
-        this.logger.log(
-          `Client connected to chat room: ${userId} - and joined mp:${userId}`,
-        );
       }
     } catch (e) {
       client.emit('connectionError', e.message);
@@ -91,6 +87,38 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  // Handle sending user is typing a message
+  @SubscribeMessage('userIsTypingInRoom')
+  async handleUserIsTypingInRoom(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { senderId: number; roomId: number },
+  ): Promise<void> {
+    const { roomId, senderId } = data;
+    try {
+      client.broadcast.to(`chat-room:${roomId}`).emit('userIsTyping', senderId);
+    } catch (e) {
+      this.server
+        .to(`chat-room:${roomId}`)
+        .emit('failedToSendMessage', e.message);
+    }
+  }
+
+  // Handle sending a call to reload room members and roles
+  @SubscribeMessage('reloadRoomMembers')
+  async handleReloadRoomMembers(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: number },
+  ): Promise<void> {
+    const { roomId } = data;
+    try {
+      this.server.to(`chat-room:${roomId}`).emit('reloadRoomMembers');
+    } catch (e) {
+      this.server
+        .to(`chat-room:${roomId}`)
+        .emit('failedToSendMessage', e.message);
+    }
+  }
+
   // handle sending private message
   @SubscribeMessage('sendPrivateMessage')
   async handlePrivateMessage(
@@ -104,11 +132,23 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         { content, receiverId },
         senderId,
       );
-      this.logger.log(
-        `Client with userId: ${senderId} send to : ${receiverId}`,
-      );
       this.server.to(`mp:${senderId}`).emit('newMP', message);
       client.broadcast.to(`mp:${receiverId}`).emit('newMP', message);
+    } catch (e) {
+      this.server.to(`mp:${senderId}`).emit('failedToSendMessage', e.message);
+    }
+  }
+
+  // handle sending user is typing a private message
+  @SubscribeMessage('userIsTyping')
+  async handleUserIsTyping(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: { senderId: number; receiverId: number },
+  ): Promise<void> {
+    const { senderId, receiverId } = data;
+    try {
+      client.broadcast.to(`mp:${receiverId}`).emit('userIsTyping', senderId);
     } catch (e) {
       this.server.to(`mp:${senderId}`).emit('failedToSendMessage', e.message);
     }

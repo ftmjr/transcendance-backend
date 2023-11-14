@@ -46,7 +46,9 @@ export class ChatRepository {
 
   async getPublicRooms(): Promise<ChatRoomWithMembers[]> {
     return this.prisma.chatRoom.findMany({
-      where: { type: RoomType.PUBLIC },
+      where: {
+        OR: [{ type: RoomType.PUBLIC }, { type: RoomType.PROTECTED }],
+      },
       include: { members: true },
       orderBy: { members: { _count: 'desc' } },
     });
