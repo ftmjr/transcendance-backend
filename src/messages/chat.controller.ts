@@ -55,7 +55,7 @@ export class ChatController {
   }
 
   @UseGuards(AuthenticatedGuard)
-  @Get('/:roomId')
+  @Get('messages/:roomId')
   @ApiOperation({})
   async getRoomMessage(
     @Req() req: RequestWithUser,
