@@ -12,7 +12,6 @@ import { GameEvent, GameHistory } from '@prisma/client';
 import { JoinGameEvent } from './dto';
 import GameEngine from './engine';
 import { GameGateway } from './game.gateway';
-import { session } from 'passport';
 
 @Injectable()
 export class GameRealtimeService {
@@ -326,26 +325,6 @@ export class GameRealtimeService {
   ) {
     if (userId === 0) return;
     this.gameSessionService.writeGameHistory(event, userId, gameId);
-  }
-
-  reloadPlayersList(gameSession: GameSession) {
-    gameSession.eventsToPublishInRoom.push({
-      event: GAME_EVENTS.PlayersRetrieved,
-      data: {
-        roomId: gameSession.gameId,
-        data: Array.from(gameSession.participants.values()),
-      },
-    });
-  }
-
-  reloadViewersList(gameSession: GameSession) {
-    gameSession.eventsToPublishInRoom.push({
-      event: GAME_EVENTS.ViewersRetrieved,
-      data: {
-        roomId: gameSession.gameId,
-        data: Array.from(gameSession.observers.values()),
-      },
-    });
   }
 
   reloadPlayersList(gameSession: GameSession) {
