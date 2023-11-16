@@ -64,7 +64,7 @@ $ git push origin branch-name
 
 1. Start the docker container  with the database, it will be open on 5432 port
     ```bash
-      docker-compose -f path_to/docker-compose.yml -p transcendance up -d db
+      docker compose -f path_to/docker-compose.yml -p transcendance up -d db
     ```
 
 2. Start the backend
