@@ -4,12 +4,19 @@ WORKDIR /app
 
 COPY package*.json yarn.lock ./
 
-RUN yarn install
+#copy prisma folder
+COPY prisma .
 
-COPY . .
+# set prisma migration and sync with database
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
+
+RUN yarn install
 
 VOLUME /app
 
 EXPOSE 3001
+
+ENTRYPOINT ["/app/entrypoint.sh"]
 
 CMD ["yarn", "start:dev"]
