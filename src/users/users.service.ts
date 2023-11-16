@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   BlockedUser,
   Contact,
@@ -78,6 +78,7 @@ export class UsersService {
   constructor(
     private repository: UsersRepository,
     private friendsService: FriendsService,
+    private logger: Logger,
     private readonly schoolNetworkService: SchoolNetworkService,
   ) {}
 
@@ -504,14 +505,18 @@ export class UsersService {
     });
   }
   async changeStatus(userId: number, status: Status) {
-    await this.repository.updateProfile({
-      where: {
-        userId: userId,
-      },
-      data: {
-        status: status,
-      },
-    });
+    try {
+      await this.repository.updateProfile({
+        where: {
+          userId: userId,
+        },
+        data: {
+          status: status,
+        },
+      });
+    } catch (e) {
+      this.logger.log(`Can't change status for user: ${userId} to ${status}`);
+    }
   }
   async getUsersOrderedByWins(params: { skip: number; take: number }) {
     const users = await this.repository.getUsersOrderedByWins(params);
