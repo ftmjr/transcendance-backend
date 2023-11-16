@@ -1,4 +1,3 @@
-// src/games/gameRealtime.service.ts
 import { Injectable } from '@nestjs/common';
 import { GameSessionService } from './game-session.service';
 import {
@@ -327,6 +326,26 @@ export class GameRealtimeService {
   ) {
     if (userId === 0) return;
     this.gameSessionService.writeGameHistory(event, userId, gameId);
+  }
+
+  reloadPlayersList(gameSession: GameSession) {
+    gameSession.eventsToPublishInRoom.push({
+      event: GAME_EVENTS.PlayersRetrieved,
+      data: {
+        roomId: gameSession.gameId,
+        data: Array.from(gameSession.participants.values()),
+      },
+    });
+  }
+
+  reloadViewersList(gameSession: GameSession) {
+    gameSession.eventsToPublishInRoom.push({
+      event: GAME_EVENTS.ViewersRetrieved,
+      data: {
+        roomId: gameSession.gameId,
+        data: Array.from(gameSession.observers.values()),
+      },
+    });
   }
 
   reloadPlayersList(gameSession: GameSession) {

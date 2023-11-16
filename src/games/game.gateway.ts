@@ -1,4 +1,3 @@
-// src/games/game.gateway.ts
 import {
   ConnectedSocket,
   MessageBody,
@@ -17,6 +16,7 @@ import {
   GameSession,
   GameUserType,
   PadMovedData,
+  BallServedData,
 } from './interfaces';
 import { GameUser, JoinGameEvent } from './dto';
 import { GameSessionService } from './game-session.service';
