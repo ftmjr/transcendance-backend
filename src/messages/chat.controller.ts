@@ -19,7 +19,7 @@ import {
 import { AuthenticatedGuard } from '../auth/guards';
 import { Body, Post, Param, UseGuards } from '@nestjs/common';
 import { RequestWithUser } from '../users/users.controller';
-import {ChatRoomMessage, PrivateMessage} from '@prisma/client';
+import { ChatRoomMessage } from '@prisma/client';
 
 @ApiTags('ChatActions')
 @Controller('chat')
@@ -63,7 +63,7 @@ export class ChatController {
     @Query('skip', ParseIntPipe) skip: number,
     @Query('take', ParseIntPipe) take: number,
   ): Promise<ChatRoomMessage[]> {
-    return this.service.getRoomMessages(req.user.id, roomId, {
+    return this.service.getRoomMessages(roomId, req.user.id, {
       skip,
       take,
     });
@@ -132,7 +132,7 @@ export class ChatController {
   @UseGuards(AuthenticatedGuard)
   @ApiOperation({
     summary: 'Get current role if member of room or null if not a member',
-    description: 'state: (true or false) if member and,  role',
+    description: 'state: (true or false) if member and,  role, type of room',
   })
   @Get('room-role/:roomId')
   async getRoomRole(
@@ -140,7 +140,7 @@ export class ChatController {
     @Param('roomId', ParseIntPipe) roomId: number,
   ) {
     const userId = req.user.id;
-    return this.service.checkUserIsMember(roomId, userId);
+    return this.service.checkUserMembership(roomId, userId);
   }
 
   @ApiBearerAuth()

@@ -7,7 +7,7 @@ import {
 import { ChatRepository, ChatRoomWithMembers } from './chat.repository';
 import * as argon from 'argon2';
 import { getRandomAvatarUrl, UsersService } from '../users/users.service';
-import { ChatRoomMember, Role, RoomType } from '@prisma/client';
+import { ChatRoom, ChatRoomMember, Role, RoomType } from '@prisma/client';
 import { CreateRoomDto, UpdatePasswordDto, UpdateRoleDto } from './dto';
 import { NotificationService } from '../notifications/notification.service';
 
@@ -329,29 +329,16 @@ export class ChatService {
     return this.repository.getChatRoomMembers(roomId);
   }
 
-  async getRoomMember(roomId: number, userId: number, actorId: number) {
-    const room = await this.getRoom({ roomId });
-    if (room.type === RoomType.PRIVATE || room.type === RoomType.PROTECTED) {
-      this.checkIfCanActInTheRoom(actorId, room, [
-        Role.OWNER,
-        Role.ADMIN,
-        Role.USER,
-        Role.MUTED,
-        Role.BAN,
-      ]);
-    }
-    return this.repository.getChatRoomMember(userId, roomId);
-  }
-
-  async checkUserIsMember(
+  async checkUserMembership(
     roomId: number,
     userId: number,
-  ): Promise<{ state: boolean; role: Role | null }> {
-    try {
-      const member = await this.getRoomMember(roomId, userId, userId);
-      return { state: true, role: member.role };
-    } catch (e) {
-      return { state: false, role: null };
+  ): Promise<{ state: boolean; role: Role | null; room?: ChatRoom }> {
+    const room = await this.repository.getSimpleRoom({ where: { id: roomId } });
+    const member = await this.repository.getChatRoomMember(userId, roomId);
+    if (member) {
+      return { state: true, role: member.role, room };
+    } else {
+      return { state: false, role: null, room };
     }
   }
 

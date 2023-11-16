@@ -67,6 +67,15 @@ export class ChatRepository {
     });
   }
 
+  async getSimpleRoom(params: {
+    where: Prisma.ChatRoomWhereUniqueInput;
+  }): Promise<ChatRoom> {
+    const { where } = params;
+    return this.prisma.chatRoom.findUnique({
+      where,
+    });
+  }
+
   async getRoomByName(name: string): Promise<ChatRoom | null> {
     return this.prisma.chatRoom.findFirst({
       where: {
