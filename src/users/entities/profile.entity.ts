@@ -1,5 +1,5 @@
 import { Field, Int, ObjectType } from '@nestjs/graphql';
-import { Prisma, Profile as ProfileDB } from '@prisma/client';
+import { Profile as ProfileDB } from '@prisma/client';
 import { User } from './user.entity';
 import { Award } from './award.entity';
 

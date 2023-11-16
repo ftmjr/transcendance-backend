@@ -39,6 +39,24 @@ export class NotificationService {
       });
   }
 
+  async createGameInviteRejectedNotification(
+    userId: User[`id`],
+    gameId: Game[`id`],
+    message: string,
+  ): Promise<void> {
+    this.notificationRepository
+      .createNotification({
+        user: { connect: { id: userId } },
+        type: NotificationType.GAME_INVITE,
+        title: 'Game Invite Rejected',
+        message: message,
+        referenceId: gameId,
+      })
+      .then((notification) => {
+        this.notificationGateway.sendNotificationToUser(userId, notification);
+      });
+  }
+
   async createChallengeAcceptedNotification(
     userId: number,
     gameId: number,
@@ -58,7 +76,26 @@ export class NotificationService {
       });
   }
 
+  async createHasJoinedGameNotification(
+    userId: number,
+    gameId: number,
+    message: string,
+  ): Promise<void> {
+    this.notificationRepository
+      .createNotification({
+        user: { connect: { id: userId } },
+        type: NotificationType.GAME_EVENT,
+        title: 'Joined Game',
+        message: message,
+        referenceId: gameId,
+      })
+      .then((notification) => {
+        this.notificationGateway.sendNotificationToUser(userId, notification);
+      });
+  }
+
   async createFriendRequestNotification(
+    sourceUserId: User[`id`],
     friendId: User[`id`],
     message: string,
   ): Promise<void> {
@@ -68,7 +105,7 @@ export class NotificationService {
         type: NotificationType.FRIEND_REQUEST,
         title: `Demande d'amitié`,
         message: message,
-        referenceId: friendId,
+        referenceId: sourceUserId,
       })
       .then((notification) => {
         this.notificationGateway.sendNotificationToUser(friendId, notification);
@@ -121,6 +158,69 @@ export class NotificationService {
         user: { connect: { id: userId } },
         type: NotificationType.PRIVATE_MESSAGE,
         title: 'Added to Chat',
+        message: message,
+        referenceId: roomId,
+      })
+      .then((notification) => {
+        this.notificationGateway.sendNotificationToUser(userId, notification);
+      });
+  }
+
+  // notification when a room is destroyed
+  async createChatRoomDestroyedNotification(
+    members: Array<User[`id`]>,
+    roomId: number,
+    message: string,
+  ) {
+    const notificationsCreatedPromises = members.map((member) => {
+      return this.notificationRepository.createNotification({
+        user: { connect: { id: member } },
+        type: NotificationType.PRIVATE_MESSAGE,
+        title: 'Chat Room Destroyed',
+        message: message,
+        referenceId: roomId,
+      });
+    });
+    Promise.all(notificationsCreatedPromises).then((notifications) => {
+      notifications.forEach((notification) => {
+        this.notificationGateway.sendNotificationToUser(
+          notification.userId,
+          notification,
+        );
+      });
+    });
+  }
+
+  // create notification when a user is promoted in a room
+  async createChatRoomPromotionNotification(
+    userId: User[`id`],
+    roomId: number,
+    message: string,
+  ) {
+    this.notificationRepository
+      .createNotification({
+        user: { connect: { id: userId } },
+        type: NotificationType.PRIVATE_MESSAGE,
+        title: 'Promoted in Chat Room',
+        message: message,
+        referenceId: roomId,
+      })
+      .then((notification) => {
+        this.notificationGateway.sendNotificationToUser(userId, notification);
+      });
+  }
+
+  // create notification when removed from a room
+  async createChatRoomRemovedNotification(
+    userId: User[`id`],
+    roomId: number,
+    message: string,
+  ) {
+    this.notificationRepository
+      .createNotification({
+        user: { connect: { id: userId } },
+        type: NotificationType.PRIVATE_MESSAGE,
+        title: 'Removed from Chat Room',
         message: message,
         referenceId: roomId,
       })

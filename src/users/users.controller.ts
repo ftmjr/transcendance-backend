@@ -92,7 +92,7 @@ export class UsersController {
       skip,
       take,
       orderBy,
-      include: { profile: true, sessions: false, gameHistories: true },
+      include: { profile: true, sessions: false },
     });
   }
 
@@ -112,9 +112,30 @@ export class UsersController {
   ) {
     const users = await this.usersService.getUserProfile(req.user, id);
     if (!users) {
-      throw new NotFoundException();
+      throw new NotFoundException('User not found, or blocked');
     }
     return users[0];
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Get('short-profile/:id')
+  @ApiOperation({
+    summary: 'get a user short profile',
+    description: `
+      - fetch a user profile status and avatar info from the database
+    `,
+  })
+  @ApiResponse({ status: 200, description: 'return a user short profile' })
+  async getUserShortProfile(
+    @Request() req: RequestWithUser,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    const profile = await this.usersService.getUserShortProfile(id);
+    if (!profile) {
+      throw new NotFoundException();
+    }
+    return profile;
   }
 
   @ApiBearerAuth()
@@ -149,7 +170,7 @@ export class UsersController {
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @Delete('block/:id')
+  @Delete('unblock/:id')
   @ApiOperation({
     summary: 'remove a user from blocked users',
     description: `

@@ -26,6 +26,11 @@ export type UserWithData = User & {
   receivedContactRequests: ContactRequest[];
 };
 
+export type ShortBio = Pick<
+  UserWithData,
+  'id' | 'profile' | 'username' | 'email' | 'updatedAt'
+>;
+
 export function exclude<User, Key extends keyof User>(
   user: User,
   keys: Key[],
@@ -49,7 +54,7 @@ export enum BlockedStatus {
 }
 
 export function getRandomAvatarUrl(): string {
-  const serverBaseUrl = 'https://' + process.env.URL + '/api/uploads';
+  const serverBaseUrl = '/api/uploads';
   const list = [
     'randomAvatars/icons8-bart-simpson-500.png',
     'randomAvatars/icons8-batman-500.png',
@@ -179,6 +184,20 @@ export class UsersService {
     });
     return this.filterBlockedUsers([otherProfile], user);
   }
+
+  async getUserShortProfile(id: number): Promise<ShortBio> {
+    return this.repository.getUserWithSelectedFields({
+      where: { id },
+      select: {
+        id: true,
+        username: true,
+        email: true,
+        profile: true,
+        updatedAt: true,
+      },
+    });
+  }
+
   async getUserWithFriends(userId: User[`id`]) {
     return this.repository.getUser({
       where: {
@@ -291,16 +310,16 @@ export class UsersService {
   }
   async filterBlockedUsers(users: User[], currentUser: User) {
     const userBlocked = await this.getUserWithBlocked(currentUser.id);
-    const blockedUserIds = userBlocked.blockedUsers.map(
-      (blockedUser) => blockedUser.blockedUserId,
-    );
+    // const blockedUserIds = userBlocked.blockedUsers.map(
+    //   (blockedUser) => blockedUser.blockedUserId,
+    // );
     const blockedFromIds = userBlocked.blockedFrom.map(
       (blockedFrom) => blockedFrom.userId,
     );
-
     const blockedUsers = users.filter((user) => {
       return (
-        !blockedUserIds.includes(user.id) && !blockedFromIds.includes(user.id)
+        // !blockedUserIds.includes(user.id) &&
+        !blockedFromIds.includes(user.id)
       );
     });
     return blockedUsers.map((user) => exclude(user, ['password']));
@@ -380,6 +399,9 @@ export class UsersService {
           { profile: { name: { contains: query } } },
           { profile: { lastname: { contains: query } } },
         ],
+      },
+      include: {
+        profile: true,
       },
       skip: skip ?? 0,
       take: take ?? 10,
@@ -501,10 +523,17 @@ export class UsersService {
       const loss = user.gameHistories.filter(
         (history) => history.event === GameEvent.MATCH_LOST,
       ).length;
-      const score = wins - loss;
+      const score = wins; // Only consider wins for score
       return { ...user, score };
     });
-    return usersWithScore.sort((a, b) => b.score - a.score);
+    return usersWithScore.sort((a, b) => {
+      // Sort by wins, and if tied, then by total score
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      } else {
+        return b.score - a.score;
+      }
+    });
   }
 
   async getAppStatistics() {

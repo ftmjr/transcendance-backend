@@ -1,28 +1,26 @@
 import {
+  Body,
   Controller,
   Get,
-  Post,
-  UseGuards,
-  Redirect,
-  Request,
-  Response,
-  Body,
-  Req,
-  UnauthorizedException,
   HttpCode,
+  Post,
+  Redirect,
+  Req,
+  Request,
   Res,
+  Response,
+  UnauthorizedException,
+  UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
-import { Status } from '@prisma/client';
 import { AuthService } from './auth.service';
 import { LoginDataDto, LoginDto, RefreshDataDto, SignupDto } from './dto';
 import {
+  ApiBearerAuth,
   ApiCookieAuth,
   ApiOperation,
   ApiResponse,
-  ApiBearerAuth,
   ApiTags,
-  ApiProperty,
 } from '@nestjs/swagger';
 import { LocalAuthGuard } from './guards/local-auth.guard';
 import { AuthenticatedGuard } from './guards';
@@ -31,6 +29,7 @@ import { UsersService } from '../users/users.service';
 import { TwoFaDto } from './dto/twoFa.dto';
 import { UpdatePasswordDto } from './dto/modifyPassword.dto';
 import { UpdateUserInfoDto } from './dto/updateUserInfo.dto';
+import { RequestWithUser } from '../users/users.controller';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -112,11 +111,7 @@ export class AuthController {
     @Response({ passthrough: true }) res,
   ): Promise<{ accessToken: string }> {
     const refreshToken = req.cookies['REFRESH_TOKEN'] ?? '';
-    const token = await this.authService.refreshAccessToken(refreshToken, res);
-    if (!token) {
-      await this.usersService.changeStatus(req.user.id, Status.Offline);
-    }
-    return token;
+    return this.authService.refreshAccessToken(refreshToken, res);
   }
 
   @Get('logout')
@@ -180,7 +175,6 @@ export class AuthController {
       req.user,
     );
     const localUrl: string = process.env.URL;
-    await this.usersService.changeStatus(req.user.id, Status.Online);
     return {
       url: `https://${localUrl}/auth/oauth-auth?token=${loginData.accessToken}`,
       statusCode: 302,
@@ -198,7 +192,9 @@ export class AuthController {
     description: 'redirection to auth callback for 42',
   })
   @UseGuards(AuthGuard('42'))
-  Login42() {}
+  Login42() {
+    // empty
+  }
 
   @Redirect()
   @Get('42/callback')
@@ -229,7 +225,6 @@ export class AuthController {
       req.user,
     );
     const localUrl: string = process.env.URL;
-    await this.usersService.changeStatus(req.user.id, Status.Online);
     return {
       url: `https://${localUrl}/auth/oauth-auth?token=${loginData.accessToken}`,
       statusCode: 302,
@@ -302,7 +297,7 @@ export class AuthController {
     summary: 'Disable 2FA',
     description: 'Set "two"twoFactorEnabled" to false,',
   })
-  async turnOffTwoFactorAuthentication(@Req() request) {
+  async turnOffTwoFactorAuthentication(@Req() request: RequestWithUser) {
     return this.usersService.turnOffTwoFactorAuthentication(request.user.id);
   }
 
@@ -312,7 +307,7 @@ export class AuthController {
     summary: 'Return my info',
   })
   @Get('me')
-  async getMe(@Request() request) {
+  async getMe(@Request() request: RequestWithUser) {
     return request.user;
   }
 
@@ -323,7 +318,10 @@ export class AuthController {
     summary: 'modify User password to a new one',
     description: 'return true when it is done',
   })
-  async modifyPassword(@Req() request, @Body() body: UpdatePasswordDto) {
+  async modifyPassword(
+    @Req() request: RequestWithUser,
+    @Body() body: UpdatePasswordDto,
+  ) {
     return this.authService.modifyPassword(request.user, body);
   }
 
@@ -334,7 +332,10 @@ export class AuthController {
     summary: 'modify User info, firstName, lastName and biography',
     description: 'return user',
   })
-  async modifyUserInfo(@Req() request, @Body() body: UpdateUserInfoDto) {
+  async modifyUserInfo(
+    @Req() request: RequestWithUser,
+    @Body() body: UpdateUserInfoDto,
+  ) {
     return this.authService.updateUserInfo(request.user, body);
   }
 
@@ -344,7 +345,7 @@ export class AuthController {
     summary: 'Return last user sessions',
   })
   @Get('sessions')
-  async getLastSessions(@Request() request) {
-    return this.authService.getLastSessions(request.user.userId);
+  async getLastSessions(@Request() request: RequestWithUser) {
+    return this.authService.getLastSessions(request.user.id);
   }
 }

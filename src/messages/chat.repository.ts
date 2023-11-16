@@ -46,7 +46,9 @@ export class ChatRepository {
 
   async getPublicRooms(): Promise<ChatRoomWithMembers[]> {
     return this.prisma.chatRoom.findMany({
-      where: { type: RoomType.PUBLIC },
+      where: {
+        OR: [{ type: RoomType.PUBLIC }, { type: RoomType.PROTECTED }],
+      },
       include: { members: true },
       orderBy: { members: { _count: 'desc' } },
     });
@@ -65,6 +67,15 @@ export class ChatRepository {
     });
   }
 
+  async getSimpleRoom(params: {
+    where: Prisma.ChatRoomWhereUniqueInput;
+  }): Promise<ChatRoom> {
+    const { where } = params;
+    return this.prisma.chatRoom.findUnique({
+      where,
+    });
+  }
+
   async getRoomByName(name: string): Promise<ChatRoom | null> {
     return this.prisma.chatRoom.findFirst({
       where: {
@@ -76,7 +87,7 @@ export class ChatRepository {
   async createRoom(
     params: { data: Prisma.ChatRoomCreateInput },
     memberId: User[`id`],
-  ): Promise<ChatRoom> {
+  ): Promise<ChatRoomWithMembers> {
     const { data } = params;
     return this.prisma.chatRoom.create({
       data: {
@@ -87,6 +98,9 @@ export class ChatRepository {
             role: Role.OWNER,
           },
         },
+      },
+      include: {
+        members: true,
       },
     });
   }

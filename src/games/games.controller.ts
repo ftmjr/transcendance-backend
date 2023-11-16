@@ -1,3 +1,4 @@
+// src/games/games.controller.ts
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -92,8 +93,12 @@ export class GamesController {
   async getAllGameSessions(
     @Req() req: RequestWithUser,
   ): Promise<GameSession[]> {
-    const user = req.user;
-    return this.gameSessionService.getUserGameSessions(user.id);
+    try {
+      const user = req.user;
+      return this.gameSessionService.getUserGameSessions(user.id);
+    } catch (e) {
+      return [];
+    }
   }
 
   @ApiBearerAuth()
@@ -202,5 +207,20 @@ export class GamesController {
     @Param('userId', ParseIntPipe) userId: number,
   ) {
     return this.gamesService.getCompleteUserGameHistories(userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Get('/simple-history/:userId')
+  @ApiOperation({ summary: 'Get the game simple history of a user' })
+  @ApiResponse({
+    status: 200,
+    description: 'Retrieved the game history successfully.',
+  })
+  async getUserSimpleGameHistory(
+    @Req() req: RequestWithUser,
+    @Param('userId', ParseIntPipe) userId: number,
+  ) {
+    return this.gamesService.getUserGameHistories(userId);
   }
 }

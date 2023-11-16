@@ -11,7 +11,7 @@ export class FilesService {
     private chatService: ChatService,
   ) {}
   updateAvatarUrl(fileName: string, user: User) {
-    const serverBaseUrl = 'https://' + process.env.URL + '/api';
+    const serverBaseUrl = '/api';
     const fileUrl = `${serverBaseUrl}/uploads/${fileName}`;
     return this.usersService.updateProfile({
       where: { userId: user.id },
@@ -28,7 +28,7 @@ export class FilesService {
     roomId: number,
     source: User,
   ): Promise<ChatRoomWithMembers> {
-    const serverBaseUrl = 'https://' + process.env.URL + '/api';
+    const serverBaseUrl = '/api';
     const fileUrl = `${serverBaseUrl}/uploads/room/${fileName}`;
     return this.chatService.changeChatAvatar(roomId, source.id, fileUrl);
   }
@@ -46,7 +46,7 @@ export class FilesService {
   }
 
   getRandomAvatarUrl(): string {
-    const serverBaseUrl = 'https://' + process.env.URL + '/api';
+    const serverBaseUrl = '/api';
     const list = [
       'randomAvatars/icons8-bart-simpson-500.png',
       'randomAvatars/icons8-batman-500.png',

@@ -1,14 +1,18 @@
-import { Injectable } from '@nestjs/common';
+// src/games/games-session.service.ts
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import {
   GameSession,
   GameSessionType,
-  OnlineGameStates,
   GameMonitorState,
   Gamer,
   GameRules,
 } from './interfaces';
 import { CreateGameSessionDto } from './dto';
-import { Game, User } from '@prisma/client';
+import { Game, GameEvent, GameHistory, User } from '@prisma/client';
 import { GamesService } from './games.service';
 import { NotificationService } from '../notifications/notification.service';
 import { UsersService } from '../users/users.service';
@@ -51,7 +55,8 @@ export class GameSessionService {
       this.notificationService.createGameNotification(
         opponent.userId,
         session.gameId,
-        `Tu as été defié par ${host.username} pour une partie privée`,
+        `Tu as été defié par <a href="/users/show/${host.id}">${host.username}</a> pour une partie privée,
+          max score: ${rules.maxScore} points.`,
       );
       return session;
     } else {
@@ -67,6 +72,13 @@ export class GameSessionService {
   }
 
   async joinQueue(user: User): Promise<GameSession> {
+    // check if user is already in a game session
+    const userGameStatus = this.getUserGameStatus(user.id, user);
+    if (userGameStatus.status === 'playing') {
+      throw new UnauthorizedException('User is already playing');
+    } else if (userGameStatus.status === 'inQueue') {
+      return userGameStatus.gameSession;
+    }
     const availableGameSession = this.findAvailableQueueGameSession();
     if (availableGameSession) {
       // Add the user to the game session and return it.
@@ -81,10 +93,10 @@ export class GameSessionService {
         availableGameSession.gameId,
         user.id,
       );
-      this.notificationService.createChallengeAcceptedNotification(
+      this.notificationService.createHasJoinedGameNotification(
         availableGameSession.hostId,
         availableGameSession.gameId,
-        `${user.username} has accepted the game invitation`,
+        `<a href="/users/show/${user.id}">${user.username}</a> a été ajouté à la partie`,
       );
       return availableGameSession;
     } else {
@@ -92,19 +104,21 @@ export class GameSessionService {
     }
   }
 
-  async addViewerToGameSession(gameId: number, user: User) {
+  async addViewerToGameSession(
+    gameId: number,
+    user: Pick<User, 'id' | 'username'> & { clientId?: string },
+  ) {
     const gameSession = this.gameSessions.get(gameId);
     if (!gameSession) {
       throw new Error('Game session not found');
     }
     const viewer = gameSession.observers.find((g) => g.userId === user.id);
     if (viewer) return gameSession;
-    await this.gameService.addObserver(gameId, user.id);
     await this.gameService.addObserver(gameId, user.id).then((game) => {
       gameSession.observers.push({
         userId: user.id,
         username: user.username,
-        clientId: '',
+        clientId: user.clientId ?? '',
       });
     });
     return gameSession;
@@ -159,10 +173,10 @@ export class GameSessionService {
       this.updateGameSession(gameId, gameSession);
     }
     // Notify the host of the game session
-    this.notificationService.createGameNotification(
+    this.notificationService.createGameInviteRejectedNotification(
       gameSession.hostId,
       gameId,
-      `The game invitation has been refused by ${user.username}`,
+      `L'invitation a été rejete par ${user.username}</a>`,
     );
 
     if (gameSession.participants.length === 1) {
@@ -192,19 +206,39 @@ export class GameSessionService {
     status: 'playing' | 'inQueue' | 'free';
     gameSession?: GameSession;
   } {
+    const toDelete = [];
     for (const gameSession of this.gameSessions.values()) {
+      if (gameSession.state === GameMonitorState.Ended) {
+        gameSession.gameEngine?.stopLoop();
+        if (gameSession.hostId === checker.id) {
+          toDelete.push(gameSession.gameId);
+        }
+        continue;
+      }
       const participant = gameSession.participants.find(
         (p) => p.userId === userId,
       );
       if (participant) {
-        const status =
-          gameSession.state === OnlineGameStates.PLAYING
-            ? 'playing'
-            : 'inQueue';
+        const status = this.isPlaying(gameSession) ? 'playing' : 'inQueue';
         return { status, gameSession };
       }
     }
+    for (const gameId of toDelete) {
+      this.gameSessions.delete(gameId);
+    }
     return { status: 'free' };
+  }
+
+  private isPlaying(gameSession: GameSession): boolean {
+    if (
+      gameSession.state === GameMonitorState.Play ||
+      gameSession.state === GameMonitorState.Pause
+    ) {
+      return true;
+    } else if (gameSession.state === GameMonitorState.Ready) {
+      return true;
+    }
+    return false;
   }
 
   getUsersGameStatus(
@@ -226,8 +260,11 @@ export class GameSessionService {
 
   async deleteGameSessionByUser(gameId: number, userId: number): Promise<void> {
     const gameSession = this.gameSessions.get(gameId);
-    if (!gameSession || gameSession.hostId !== userId) {
-      throw new Error('Game session not found or user is not the host');
+    if (!gameSession) {
+      throw new NotFoundException("Game session doesn't exist");
+    }
+    if (gameSession.hostId !== userId) {
+      throw new UnauthorizedException('User is not the host');
     }
     this.deleteGameSession(gameId);
   }
@@ -235,13 +272,13 @@ export class GameSessionService {
   async quitGameSession(gameId: number, userId: number): Promise<void> {
     const gameSession = this.gameSessions.get(gameId);
     if (!gameSession) {
-      throw new Error('Game session not found');
+      throw new NotFoundException('Game session not found');
     }
     const participantIndex = gameSession.participants.findIndex(
       (participant) => participant.userId === userId,
     );
     if (participantIndex === -1) {
-      throw new Error('User is not a participant');
+      throw new UnauthorizedException('User is not a participant');
     }
     gameSession.participants.splice(participantIndex, 1);
     this.updateGameSession(gameId, gameSession);
@@ -300,13 +337,26 @@ export class GameSessionService {
     return undefined;
   }
 
+  getAllGameSessionsByClientId(clientId: string): GameSession[] {
+    const gameSessions: GameSession[] = [];
+    for (const gameSession of this.gameSessions.values()) {
+      const participant = gameSession.participants.find(
+        (p) => p.clientId === clientId,
+      );
+      if (participant) {
+        gameSessions.push(gameSession);
+      }
+    }
+    return gameSessions;
+  }
+
   async createGameSession(
     participants: Gamer[],
     type: GameSessionType,
     rules: GameRules = { maxScore: 5, maxTime: 300 },
   ): Promise<GameSession> {
     const monitors = Array<GameMonitorState>(participants.length).fill(
-      GameMonitorState.InitGame,
+      GameMonitorState.Waiting,
     );
     const participantsIds = participants
       .map((p) => p.userId)
@@ -324,7 +374,7 @@ export class GameSessionService {
       participants: participants,
       observers: [],
       score,
-      state: OnlineGameStates.WAITING,
+      state: GameMonitorState.Waiting,
       monitors: monitors,
       eventsToPublishInRoom: [],
       rules,
@@ -426,7 +476,8 @@ export class GameSessionService {
   cleanGameSessions(): void {
     const toDelete = [];
     for (const gameSession of this.gameSessions.values()) {
-      if (gameSession.state === OnlineGameStates.FINISHED) {
+      if (gameSession.state === GameMonitorState.Ended) {
+        gameSession.gameEngine?.stopLoop();
         toDelete.push(gameSession.gameId);
       }
     }
@@ -436,6 +487,59 @@ export class GameSessionService {
   }
 
   deleteGameSession(gameId: number): void {
+    const gameSession = this.gameSessions.get(gameId);
+    if (!gameSession) {
+      throw new NotFoundException("Game session doesn't exist");
+    }
+    gameSession.gameEngine?.stopLoop();
     this.gameSessions.delete(gameId);
+  }
+
+  writeGameHistory(
+    event: GameEvent,
+    userId: GameHistory[`userId`],
+    gameId: number,
+  ) {
+    if (userId === 0) return;
+    this.gameService.addHistoryToGame({
+      event: event,
+      user: {
+        connect: {
+          id: userId,
+        },
+      },
+      game: {
+        connect: {
+          id: gameId,
+        },
+      },
+    });
+  }
+
+  setTheWinner(gameSession: GameSession, winnerId: number) {
+    if (winnerId === 0) return;
+    this.gameService.updateGame({
+      where: { id: gameSession.gameId },
+      data: { winner: { connect: { id: winnerId } } },
+    });
+  }
+
+  // return the statistics of the game sessions running on the server and the scores
+  getGameSessionsStatistics(): {
+    gameId: number;
+    hostId: number;
+    type: GameSessionType;
+    scores: Array<{ userId: number; score: number }>;
+  }[] {
+    const statistics = [];
+    for (const gameSession of this.gameSessions.values()) {
+      statistics.push({
+        gameId: gameSession.gameId,
+        hostId: gameSession.hostId,
+        type: gameSession.type,
+        scores: Array.from(gameSession.score.entries()),
+      });
+    }
+    return statistics;
   }
 }
