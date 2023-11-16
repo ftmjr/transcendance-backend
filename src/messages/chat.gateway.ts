@@ -14,7 +14,6 @@ import {
   ClientToServerEvents,
 } from './interfaces/chat.interface';
 import { ChatService } from './chat.service';
-import { Status } from '@prisma/client';
 import { MessageService } from './message.service';
 
 @WebSocketGateway({ namespace: 'chat' })
@@ -30,29 +29,22 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {}
 
   private logger = new Logger('ChatGateway');
-  async handleConnection(client: Socket, ...args: any[]): Promise<number[]> {
+  async handleConnection(client: Socket, ...args: any[]) {
     try {
       const userId = client.handshake.query.userId;
       if (!userId) throw new Error('User ID is required');
-      const id = Number(userId);
-      await this.chatService.changeUserStatus(id, Status.Online);
-      client.join(`mp:${userId}`);
+      const rooms = Object.keys(client.rooms);
+      if (!rooms.includes(`mp:${userId}`)) {
+        client.join(`mp:${userId}`);
+      }
     } catch (e) {
       client.emit('connectionError', e.message);
       client.disconnect();
-      return [];
     }
   }
 
   async handleDisconnect(client: Socket): Promise<void> {
-    try {
-      const userId = client.handshake.query.userId;
-      if (userId) {
-        await this.chatService.changeUserStatus(Number(userId), Status.Offline);
-      }
-    } catch (e) {
-      this.logger.error(`Failed to handle disconnect: ${e.message}`);
-    }
+    // empty
   }
 
   @SubscribeMessage('joinRoom')
@@ -62,8 +54,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ): Promise<void> {
     try {
       const { roomId, userId } = data;
-      await this.chatService.canListenToRoom(userId, roomId);
-      client.join(`chat-room:${roomId}`);
+      // check if client has already joined the room
+      const rooms = Object.keys(client.rooms);
+      if (!rooms.includes(`chat-room:${roomId}`)) {
+        await this.chatService.canListenToRoom(userId, roomId);
+        client.join(`chat-room:${roomId}`);
+      }
     } catch (e) {
       client.emit('failedToJoinRoom', e.message);
     }
@@ -90,6 +86,44 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     }
   }
 
+  // Handle sending user is typing a message
+  @SubscribeMessage('userIsTypingInRoom')
+  async handleUserIsTypingInRoom(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { senderId: number; roomId: number; username: string },
+  ): Promise<void> {
+    const { roomId, senderId, username } = data;
+    try {
+      client.broadcast
+        .to(`chat-room:${roomId}`)
+        .emit('receivedUserIsTypingInRoom', {
+          senderId,
+          roomId,
+          username,
+        });
+    } catch (e) {
+      this.server
+        .to(`chat-room:${roomId}`)
+        .emit('failedToSendMessage', e.message);
+    }
+  }
+
+  // Handle sending a call to reload room members and roles
+  @SubscribeMessage('reloadRoomMembers')
+  async handleReloadRoomMembers(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { roomId: number },
+  ): Promise<void> {
+    const { roomId } = data;
+    try {
+      this.server.to(`chat-room:${roomId}`).emit('reloadRoomMembers', roomId);
+    } catch (e) {
+      this.server
+        .to(`chat-room:${roomId}`)
+        .emit('failedToSendMessage', e.message);
+    }
+  }
+
   // handle sending private message
   @SubscribeMessage('sendPrivateMessage')
   async handlePrivateMessage(
@@ -104,11 +138,40 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         senderId,
       );
       this.server.to(`mp:${senderId}`).emit('newMP', message);
-      this.server.to(`mp:${receiverId}`).emit('newMP', message);
+      client.broadcast.to(`mp:${receiverId}`).emit('newMP', message);
     } catch (e) {
-      this.server
-        .to(`chat-room:${receiverId}`)
-        .emit('failedToSendMessage', e.message);
+      this.server.to(`mp:${senderId}`).emit('failedToSendMessage', e.message);
+    }
+  }
+
+  // handle sending user is typing a private message
+  @SubscribeMessage('mpUserIsTyping')
+  async handleUserIsTyping(
+    @ConnectedSocket() client: Socket,
+    @MessageBody()
+    data: { senderId: number; receiverId: number },
+  ): Promise<void> {
+    const { senderId, receiverId } = data;
+    try {
+      client.broadcast
+        .to(`mp:${receiverId}`)
+        .emit('receivedUserIsTyping', senderId);
+    } catch (e) {
+      this.server.to(`mp:${senderId}`).emit('failedToSendMessage', e.message);
+    }
+  }
+
+  // Handle sending a call to reload room members and roles
+  @SubscribeMessage('reloadMpConversation')
+  async handleRefreshConversation(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { senderId: number; receiverId: number },
+  ): Promise<void> {
+    const { senderId, receiverId } = data;
+    try {
+      client.broadcast.to(`mp:${receiverId}`).emit('reloadMp', senderId);
+    } catch (e) {
+      this.server.to(`mp:${senderId}`).emit('failedToSendMessage', e.message);
     }
   }
 }

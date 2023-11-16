@@ -108,6 +108,7 @@ export class FriendsService {
       friendId,
     );
     await this.notificationService.createFriendRequestNotification(
+      user.id,
       friendId,
       `Tu as reçu une demande d'ami de ${user.username}`,
     );

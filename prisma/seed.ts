@@ -4,7 +4,7 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-const serverBaseUrl = 'https://localhost/api/uploads';
+const serverBaseUrl = '/api/uploads';
 async function main() {
   try {
     const awardPromises = [
@@ -69,7 +69,7 @@ async function main() {
         create: {
           name: 'Attack on Pong land',
           type: 'PUBLIC',
-          avatar: `${serverBaseUrl}/room/fortnite.jpg`,
+          avatar: `/public/rooms/fortnite.jpg`,
           members: {
             createMany: {
               data: [
@@ -91,7 +91,7 @@ async function main() {
         create: {
           name: 'Pongistes',
           type: 'PUBLIC',
-          avatar: `${serverBaseUrl}/room/pong_table.png`,
+          avatar: `/public/rooms/pong_table.png`,
           members: {
             createMany: {
               data: [
