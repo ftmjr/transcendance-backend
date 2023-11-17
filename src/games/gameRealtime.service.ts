@@ -144,6 +144,9 @@ export class GameRealtimeService {
     newState: GameMonitorState,
   ) {
     if (gameSession.state === newState) return;
+    // only players can change the state of the game
+    const gamer = gameSession.participants.find((g) => g.userId === userId);
+    if (!gamer) return;
     this.setGamerMonitorState(gameSession, userId, newState);
     switch (newState) {
       case GameMonitorState.Ready:
