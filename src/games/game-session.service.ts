@@ -80,7 +80,7 @@ export class GameSessionService {
         `Tu as été defié par <a href="/users/show/${host.id}">${host.username}</a> pour une partie privée,
           max score: ${rules.maxScore} points.`,
       );
-      return selectSessionDataForFrontend(session);
+      return session;
     } else {
       const existingGameSession = this.findGameSessionByHostIdAndType(
         host.id,
@@ -118,9 +118,9 @@ export class GameSessionService {
       this.notificationService.createHasJoinedGameNotification(
         availableGameSession.hostId,
         availableGameSession.gameId,
-        `<a href="/users/show/${user.id}">${user.username}</a> a été ajouté à la partie`,
+        `@${user.username} a été ajouté à la partie`,
       );
-      return availableGameSession;
+      return selectSessionDataForFrontend(availableGameSession);
     } else {
       return this.startAGameSession({ againstBot: false }, user);
     }
@@ -373,7 +373,7 @@ export class GameSessionService {
     participants: Gamer[],
     type: GameSessionType,
     rules: GameRules = { maxScore: 5, maxTime: 300 },
-  ): Promise<GameSession> {
+  ): Promise<GameSessionShort> {
     const monitors = Array<GameMonitorState>(participants.length).fill(
       GameMonitorState.Waiting,
     );
@@ -399,7 +399,7 @@ export class GameSessionService {
       rules,
     };
     this.gameSessions.set(game.id, gameSession);
-    return gameSession;
+    return selectSessionDataForFrontend(gameSession);
   }
 
   async createAGame(
