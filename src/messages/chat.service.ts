@@ -37,57 +37,77 @@ export class ChatService {
     const ownerId = info.ownerId;
     return this.repository.createRoom({ data }, ownerId);
   }
-  async addUserToARoom(
-    info: { roomId: number; userId: number; password?: string },
-    actorId: number,
-  ) {
+  async addUserToARoom(info: {
+    roomId: number;
+    userId: number;
+    password?: string;
+  }) {
     const room = await this.getRoom({ roomId: info.roomId });
     if (!room) {
       throw new NotFoundException(`Salle de chat introuvable`);
     }
-    if (room.type === RoomType.PRIVATE) {
-      // only admin and owner can add member to private room
-      this.checkIfCanActInTheRoom(actorId, room, [Role.OWNER, Role.ADMIN]);
-    } else if (room.type === RoomType.PROTECTED) {
-      // anyone can join a protected room, if they have the password
-      if (!info.password) {
-        throw new UnauthorizedException(
-          `Vous devez fournir un mot de passe pour rejoindre cette salle de chat`,
-        );
-      }
+
+    // // private room can only be joined by invited user
+    // if (room.type === RoomType.PRIVATE) {
+    //   // only admin and owner can add member to private room
+    //   this.checkIfCanActInTheRoom(actorId, room, [Role.OWNER, Role.ADMIN]);
+    // }
+
+    // need to provide the password if a room as a password
+    if (room.password && !info.password) {
+      throw new ForbiddenException(`Mot de passe requis`);
+    } else if (room.password && info.password) {
       if (!(await argon.verify(room.password, info.password))) {
         throw new ForbiddenException(`Mot de passe incorrect`);
       }
     }
+    // check if user is already a member
+    room.members.forEach((member) => {
+      if (member.memberId === info.userId) {
+        throw new UnauthorizedException(`Vous êtes déjà membre de cette salle`);
+      }
+    });
+    return this.addMemberToRoom(info.roomId, info.userId, Role.USER, room.name);
+  }
+
+  async addMemberToRoom(
+    roomId: number,
+    userId: number,
+    role: Role,
+    roomName: string,
+  ): Promise<ChatRoomMember> {
     try {
-      const newMember = await this.repository.joinRoom(
-        info.userId,
-        info.roomId,
-        Role.USER,
-      );
-      await this.notificationService.createChatJoinNotification(
-        newMember.memberId,
-        room.id,
-        `Vous avez été ajouté à la salle de chat ${room.name}`,
+      const newMember = await this.repository.joinRoom(userId, roomId, role);
+      this.notificationService.createChatJoinNotification(
+        userId,
+        roomId,
+        `Vous avez été ajouté à la salle de chat ${roomName}`,
       );
       return newMember;
     } catch (e) {
-      throw new Error('Failed to add user to room');
+      throw new UnauthorizedException(
+        'Impossible de rejoindre la salle de chat, pour cet utilisateur',
+      );
     }
   }
 
   // return true or throw error
   async canListenToRoom(roomId: number, userId: number) {
-    const room = await this.getRoom({ roomId });
-    if (room.type === RoomType.PRIVATE || room.type === RoomType.PROTECTED) {
-      this.checkIfCanActInTheRoom(userId, room, [
-        Role.OWNER,
-        Role.ADMIN,
-        Role.USER,
-        Role.MUTED,
-      ]);
+    try {
+      const room = await this.getRoom({ roomId });
+      if (room.type === RoomType.PRIVATE || room.type === RoomType.PROTECTED) {
+        this.checkIfCanActInTheRoom(userId, room, [
+          Role.OWNER,
+          Role.ADMIN,
+          Role.USER,
+          Role.MUTED,
+          Role.BAN,
+        ]);
+      }
+      return true;
+    } catch (e) {
+      return false;
     }
-    return true;
   }
 
   // Return PUBLIC and PROTECTED rooms

@@ -44,14 +44,11 @@ export class ChatController {
     @Param('roomId', ParseIntPipe) roomId: number,
     @Body() joinRoomDto: JoinRoomDto,
   ) {
-    const actorId = req.user.id; // replace with actual actorId
-    return this.service.addUserToARoom(
-      {
-        roomId,
-        ...joinRoomDto,
-      },
-      actorId,
-    );
+    // const actorId = req.user.id; // replace with actual actorId
+    return this.service.addUserToARoom({
+      roomId,
+      ...joinRoomDto,
+    });
   }
 
   @UseGuards(AuthenticatedGuard)

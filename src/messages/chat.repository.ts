@@ -71,7 +71,7 @@ export class ChatRepository {
     where: Prisma.ChatRoomWhereUniqueInput;
   }): Promise<ChatRoom> {
     const { where } = params;
-    return this.prisma.chatRoom.findUnique({
+    return this.prisma.chatRoom.findFirst({
       where,
     });
   }
@@ -136,12 +136,12 @@ export class ChatRepository {
   }
 
   async getChatRoomMember(
-    memberId: User[`id`],
+    userId: User[`id`],
     roomId: ChatRoom[`id`],
   ): Promise<MemberRoomWithUserProfiles> {
     return this.prisma.chatRoomMember.findFirst({
       where: {
-        memberId: memberId,
+        memberId: userId,
         chatroomId: roomId,
       },
       include: {
