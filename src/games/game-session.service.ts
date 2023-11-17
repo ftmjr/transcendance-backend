@@ -263,9 +263,7 @@ export class GameSessionService {
     if (!gameSession) {
       throw new NotFoundException("Game session doesn't exist");
     }
-    if (gameSession.hostId !== userId) {
-      throw new UnauthorizedException('User is not the host');
-    }
+    if (gameSession.hostId !== userId) return;
     this.deleteGameSession(gameId);
   }
 

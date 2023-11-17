@@ -105,6 +105,7 @@ export class GameRealtimeService {
 
   handleSocketDisconnection(clientId: string) {
     // find game session where client is a player
+    this.gameSessionService.cleanGameSessions();
     const gameSessions =
       this.gameSessionService.getAllGameSessionsByClientId(clientId);
     if (gameSessions.length === 0) return [];
@@ -119,16 +120,14 @@ export class GameRealtimeService {
         (g) => g.clientId === clientId,
       );
       if (!gamer) continue;
-      if (gameSession.type !== GameSessionType.Bot) {
-        gameSession.eventsToPublishInRoom.push({
-          event: GAME_EVENTS.PlayerLeft,
-          data: {
-            roomId: gameSession.gameId,
-            data: gamer,
-          },
-        });
-      }
-      if (gameSession.state >= GameMonitorState.Ready) {
+      gameSession.eventsToPublishInRoom.push({
+        event: GAME_EVENTS.PlayerLeft,
+        data: {
+          roomId: gameSession.gameId,
+          data: gamer,
+        },
+      });
+      if (gameSession.state > GameMonitorState.Ready) {
         this.writeGameHistory(
           GameEvent.PLAYER_LEFT,
           gamer.userId,

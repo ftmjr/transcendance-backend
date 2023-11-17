@@ -103,7 +103,7 @@ export class GamesController {
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @Delete('/sessions')
+  @Delete('sessions')
   @ApiOperation({ summary: 'Delete a game session' })
   @ApiResponse({
     status: 200,
