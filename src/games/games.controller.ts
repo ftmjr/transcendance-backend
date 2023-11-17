@@ -19,7 +19,7 @@ import {
 import { GamesService } from './games.service';
 import { CreateGameSessionDto } from './dto';
 import { AuthenticatedGuard } from '../auth/guards';
-import { GameSessionService } from './game-session.service';
+import { GameSessionService, GameSessionShort } from './game-session.service';
 import { GameSession } from './interfaces';
 import { RequestWithUser } from '../users/users.controller';
 
@@ -42,7 +42,7 @@ export class GamesController {
   async startGameSession(
     @Body() createGameSessionDto: CreateGameSessionDto,
     @Req() req: RequestWithUser,
-  ): Promise<GameSession> {
+  ): Promise<GameSessionShort> {
     const user = req.user;
     return this.gameSessionService.startAGameSession(
       createGameSessionDto,
@@ -92,7 +92,7 @@ export class GamesController {
   })
   async getAllGameSessions(
     @Req() req: RequestWithUser,
-  ): Promise<GameSession[]> {
+  ): Promise<GameSessionShort[]> {
     try {
       const user = req.user;
       return this.gameSessionService.getUserGameSessions(user.id);
@@ -122,7 +122,7 @@ export class GamesController {
   @Post('/join-queue')
   @ApiOperation({ summary: 'Join the game session queue' })
   @ApiResponse({ status: 200, description: 'Joined the queue successfully.' })
-  async joinQueue(@Req() req: RequestWithUser): Promise<GameSession> {
+  async joinQueue(@Req() req: RequestWithUser): Promise<GameSessionShort> {
     const user = req.user;
     return this.gameSessionService.joinQueue(user);
   }
@@ -152,7 +152,7 @@ export class GamesController {
     @Param('userId', ParseIntPipe) userId: number,
   ): Promise<{
     status: 'playing' | 'inQueue' | 'free';
-    gameSession?: GameSession;
+    gameSession?: GameSessionShort;
   }> {
     const user = req.user;
     return this.gameSessionService.getUserGameStatus(userId, user);
@@ -172,7 +172,7 @@ export class GamesController {
   ): Promise<
     {
       status: 'playing' | 'inQueue' | 'free';
-      gameSession?: GameSession;
+      gameSession?: GameSessionShort;
     }[]
   > {
     const user = req.user;

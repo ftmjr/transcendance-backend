@@ -17,6 +17,28 @@ import { GamesService } from './games.service';
 import { NotificationService } from '../notifications/notification.service';
 import { UsersService } from '../users/users.service';
 
+export interface GameSessionShort
+  extends Omit<
+    GameSession,
+    'score' | 'state' | 'monitors' | 'eventsToPublishInRoom' | 'gameEngine'
+  > {
+  participants: Gamer[];
+  observers: Gamer[];
+}
+
+function selectSessionDataForFrontend(
+  gameSession: GameSession,
+): GameSessionShort {
+  return {
+    gameId: gameSession.gameId,
+    hostId: gameSession.hostId,
+    type: gameSession.type,
+    participants: gameSession.participants.slice(),
+    observers: gameSession.observers.slice(),
+    rules: gameSession.rules,
+  };
+}
+
 @Injectable()
 export class GameSessionService {
   private gameSessions: Map<number, GameSession> = new Map();
@@ -29,7 +51,7 @@ export class GameSessionService {
   async startAGameSession(
     data: CreateGameSessionDto,
     host: User,
-  ): Promise<GameSession> {
+  ): Promise<GameSessionShort> {
     const hostGamer = this.createGamer(
       host.id,
       host.username,
@@ -58,20 +80,20 @@ export class GameSessionService {
         `Tu as été defié par <a href="/users/show/${host.id}">${host.username}</a> pour une partie privée,
           max score: ${rules.maxScore} points.`,
       );
-      return session;
+      return selectSessionDataForFrontend(session);
     } else {
       const existingGameSession = this.findGameSessionByHostIdAndType(
         host.id,
         GameSessionType.QueListGame,
       );
       if (existingGameSession) {
-        return existingGameSession;
+        return selectSessionDataForFrontend(existingGameSession);
       }
       return this.createGameSession([hostGamer], GameSessionType.QueListGame);
     }
   }
 
-  async joinQueue(user: User): Promise<GameSession> {
+  async joinQueue(user: User): Promise<GameSessionShort> {
     // check if user is already in a game session
     const userGameStatus = this.getUserGameStatus(user.id, user);
     if (userGameStatus.status === 'playing') {
@@ -176,7 +198,7 @@ export class GameSessionService {
     this.notificationService.createGameInviteRejectedNotification(
       gameSession.hostId,
       gameId,
-      `L'invitation a été rejete par ${user.username}</a>`,
+      `L'invitation a été rejete par ${user.username}`,
     );
 
     if (gameSession.participants.length === 1) {
@@ -184,18 +206,16 @@ export class GameSessionService {
     }
   }
 
-  async getUserGameSessions(userId: number): Promise<GameSession[]> {
-    const userGameSessions: GameSession[] = [];
-
+  async getUserGameSessions(userId: number): Promise<GameSessionShort[]> {
+    const userGameSessions: GameSessionShort[] = [];
     this.gameSessions.forEach((gameSession) => {
       const isParticipant = gameSession.participants.some(
         (participant) => participant.userId === userId,
       );
       if (isParticipant) {
-        userGameSessions.push(gameSession);
+        userGameSessions.push(selectSessionDataForFrontend(gameSession));
       }
     });
-
     return userGameSessions;
   }
 
@@ -204,7 +224,7 @@ export class GameSessionService {
     checker: User,
   ): {
     status: 'playing' | 'inQueue' | 'free';
-    gameSession?: GameSession;
+    gameSession?: GameSessionShort;
   } {
     const toDelete = [];
     for (const gameSession of this.gameSessions.values()) {
@@ -220,7 +240,10 @@ export class GameSessionService {
       );
       if (participant) {
         const status = this.isPlaying(gameSession) ? 'playing' : 'inQueue';
-        return { status, gameSession };
+        return {
+          status,
+          gameSession: selectSessionDataForFrontend(gameSession),
+        };
       }
     }
     for (const gameId of toDelete) {
@@ -246,11 +269,11 @@ export class GameSessionService {
     checker: User,
   ): {
     status: 'playing' | 'inQueue' | 'free';
-    gameSession?: GameSession;
+    gameSession?: GameSessionShort;
   }[] {
     const statuses: {
       status: 'playing' | 'inQueue' | 'free';
-      gameSession?: GameSession;
+      gameSession?: GameSessionShort;
     }[] = [];
     for (const userId of userIds) {
       statuses.push(this.getUserGameStatus(userId, checker));
