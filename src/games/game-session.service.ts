@@ -283,9 +283,7 @@ export class GameSessionService {
 
   async deleteGameSessionByUser(gameId: number, userId: number): Promise<void> {
     const gameSession = this.gameSessions.get(gameId);
-    if (!gameSession) {
-      throw new NotFoundException("Game session doesn't exist");
-    }
+    if (!gameSession) return;
     if (gameSession.hostId !== userId) return;
     this.deleteGameSession(gameId);
   }
