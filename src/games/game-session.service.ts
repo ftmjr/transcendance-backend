@@ -126,6 +126,26 @@ export class GameSessionService {
     }
   }
 
+  async addViewerToGameSessionHttp(
+    gameId: number,
+    user: Pick<User, 'id' | 'username'> & { clientId?: string },
+  ) {
+    const gameSession = this.gameSessions.get(gameId);
+    if (!gameSession) {
+      throw new NotFoundException('Game session not found');
+    }
+    const viewer = gameSession.observers.find((g) => g.userId === user.id);
+    if (viewer) return gameSession;
+    await this.gameService.addObserver(gameId, user.id).then((game) => {
+      gameSession.observers.push({
+        userId: user.id,
+        username: user.username,
+        clientId: user.clientId ?? '',
+      });
+    });
+    return selectSessionDataForFrontend(gameSession);
+  }
+
   async addViewerToGameSession(
     gameId: number,
     user: Pick<User, 'id' | 'username'> & { clientId?: string },

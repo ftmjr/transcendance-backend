@@ -190,8 +190,8 @@ export class GamesController {
   async watchGame(
     @Req() req: RequestWithUser,
     @Param('gameId', ParseIntPipe) gameId: number,
-  ): Promise<GameSession> {
-    return this.gameSessionService.addViewerToGameSession(gameId, req.user);
+  ): Promise<GameSessionShort> {
+    return this.gameSessionService.addViewerToGameSessionHttp(gameId, req.user);
   }
 
   @ApiBearerAuth()
