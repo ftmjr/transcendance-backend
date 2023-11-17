@@ -146,10 +146,13 @@ export class GameSessionService {
     return gameSession;
   }
 
-  async acceptGameInvitation(gameId: number, user: User): Promise<GameSession> {
+  async acceptGameInvitation(
+    gameId: number,
+    user: User,
+  ): Promise<GameSessionShort> {
     const gameSession = this.gameSessions.get(gameId);
     if (!gameSession) {
-      throw new Error('Game session not found');
+      throw new NotFoundException(`La session de jeu n'existe pas/plus`);
     }
 
     // Check if the user is already a participant
@@ -173,7 +176,7 @@ export class GameSessionService {
       gameId,
       `${user.username} a accepter ton challenge, allons-y`,
     );
-    return gameSession;
+    return selectSessionDataForFrontend(gameSession);
   }
 
   async refuseGameInvitation(gameId: number, user: User): Promise<void> {
