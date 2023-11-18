@@ -38,7 +38,7 @@ async function main() {
         create: {
           name: 'Attack on Pong land',
           type: 'PUBLIC',
-          avatar: `/public/rooms/fortnite.jpg`,
+          avatar: `/rooms/fortnite.jpg`,
           members: {
             createMany: {
               data: [
@@ -60,7 +60,7 @@ async function main() {
         create: {
           name: 'Pongistes',
           type: 'PUBLIC',
-          avatar: `/public/rooms/pong_table.png`,
+          avatar: `/rooms/pong_table.png`,
           members: {
             createMany: {
               data: [
