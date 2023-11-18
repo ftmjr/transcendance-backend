@@ -513,6 +513,7 @@ export class UsersService {
       },
     });
   }
+
   async getUsersOrderedByWins(params: { skip: number; take: number }) {
     const users = await this.repository.getUsersOrderedByWins(params);
     const usersNoPasswords = users.map((user) => exclude(user, ['password']));
@@ -523,19 +524,20 @@ export class UsersService {
       const loss = user.gameHistories.filter(
         (history) => history.event === GameEvent.MATCH_LOST,
       ).length;
-      const score = wins; // Only consider wins for score
+      const score = { wins, loss };
       return { ...user, score };
     });
+
     return usersWithScore.sort((a, b) => {
-      // Sort by wins, and if tied, then by total score
-      if (b.score !== a.score) {
-        return b.score - a.score;
+      // Sort by wins, and if tied, then by fewer losses
+      if (b.score.wins !== a.score.wins) {
+        return b.score.wins - a.score.wins; // Sort by wins
       } else {
-        return b.score - a.score;
+        return a.score.loss - b.score.loss; // If wins are tied, sort by fewer losses
       }
     });
   }
-
+  
   async getAppStatistics() {
     const stats = await this.repository.getStats();
     return stats;
