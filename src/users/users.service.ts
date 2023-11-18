@@ -238,6 +238,13 @@ export class UsersService {
     return BlockedStatus.None;
   }
 
+  async checkBlockedForMany(userId, ids: number[]): Promise<BlockedStatus[]>{
+    const blockedStatuses = await Promise.all(
+      ids.map((id) => this.checkBlocked(userId, id)),
+    );
+    return blockedStatuses;
+  }
+
   // Return a user without password if found
   async getUserWithData(params: Partial<User>): Promise<UserWithData | null> {
     const user = await this.repository.getUsers({

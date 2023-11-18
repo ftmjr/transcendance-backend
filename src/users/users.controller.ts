@@ -1,4 +1,5 @@
 import {
+  Body,
   ConflictException,
   Controller,
   Delete,
@@ -199,6 +200,22 @@ export class UsersController {
     @Param('id', ParseIntPipe) id: number,
   ) {
     return await this.usersService.checkBlocked(req.user.id, id);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Post('check-blocked')
+  @ApiOperation({
+    summary: 'Check blocked status for a list of users',
+    description: `
+      - return the blocked status for a list of users
+    `,
+  })
+  async checkBlockedForGroup(
+    @Request() req: RequestWithUser,
+    @Body() { userIds }: { userIds: number[] },
+  ) {
+    return await this.usersService.checkBlockedForMany(req.user.id, userIds);
   }
 
   @ApiBearerAuth()
