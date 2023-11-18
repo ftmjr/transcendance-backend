@@ -54,7 +54,7 @@ export enum BlockedStatus {
 }
 
 export function getRandomAvatarUrl(): string {
-  const serverBaseUrl = '/api/uploads';
+  const serverBaseUrl = '/uploads';
   const list = [
     'randomAvatars/icons8-bart-simpson-500.png',
     'randomAvatars/icons8-batman-500.png',

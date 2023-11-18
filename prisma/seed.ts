@@ -4,40 +4,9 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-const serverBaseUrl = '/api/uploads';
+const serverBaseUrl = '/uploads';
 async function main() {
   try {
-    const awardPromises = [
-      prisma.award.upsert({
-        where: { id: 1 },
-        update: {},
-        create: {
-          name: 'Premier but',
-          description: 'Tu as mis ton premier but, bravo !',
-          image: `${serverBaseUrl}/awards/revolver.png`,
-        },
-      }),
-      prisma.award.upsert({
-        where: { id: 2 },
-        update: {},
-        create: {
-          name: 'Premier defis gagné',
-          description: 'Félicitation pour ton premier défi gagné !',
-          image: `${serverBaseUrl}/awards/boxing-glove.png`,
-        },
-      }),
-      prisma.award.upsert({
-        where: { id: 3 },
-        update: {},
-        create: {
-          name: 'The Winner',
-          description: 'Tu as gagné tes 5 premiers match, bravo !',
-          image: `${serverBaseUrl}/awards/swords-power.png`,
-        },
-      }),
-    ];
-    await Promise.all(awardPromises);
-
     const usersPassword = await argon.hash('NotSecure1234');
     const userPromises = Array(15)
       .fill(null)
