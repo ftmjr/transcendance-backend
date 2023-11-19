@@ -135,7 +135,7 @@ export class GameSessionService {
       throw new NotFoundException('Game session not found');
     }
     const viewer = gameSession.observers.find((g) => g.userId === user.id);
-    if (viewer) return gameSession;
+    if (viewer) return selectSessionDataForFrontend(gameSession);
     await this.gameService.addObserver(gameId, user.id).then((game) => {
       gameSession.observers.push({
         userId: user.id,
