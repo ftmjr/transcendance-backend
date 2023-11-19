@@ -120,13 +120,15 @@ export class GameRealtimeService {
         (g) => g.clientId === clientId,
       );
       if (!gamer) continue;
-      gameSession.eventsToPublishInRoom.push({
-        event: GAME_EVENTS.PlayerLeft,
-        data: {
-          roomId: gameSession.gameId,
-          data: gamer,
-        },
-      });
+      if (gameSession.type !== GameSessionType.Bot) {
+        gameSession.eventsToPublishInRoom.push({
+          event: GAME_EVENTS.PlayerLeft,
+          data: {
+            roomId: gameSession.gameId,
+            data: gamer,
+          },
+        });
+      }
       if (gameSession.state > GameMonitorState.Ready) {
         this.writeGameHistory(
           GameEvent.PLAYER_LEFT,

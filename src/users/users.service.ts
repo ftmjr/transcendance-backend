@@ -238,7 +238,7 @@ export class UsersService {
     return BlockedStatus.None;
   }
 
-  async checkBlockedForMany(userId, ids: number[]): Promise<BlockedStatus[]>{
+  async checkBlockedForMany(userId, ids: number[]): Promise<BlockedStatus[]> {
     const blockedStatuses = await Promise.all(
       ids.map((id) => this.checkBlocked(userId, id)),
     );

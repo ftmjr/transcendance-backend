@@ -235,7 +235,7 @@ export class GameSessionService {
       const isParticipant = gameSession.participants.some(
         (participant) => participant.userId === userId,
       );
-      if (isParticipant) {
+      if (isParticipant && gameSession.state !== GameMonitorState.Ended) {
         userGameSessions.push(selectSessionDataForFrontend(gameSession));
       }
     });
