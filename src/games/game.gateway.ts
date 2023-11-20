@@ -56,7 +56,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @ConnectedSocket() client: Socket,
   ): Promise<{ worked: boolean; roomId: number }> {
     try {
-      console.log('joined', joinData);
       if (joinData.userType === GameUserType.Player) {
         const gameSession = this.gameRealtimeService.clientPlayerConnected(
           joinData.roomId,
@@ -84,7 +83,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
             joinData,
             client.id,
           );
-        console.log('connected as viewer');
         const roomName = `${joinData.roomId}`;
         const rooms = Object.keys(client.rooms);
         if (!rooms.includes(roomName)) {

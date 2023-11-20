@@ -260,6 +260,13 @@ export class GameRealtimeService {
     if (needToEnd.stop) {
       this.handleGameEnding(gameSession, needToEnd.winnerId);
       gameSession.gameEngine.pauseLoop();
+      gameSession.eventsToPublishInRoom.push({
+        event: GAME_EVENTS.GameStateChanged,
+        data: {
+          roomId: gameSession.gameId,
+          data: GameMonitorState.Ended,
+        },
+      });
     }
   }
 
