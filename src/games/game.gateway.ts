@@ -54,6 +54,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() joinData: JoinGameEvent,
     @ConnectedSocket() client: Socket,
   ): Promise<{ worked: boolean; roomId: number }> {
+    console.log('joined', joinData);
     if (joinData.userType === GameUserType.Player) {
       const gameSession = this.gameRealtimeService.clientPlayerConnected(
         joinData.roomId,
@@ -61,12 +62,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.id,
         this,
       );
+      console.log('connected as player');
       const roomName = `${joinData.roomId}`;
       const rooms = Object.keys(client.rooms);
       if (!rooms.includes(roomName)) {
+        console.log('joined the room');
         client.join(roomName);
       }
+      console.log('pass joined room');
       this.handleGameEvents(gameSession);
+      console.log('pass event handled');
       return {
         worked: true,
         roomId: gameSession.gameId,
@@ -76,6 +81,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         joinData,
         client.id,
       );
+      console.log('connected as viewer');
       const roomName = `${joinData.roomId}`;
       const rooms = Object.keys(client.rooms);
       if (!rooms.includes(roomName)) {
@@ -83,6 +89,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
       await client.join(roomName);
       this.handleGameEvents(gameSession);
+      return {
+        worked: true,
+        roomId: gameSession.gameId,
+      };
     }
   }
 
@@ -157,8 +167,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
   ) {
     const { roomId, data } = received;
+    console.log('received, ball served', roomId, data);
     const gameSession = this.gameSessionService.getGameSession(roomId);
     if (!gameSession) return;
+    console.log('ball will be served', roomId, data);
     this.gameRealtimeService.handleBallServed(gameSession, data);
     this.handleGameEvents(gameSession);
   }
