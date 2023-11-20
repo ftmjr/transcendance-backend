@@ -183,7 +183,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       roomId,
       data,
     });
+    const gameSession = this.gameSessionService.getGameSession(roomId);
+    this.handleGameEvents(gameSession);
   }
+
   public sendScored(
     roomId: number,
     scores: Array<{ userId: number; score: number }>,
@@ -194,7 +197,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       data: scores,
     });
     const gameSession = this.gameSessionService.getGameSession(roomId);
-    if (!gameSession) return;
     this.handleGameEvents(gameSession);
   }
 }

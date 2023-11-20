@@ -17,7 +17,7 @@ export class NotificationService {
     private readonly notificationGateway: NotificationGateway,
   ) {}
 
-  async createGameNotification(
+  async createGameStartedNotification(
     userId: User[`id`],
     gameId: Game[`id`],
     message: string,
@@ -25,11 +25,33 @@ export class NotificationService {
     this.notificationRepository
       .createNotification({
         user: { connect: { id: userId } },
-        type: NotificationType.GAME_INVITE,
-        title: 'Game Invite',
+        type: NotificationType.GAME_EVENT,
+        title: 'Game Started',
         message: message,
         referenceId: gameId,
         expiresAt: new Date(Date.now() + 1000 * 60 * 5), // 5 minutes
+      })
+      .then((notification) => {
+        this.notificationGateway.sendNotificationToUser(userId, notification);
+      })
+      .catch((e) => {
+        console.error(e);
+      });
+  }
+
+  async createGameMatchedNotification(
+    userId: User[`id`],
+    gameId: Game[`id`],
+    message: string,
+  ): Promise<void> {
+    this.notificationRepository
+      .createNotification({
+        user: { connect: { id: userId } },
+        type: NotificationType.GAME_EVENT,
+        title: 'Game Matched',
+        message: message,
+        referenceId: gameId,
+        expiresAt: new Date(Date.now() + 1000 * 60 * 1), // 1 minutes
       })
       .then((notification) => {
         this.notificationGateway.sendNotificationToUser(userId, notification);
@@ -69,7 +91,7 @@ export class NotificationService {
         title: 'Challenge Accepted',
         message: message,
         referenceId: gameId,
-        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24), // 1 day
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 1), // 1h
       })
       .then((notification) => {
         this.notificationGateway.sendNotificationToUser(userId, notification);
