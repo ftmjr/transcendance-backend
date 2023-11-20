@@ -29,7 +29,7 @@ export class NotificationService {
         title: 'Game Started',
         message: message,
         referenceId: gameId,
-        expiresAt: new Date(Date.now() + 1000 * 60 * 5), // 5 minutes
+        expiresAt: new Date(Date.now() + 1000 * 60 * 2), // 2 minutes
       })
       .then((notification) => {
         this.notificationGateway.sendNotificationToUser(userId, notification);

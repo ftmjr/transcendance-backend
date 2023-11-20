@@ -403,6 +403,7 @@ export class GameSessionService {
           `Hello Tu as eu un adversaire dans la file, c'est ${adversary.username}`,
         );
       } else if (gameSession.type === GameSessionType.PrivateGame) {
+        console.log('notify adversary');
         this.notificationService.createGameStartedNotification(
           p.userId,
           gameSession.gameId,

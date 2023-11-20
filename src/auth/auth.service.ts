@@ -163,6 +163,7 @@ export class AuthService {
     ); // for the first login we sent  token that contain a 2FA flag
     await this.refreshSession(session.id, tokens.refreshToken, res);
     const userWithoutPassword = this.usersService.removePassword(user);
+    await this.usersService.changeStatus(user.id, Status.Online);
     return {
       accessToken: tokens.accessToken,
       user: userWithoutPassword,
