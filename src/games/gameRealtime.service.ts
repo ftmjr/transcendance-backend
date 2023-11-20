@@ -135,8 +135,16 @@ export class GameRealtimeService {
           data: gameSession.participants.find((p) => p.clientId === clientId),
         },
       });
+      gameSession.eventsToPublishInRoom.push({
+        event: GAME_EVENTS.GameStateChanged,
+        data: {
+          roomId: gameId,
+          data: GameMonitorState.Ended,
+        },
+      });
       // pause the game if it is not already paused
-      gameSession.gameEngine?.pauseLoop();
+      gameSession.gameEngine?.stopLoop();
+      gameSession.state = GameMonitorState.Ended;
     }
     return gameSessions;
   }
@@ -186,6 +194,7 @@ export class GameRealtimeService {
   }
 
   handlePlayerLeftGameWithGrace(gameSession: GameSession, userId: number) {
+    gameSession.state = GameMonitorState.Ended;
     const gamer = gameSession.participants.find((g) => g.userId === userId);
     if (!gamer) return;
     this.writeGameHistory(GameEvent.PLAYER_LEFT, userId, gameSession.gameId);
@@ -196,24 +205,20 @@ export class GameRealtimeService {
         data: gamer,
       },
     });
+    gameSession.eventsToPublishInRoom.push({
+      event: GAME_EVENTS.GameStateChanged,
+      data: {
+        roomId: gameSession.gameId,
+        data: GameMonitorState.Ended,
+      },
+    });
     // remove the gamer from the game session
     gameSession.participants = gameSession.participants.filter(
       (g) => g.userId !== userId,
     );
     // if one player stays we set him as the winner and end the game
-    if (
-      gameSession.participants.length === 1 &&
-      gameSession.participants[0].userId !== 0
-    ) {
+    if (gameSession.participants.length === 1) {
       this.handleGameEnding(gameSession, gameSession.participants[0].userId);
-    } else {
-      gameSession.eventsToPublishInRoom.push({
-        event: GAME_EVENTS.GameStateChanged,
-        data: {
-          roomId: gameSession.gameId,
-          data: GameMonitorState.Ended,
-        },
-      });
     }
   }
 
@@ -300,13 +305,6 @@ export class GameRealtimeService {
         gameSession.gameId,
       );
     }
-    gameSession.eventsToPublishInRoom.push({
-      event: GAME_EVENTS.GameMonitorStateChanged,
-      data: {
-        roomId: gameSession.gameId,
-        data: GameMonitorState.Ended,
-      },
-    });
   }
 
   private createEngine(gameSession: GameSession, gameGateway: GameGateway) {

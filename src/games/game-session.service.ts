@@ -400,13 +400,13 @@ export class GameSessionService {
         this.notificationService.createGameMatchedNotification(
           p.userId,
           gameSession.gameId,
-          `Tu as eu un adversaire dans la file, ${adversary.username}`,
+          `Hello Tu as eu un adversaire dans la file, c'est ${adversary.username}`,
         );
-      } else {
+      } else if (gameSession.type === GameSessionType.PrivateGame) {
         this.notificationService.createGameStartedNotification(
           p.userId,
           gameSession.gameId,
-          `La partie vient de commencer ton adversaire est ${adversary.username}`,
+          `La partie vient de commencer ton adversaire, a accepter ton est ${adversary.username}`,
         );
       }
     });
