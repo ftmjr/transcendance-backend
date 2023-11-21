@@ -8,19 +8,21 @@ import {
 import { Server, Socket } from 'socket.io';
 import { User, Notification as NotificationT } from '@prisma/client';
 import { RealTimeNotification } from './notification.service';
+import { Logger } from '@nestjs/common';
 
 @WebSocketGateway({ namespace: 'notification' })
 export class NotificationGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
+  private readonly logger = new Logger(NotificationGateway.name);
   @WebSocketServer() server: Server;
 
   handleConnection(client: Socket, ...args: any[]) {
-    // console.log(`Client connected on notification : ${client.id}`);
+    this.logger.log(`Client connected on notification: ${client.id}`);
   }
 
   handleDisconnect(client: Socket) {
-    // console.log(`Client disconnected on notification : ${client.id}`);
+    this.logger.log(`Client disconnected of notification: ${client.id}`);
   }
 
   @SubscribeMessage('join')
@@ -33,7 +35,7 @@ export class NotificationGateway
 
   @SubscribeMessage('join-room')
   handleJoinRoom(client: Socket, roomId: string) {
-    const room = `room:${roomId}`;
+    const room = `room-notification:${roomId}`;
     // check if client has already joined the room
     const rooms = Object.keys(client.rooms);
     if (!rooms.includes(room)) client.join(room);
@@ -41,7 +43,7 @@ export class NotificationGateway
 
   @SubscribeMessage('leave-room')
   handleLeaveRoom(client: Socket, roomId: string) {
-    const room = `room:${roomId}`;
+    const room = `room-notification:${roomId}`;
     // check if client has already joined the room
     const rooms = Object.keys(client.rooms);
     if (rooms.includes(room)) client.leave(room);
@@ -68,7 +70,7 @@ export class NotificationGateway
     roomId: number,
     notification: RealTimeNotification,
   ) {
-    const room = `room:${roomId}`;
+    const room = `room-notification:${roomId}`;
     this.server.to(room).emit('realtime-notification', notification);
   }
 }
