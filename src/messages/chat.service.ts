@@ -19,7 +19,7 @@ export class ChatService {
     private repository: ChatRepository,
     private usersService: UsersService,
     private notificationService: NotificationService,
-  ) {}
+  ) { }
 
   async createRoom(info: CreateRoomDto) {
     if (info.type === RoomType.PROTECTED && !info.password) {
@@ -114,6 +114,7 @@ export class ChatService {
   async getPublicRooms(): Promise<ChatRoomWithMembers[]> {
     return this.repository.getPublicRooms();
   }
+
   async sendMessageToRoom(roomId: number, content: string, senderId: number) {
     const room = await this.getRoom({ roomId });
     this.checkIfCanActInTheRoom(senderId, room, [
@@ -136,7 +137,7 @@ export class ChatService {
     if (owner.memberId === userId) {
       throw new UnauthorizedException('You cannot promote yourself');
     }
-    const member = this.checkIfCanActInTheRoom(actorId, room, [
+    const member = this.checkIfCanActInTheRoom(userId, room, [
       Role.MUTED,
       Role.BAN,
       Role.USER,
@@ -161,6 +162,7 @@ export class ChatService {
         Role.MUTED,
         Role.BAN,
         Role.USER,
+        Role.ADMIN,
       ]);
       return this.repository.updateChatRoomMember({
         where: { id: member.id },
@@ -322,6 +324,12 @@ export class ChatService {
     info: { skip?: number; take?: number },
   ) {
     const room = await this.getRoom({ roomId });
+    if (room.type === RoomType.PUBLIC) {
+      return this.repository.getRoomMessages(roomId, {
+        skip: info.skip,
+        take: info.take,
+      });
+    }
     this.checkIfCanActInTheRoom(userId, room, [
       Role.OWNER,
       Role.ADMIN,
