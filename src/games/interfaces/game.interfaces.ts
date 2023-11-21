@@ -51,3 +51,11 @@ export interface GameSession {
   gameEngine?: GameEngine;
   rules: GameRules;
 }
+
+export interface WaitingGameSession {
+  waitingGameId: number;
+  hostId: number;
+  type: GameSessionType.PrivateGame | GameSessionType.QueListGame;
+  participants: Gamer[];
+  rules: GameRules;
+}

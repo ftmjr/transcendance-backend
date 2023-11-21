@@ -163,6 +163,7 @@ export class AuthService {
     ); // for the first login we sent  token that contain a 2FA flag
     await this.refreshSession(session.id, tokens.refreshToken, res);
     const userWithoutPassword = this.usersService.removePassword(user);
+    await this.usersService.changeStatus(user.id, Status.Online);
     return {
       accessToken: tokens.accessToken,
       user: userWithoutPassword,
@@ -300,7 +301,7 @@ export class AuthService {
       },
     };
     const tokens = await Promise.all([
-      this.jwtService.signAsync(payload, { expiresIn: '15m' }), // 15 minutes
+      this.jwtService.signAsync(payload, { expiresIn: '7m' }), // 7 minutes
       this.jwtService.signAsync(payload, { expiresIn: '7d' }), // 7 days
     ]);
 

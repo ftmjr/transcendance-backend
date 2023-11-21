@@ -263,7 +263,7 @@ export default class GameEngine {
   private timer: NodeJS.Timer;
   public timestamp = 0;
   private isLoopActive = false;
-  public state: EngineState = EngineState.RUNNING;
+  public state: EngineState = EngineState.PAUSED;
   private readonly frameRate = 60; // 60 frames per second
   private readonly timePerFrame = 1000 / this.frameRate;
   private lastToScore = 0;

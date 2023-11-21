@@ -8,6 +8,23 @@ import {
 import { ApiProperty } from '@nestjs/swagger';
 import { ManagedTheme } from '../interfaces';
 
+class OpponentDto {
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsInt()
+  userId: number;
+
+  @ApiProperty()
+  @IsNotEmpty()
+  @IsString()
+  username: string;
+
+  @ApiProperty()
+  @IsOptional()
+  @IsString()
+  avatar?: string;
+}
+
 export class GameRulesDto {
   @ApiProperty()
   @IsNotEmpty()
@@ -33,8 +50,7 @@ export class CreateGameSessionDto {
 
   @ApiProperty()
   @IsOptional()
-  @IsInt()
-  opponent?: number;
+  opponent?: OpponentDto;
 
   @ApiProperty()
   @IsOptional()
