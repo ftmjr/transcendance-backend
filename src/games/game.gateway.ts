@@ -43,7 +43,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!gameSessions) return;
       for (const gameSession of gameSessions) {
         this.handleGameEvents(gameSession);
-        this.gameSessionService.cleanGameSessions();
       }
     } catch (e) {
       console.log(e);
@@ -55,50 +54,38 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @MessageBody() joinData: JoinGameEvent,
     @ConnectedSocket() client: Socket,
   ): Promise<{ worked: boolean; roomId: number }> {
-    try {
-      if (joinData.userType === GameUserType.Player) {
-        const gameSession = this.gameRealtimeService.clientPlayerConnected(
-          joinData.roomId,
-          joinData.user.userId,
-          client.id,
-          this,
-        );
-        console.log('connected as player');
-        const roomName = `${joinData.roomId}`;
-        const rooms = Object.keys(client.rooms);
-        if (!rooms.includes(roomName)) {
-          console.log('joined the room');
-          client.join(roomName);
-        }
-        console.log('pass joined room');
-        this.handleGameEvents(gameSession);
-        console.log('pass event handled');
-        return {
-          worked: true,
-          roomId: gameSession.gameId,
-        };
-      } else {
-        const gameSession =
-          await this.gameRealtimeService.clientViewerConnected(
-            joinData,
-            client.id,
-          );
-        const roomName = `${joinData.roomId}`;
-        const rooms = Object.keys(client.rooms);
-        if (!rooms.includes(roomName)) {
-          client.join(roomName);
-        }
-        await client.join(roomName);
-        this.handleGameEvents(gameSession);
-        return {
-          worked: true,
-          roomId: gameSession.gameId,
-        };
+    if (joinData.userType === GameUserType.Player) {
+      const gameSession = this.gameRealtimeService.clientPlayerConnected(
+        joinData.roomId,
+        joinData.user.userId,
+        client.id,
+        this,
+      );
+      const roomName = `${joinData.roomId}`;
+      const rooms = Object.keys(client.rooms);
+      if (!rooms.includes(roomName)) {
+        client.join(roomName);
       }
-    } catch (e) {
+      this.handleGameEvents(gameSession);
       return {
-        worked: false,
-        roomId: 0,
+        worked: true,
+        roomId: gameSession.gameId,
+      };
+    } else {
+      const gameSession = await this.gameRealtimeService.clientViewerConnected(
+        joinData,
+        client.id,
+      );
+      const roomName = `${joinData.roomId}`;
+      const rooms = Object.keys(client.rooms);
+      if (!rooms.includes(roomName)) {
+        client.join(roomName);
+      }
+      await client.join(roomName);
+      this.handleGameEvents(gameSession);
+      return {
+        worked: true,
+        roomId: gameSession.gameId,
       };
     }
   }

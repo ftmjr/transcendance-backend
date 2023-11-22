@@ -36,7 +36,7 @@ export class GamesController {
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @Post('/start')
+  @Post('start')
   @ApiOperation({ summary: 'Start a new game session' })
   @ApiResponse({
     status: 200,
@@ -57,7 +57,21 @@ export class GamesController {
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @Post('/accept-invitation')
+  @Get('game-state/:gameId')
+  @ApiOperation({ summary: 'Get a game session state' })
+  @ApiResponse({
+    status: 200,
+    description: 'Game session state retrieved successfully.',
+  })
+  async getGameSessionState(
+    @Param('gameId', ParseIntPipe) gameId: number,
+  ): Promise<GameMonitorState> {
+    return this.gameSessionService.gameSessionState(gameId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Post('accept-invitation')
   @ApiOperation({ summary: 'Accept Invitation to a game' })
   @ApiResponse({
     status: 200,
@@ -73,7 +87,7 @@ export class GamesController {
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @Get('/is-valid-challenge/:challengeId')
+  @Get('is-valid-challenge/:challengeId')
   @ApiOperation({ summary: 'Check if a challenge is still valid' })
   @ApiResponse({
     status: 200,
@@ -103,16 +117,23 @@ export class GamesController {
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @Get('/quit-waiting-queue')
+  @Get('quit-waiting-queue')
   @ApiOperation({ summary: 'Quit waiting queue' })
   async quitWaitingQueue(@Req() req: RequestWithUser) {
     const user = req.user;
     return this.gameSessionService.quitWaitingRoom(user);
   }
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Get('show-waiting-queue')
+  @ApiOperation({ summary: 'Show waiting queue' })
+  async showWaitingQueue(@Req() req: RequestWithUser) {
+    return this.gameSessionService.showWaitingRoom();
+  }
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @Get('/watch-game/:gameId')
+  @Get('watch-game/:gameId')
   @ApiOperation({ summary: 'Watch a game' })
   @ApiResponse({
     status: 200,
@@ -127,7 +148,7 @@ export class GamesController {
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @Get('/is-someone-in-queue')
+  @Get('is-someone-in-queue')
   @ApiOperation({ summary: 'Check if someone is in queue' })
   @ApiResponse({
     status: 200,
@@ -171,7 +192,7 @@ export class GamesController {
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @Get('/history/:userId')
+  @Get('history/:userId')
   @ApiOperation({ summary: 'Get the game history of a user' })
   @ApiResponse({
     status: 200,
@@ -183,7 +204,7 @@ export class GamesController {
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @Get('/simple-history/:userId')
+  @Get('simple-history/:userId')
   @ApiOperation({ summary: 'Get the game simple history of a user' })
   @ApiResponse({
     status: 200,

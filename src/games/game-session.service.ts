@@ -2,7 +2,6 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import {
   GAME_EVENTS,
@@ -94,15 +93,22 @@ export class GameSessionService {
       '',
       true,
     );
+    const opponentUser = await this.userRepository.getUser({
+      id: data.opponent,
+    });
+    if (!opponentUser) throw new NotFoundException('Adversaire non trouvé');
     const opponent = this.createGamer(
-      data.opponent.userId,
-      data.opponent.username,
-      data.opponent.avatar ?? '',
+      opponentUser.id,
+      opponentUser.username,
+      opponentUser.profile.avatar ?? '',
       '',
       false,
     );
     const participants = [hostGamer, opponent];
-    const id = Date.now();
+    // get the biggest ids in keys of WaitingGameSession and use it to build id
+    const waitingListIds = Array.from(this.waitingChallenge.keys());
+    const r = Math.floor(Math.random() * 3);
+    const id = waitingListIds.length > 0 ? Math.max(...waitingListIds) + r : 1;
     const waitingGameSession: WaitingGameSession = {
       waitingGameId: id,
       hostId: hostGamer.userId,
@@ -113,7 +119,7 @@ export class GameSessionService {
     this.waitingChallenge.set(id, waitingGameSession);
     await this.notificationService.sendGameInvitation(
       host.username,
-      opponent.userId,
+      opponentUser.id,
       id,
     );
     return waitingGameSession;
@@ -183,7 +189,7 @@ export class GameSessionService {
       (p) => p.userId === actor.id,
     );
     if (!actorIsParticipant) {
-      throw new UnauthorizedException(
+      throw new BadRequestException(
         `Vous n'êtes pas un participant du challenge`,
       );
     }
@@ -226,7 +232,7 @@ export class GameSessionService {
       (p) => p.userId === actor.id,
     );
     if (!actorIsParticipant) {
-      throw new UnauthorizedException(
+      throw new BadRequestException(
         `Vous n'êtes pas un participant du challenge`,
       );
     }
