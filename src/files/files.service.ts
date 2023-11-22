@@ -11,7 +11,7 @@ export class FilesService {
     private chatService: ChatService,
   ) {}
   updateAvatarUrl(fileName: string, user: User) {
-    const serverBaseUrl = '/api';
+    const serverBaseUrl = '';
     const fileUrl = `${serverBaseUrl}/uploads/${fileName}`;
     return this.usersService.updateProfile({
       where: { userId: user.id },
@@ -28,13 +28,12 @@ export class FilesService {
     roomId: number,
     source: User,
   ): Promise<ChatRoomWithMembers> {
-    const serverBaseUrl = '/api';
+    const serverBaseUrl = '';
     const fileUrl = `${serverBaseUrl}/uploads/room/${fileName}`;
     return this.chatService.changeChatAvatar(roomId, source.id, fileUrl);
   }
 
   deleteCurrentUserAvatar(user: User) {
-    // TODO: delete the file from the server if  not in the default list
     return this.usersService.updateProfile({
       where: {
         userId: user.id,
@@ -46,7 +45,7 @@ export class FilesService {
   }
 
   getRandomAvatarUrl(): string {
-    const serverBaseUrl = '/api';
+    const serverBaseUrl = '/uploads';
     const list = [
       'randomAvatars/icons8-bart-simpson-500.png',
       'randomAvatars/icons8-batman-500.png',

@@ -163,6 +163,7 @@ export class AuthService {
     ); // for the first login we sent  token that contain a 2FA flag
     await this.refreshSession(session.id, tokens.refreshToken, res);
     const userWithoutPassword = this.usersService.removePassword(user);
+    await this.usersService.changeStatus(user.id, Status.Online);
     return {
       accessToken: tokens.accessToken,
       user: userWithoutPassword,
@@ -173,6 +174,9 @@ export class AuthService {
     refreshToken: string,
     res: Response,
   ): Promise<{ accessToken: string }> {
+    if (!refreshToken) {
+      throw new UnauthorizedException('No refresh token found');
+    }
     const isValid = this.jwtService.verify(refreshToken) as JwtPayload;
     if (!isValid) {
       throw new UnauthorizedException('Invalid credentials');
@@ -300,7 +304,7 @@ export class AuthService {
       },
     };
     const tokens = await Promise.all([
-      this.jwtService.signAsync(payload, { expiresIn: 60 * 500 }), // 5 minutes
+      this.jwtService.signAsync(payload, { expiresIn: '7m' }), // 7 minutes
       this.jwtService.signAsync(payload, { expiresIn: '7d' }), // 7 days
     ]);
 

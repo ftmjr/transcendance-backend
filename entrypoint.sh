@@ -6,9 +6,16 @@ npx prisma migrate deploy
 # Execute Prisma seed
 npx prisma db seed
 
-# set uploads folder permissions
+# Set uploads folder permissions
 chmod -R 777 /app/uploads
 
-echo "Executed Prisma deploy, initializing server..."
-
-exec "$@"
+# Check the BUILD_TYPE and execute appropriate command
+if [ "$BUILD_TYPE" = "production" ]; then
+  echo "Build code..."
+  yarn build
+  echo "Running production server..."
+  exec yarn start
+else
+  echo "Running development server..."
+  exec yarn start:dev
+fi

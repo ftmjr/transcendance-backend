@@ -195,9 +195,38 @@ export class FriendsRepository {
       },
     });
     if (request) {
-      return await this.prisma.contactRequest.delete({
+      return this.prisma.contactRequest.delete({
         where: {
           id: request.id,
+        },
+      });
+    }
+  }
+
+  async getBlockUser(userId: number, blockedUserId: number) {
+    return this.prisma.blockedUser.findFirst({
+      where: {
+        userId: userId,
+        blockedUserId: blockedUserId,
+      },
+    });
+  }
+
+  async blockUser(userId: number, blockedUserId: number) {
+    return this.prisma.blockedUser.create({
+      data: {
+        userId: userId,
+        blockedUserId: blockedUserId,
+      },
+    });
+  }
+
+  async unblockUser(userId: number, blockedUserId: number) {
+    const relation = await this.getBlockUser(userId, blockedUserId);
+    if (relation) {
+      return this.prisma.blockedUser.delete({
+        where: {
+          id: relation.id,
         },
       });
     }

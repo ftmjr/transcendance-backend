@@ -94,8 +94,8 @@ class Paddle {
   }
   updateAiPlayer(ballPosition: { x: number; y: number }) {
     if (this.id !== 0) return;
-    const min_position = 300;
-    const max_position = 1300;
+    const min_position = 400;
+    const max_position = 1280;
     // code to check if ball is in a surface between min_position and max_position
     if (ballPosition.x > min_position && ballPosition.x < max_position) {
       const speedArray = [
@@ -110,10 +110,10 @@ class Paddle {
       const randomSpeed =
         speedArray[Math.floor(Math.random() * speedArray.length)];
       const distance = ballPosition.y - this.body.y;
-      if (distance > 32) {
+      if (distance > 48) {
         this.body.setVelocityY(randomSpeed);
         return;
-      } else if (distance < -32) {
+      } else if (distance < -48) {
         this.body.setVelocityY(-randomSpeed);
         return;
       }
@@ -263,7 +263,7 @@ export default class GameEngine {
   private timer: NodeJS.Timer;
   public timestamp = 0;
   private isLoopActive = false;
-  public state: EngineState = EngineState.RUNNING;
+  public state: EngineState = EngineState.PAUSED;
   private readonly frameRate = 60; // 60 frames per second
   private readonly timePerFrame = 1000 / this.frameRate;
   private lastToScore = 0;
@@ -324,12 +324,20 @@ export default class GameEngine {
     this.physics.add.collider(
       this.ball.body,
       this.paddles[0].body,
-      this.handleBallPaddleCollision.bind(this),
+      // @ts-expect-error : no type for collide
+      (ballBody: Body, paddleBody: Body) => {
+        this.handleBallPaddleCollision(ballBody, paddleBody);
+        this.sendBallPaddleCollision(this.paddles[0].id);
+      },
     );
     this.physics.add.collider(
       this.ball.body,
       this.paddles[1].body,
-      this.handleBallPaddleCollision.bind(this),
+      // @ts-expect-error : no type for collide
+      (ballBody: Body, paddleBody: Body) => {
+        this.handleBallPaddleCollision(ballBody, paddleBody);
+        this.sendBallPaddleCollision(this.paddles[1].id);
+      },
     );
 
     // add two line to the left and right of the screen
@@ -367,10 +375,20 @@ export default class GameEngine {
   }
 
   private handleBallPaddleCollision(ballBody: Body, paddleBody: Body): void {
-    const yOffset = ballBody.y - paddleBody.y; // To DO
     // Adjust the ball's y-speed based on the yOffset
+    const yOffset = ballBody.y - paddleBody.y; // To DO
     const newVelocityY = ballBody.velocity.y + yOffset * 10;
     ballBody.setVelocityY(newVelocityY);
+    // add speed in x depending on speed of the paddle in y in absolute value
+    const paddleVelocityY = Math.abs(paddleBody.velocity.y);
+    // we need to add speed in the same direction of the ball
+    const ballVelocityX = ballBody.velocity.x;
+    // if ball is going to the left
+    if (ballVelocityX < 0) {
+      ballBody.setVelocityX(ballVelocityX - paddleVelocityY * 0.9);
+    } else {
+      ballBody.setVelocityX(ballVelocityX + paddleVelocityY * 0.9);
+    }
   }
 
   // return directly data with the correct direction so client can interpolate
@@ -413,6 +431,9 @@ export default class GameEngine {
       tick++;
       this.paddles.forEach((paddle) => paddle.applyDeceleration());
       this.sendNewGameStateToUsers();
+      if (this.state === EngineState.STOPPED) {
+        this.physics.destroy();
+      }
     }, this.timePerFrame);
 
     this.isLoopActive = true;
@@ -427,10 +448,16 @@ export default class GameEngine {
       clearInterval(this.timer);
       this.timer = null;
     }
-
-    this.physics.destroy();
     this.isLoopActive = false;
     this.state = EngineState.STOPPED;
+    // destroy after the loop is stopped
+    setTimeout(() => {
+      try {
+        this.physics?.destroy();
+      } catch (e) {
+        // do nothing
+      }
+    }, this.timePerFrame * 2);
   }
 
   /**
@@ -497,6 +524,10 @@ export default class GameEngine {
         this.roomId,
       );
     }
+  }
+
+  sendBallPaddleCollision(paddleId: number) {
+    this._gameGateway.sendBallPaddleCollision(paddleId, this.roomId);
   }
 
   private arrayOfPlayersWithScore(): { userId: number; score: number }[] {

@@ -11,9 +11,8 @@ import {
 } from './interfaces';
 import { GameEvent, GameHistory } from '@prisma/client';
 import { JoinGameEvent } from './dto';
-import GameEngine from './engine';
+import GameEngine, { EngineState } from './engine';
 import { GameGateway } from './game.gateway';
-import { session } from 'passport';
 
 @Injectable()
 export class GameRealtimeService {
@@ -58,6 +57,14 @@ export class GameRealtimeService {
         data: gameSession.state,
       },
     });
+    const scores = this.arrayOfPlayersWithScore(gameSession);
+    gameSession.eventsToPublishInRoom.push({
+      event: GAME_EVENTS.ScoreChanged,
+      data: {
+        roomId: gameId,
+        data: scores,
+      },
+    });
     this.createEngine(gameSession, gameGateway);
     return gameSession;
   }
@@ -66,7 +73,7 @@ export class GameRealtimeService {
     joinData: JoinGameEvent,
     clientId: string,
   ): Promise<GameSession> {
-    const { roomId, user } = joinData;
+    const { roomId } = joinData;
     const gameSession = this.gameSessionService.getGameSession(roomId);
     if (!gameSession) {
       throw new Error(`Game session with id ${roomId} not found`);
@@ -100,43 +107,46 @@ export class GameRealtimeService {
         data: gameSession.state,
       },
     });
+    const scores = this.arrayOfPlayersWithScore(gameSession);
+    gameSession.eventsToPublishInRoom.push({
+      event: GAME_EVENTS.ViewerLoadScore,
+      data: {
+        roomId: roomId,
+        data: scores,
+      },
+    });
     return gameSession;
   }
 
-  handleSocketDisconnection(clientId: string) {
+  handleSocketDisconnection(clientId: string): GameSession[] {
     // find game session where client is a player
-    const gameSessions =
-      this.gameSessionService.getAllGameSessionsByClientId(clientId);
-    if (gameSessions.length === 0) return [];
-    // filter by game sessions  not ended
-    const notEndedGameSessions = gameSessions.filter(
-      (session) => session.state !== GameMonitorState.Ended,
-    );
-    if (notEndedGameSessions.length === 0) return [];
-    // we end all ended game sessions
-    for (const gameSession of notEndedGameSessions) {
-      const gamer = gameSession.participants.find(
-        (g) => g.clientId === clientId,
-      );
-      if (!gamer) continue;
-      if (gameSession.type !== GameSessionType.Bot) {
-        gameSession.eventsToPublishInRoom.push({
-          event: GAME_EVENTS.PlayerLeft,
-          data: {
-            roomId: gameSession.gameId,
-            data: gamer,
-          },
-        });
-      }
-      if (gameSession.state >= GameMonitorState.Ready) {
-        this.writeGameHistory(
-          GameEvent.PLAYER_LEFT,
-          gamer.userId,
-          gameSession.gameId,
-        );
-      }
+    this.gameSessionService.cleanGameSessions();
+    const gameSessions: GameSession[] = [];
+    const notEnded =
+      this.gameSessionService.getNotEndedGameSessionsIdsByClient(clientId);
+    for (const gameId of notEnded) {
+      const gameSession = this.gameSessionService.getGameSession(gameId);
+      if (!gameSession) continue;
+      gameSessions.push(gameSession);
+      gameSession.eventsToPublishInRoom.push({
+        event: GAME_EVENTS.PlayerLeft,
+        data: {
+          roomId: gameId,
+          data: gameSession.participants.find((p) => p.clientId === clientId),
+        },
+      });
+      gameSession.eventsToPublishInRoom.push({
+        event: GAME_EVENTS.GameMonitorStateChanged,
+        data: {
+          roomId: gameId,
+          data: GameMonitorState.Ended,
+        },
+      });
+      // pause the game if it is not already paused
+      gameSession.gameEngine?.stopLoop();
+      gameSession.state = GameMonitorState.Ended;
     }
-    return notEndedGameSessions;
+    return gameSessions;
   }
 
   handleGameStateChanged(
@@ -145,6 +155,9 @@ export class GameRealtimeService {
     newState: GameMonitorState,
   ) {
     if (gameSession.state === newState) return;
+    // only players can change the state of the game
+    const gamer = gameSession.participants.find((g) => g.userId === userId);
+    if (!gamer) return;
     this.setGamerMonitorState(gameSession, userId, newState);
     switch (newState) {
       case GameMonitorState.Ready:
@@ -181,6 +194,7 @@ export class GameRealtimeService {
   }
 
   handlePlayerLeftGameWithGrace(gameSession: GameSession, userId: number) {
+    gameSession.state = GameMonitorState.Ended;
     const gamer = gameSession.participants.find((g) => g.userId === userId);
     if (!gamer) return;
     this.writeGameHistory(GameEvent.PLAYER_LEFT, userId, gameSession.gameId);
@@ -191,24 +205,20 @@ export class GameRealtimeService {
         data: gamer,
       },
     });
+    gameSession.eventsToPublishInRoom.push({
+      event: GAME_EVENTS.GameStateChanged,
+      data: {
+        roomId: gameSession.gameId,
+        data: GameMonitorState.Ended,
+      },
+    });
     // remove the gamer from the game session
     gameSession.participants = gameSession.participants.filter(
       (g) => g.userId !== userId,
     );
     // if one player stays we set him as the winner and end the game
-    if (
-      gameSession.participants.length === 1 &&
-      gameSession.participants[0].userId !== 0
-    ) {
+    if (gameSession.participants.length === 1) {
       this.handleGameEnding(gameSession, gameSession.participants[0].userId);
-    } else {
-      gameSession.eventsToPublishInRoom.push({
-        event: GAME_EVENTS.GameStateChanged,
-        data: {
-          roomId: gameSession.gameId,
-          data: GameMonitorState.Ended,
-        },
-      });
     }
   }
 
@@ -249,7 +259,14 @@ export class GameRealtimeService {
     const needToEnd = this.checkRulesToEndGame(gameSession);
     if (needToEnd.stop) {
       this.handleGameEnding(gameSession, needToEnd.winnerId);
-      gameSession.gameEngine.pauseLoop();
+      gameSession.eventsToPublishInRoom.push({
+        event: GAME_EVENTS.GameMonitorStateChanged,
+        data: {
+          roomId: gameSession.gameId,
+          data: GameMonitorState.Ended,
+        },
+      });
+      gameSession.gameEngine?.stopLoop();
     }
   }
 
@@ -269,7 +286,7 @@ export class GameRealtimeService {
     return { winnerId: null, stop: false };
   }
 
-  // called to end the game and set the winner and the looser
+  // called to end the game and set the winner and the looser in the database
   handleGameEnding(gameSession: GameSession, winnerId: number) {
     gameSession.state = GameMonitorState.Ended;
     for (const user of gameSession.participants) {
@@ -295,19 +312,23 @@ export class GameRealtimeService {
         gameSession.gameId,
       );
     }
-    gameSession.eventsToPublishInRoom.push({
-      event: GAME_EVENTS.GameMonitorStateChanged,
-      data: {
-        roomId: gameSession.gameId,
-        data: GameMonitorState.Ended,
-      },
-    });
   }
 
   private createEngine(gameSession: GameSession, gameGateway: GameGateway) {
-    if (gameSession.gameEngine) return;
+    if (gameSession.gameEngine) {
+      if (
+        gameSession.gameEngine.state === EngineState.PAUSED &&
+        gameSession.state === GameMonitorState.Play
+      ) {
+        gameSession.gameEngine.resumeLoop();
+      }
+      return;
+    }
     // if we have to player we create it
-    if (gameSession.participants.length === 2) {
+    if (
+      gameSession.participants.length === 2 &&
+      gameSession.state !== GameMonitorState.Ended
+    ) {
       gameSession.gameEngine = new GameEngine(
         gameSession.gameId,
         gameSession.participants,
@@ -394,10 +415,9 @@ export class GameRealtimeService {
     gameSession: GameSession,
     data: { userId: number; username: string; clientId: string },
   ) {
-    await this.gameSessionService.addViewerToGameSession(gameSession.gameId, {
-      id: data.userId,
-      username: data.username,
-      clientId: data.clientId,
-    });
+    await this.gameSessionService.addViewerDataFromSocket(
+      gameSession.gameId,
+      data,
+    );
   }
 }

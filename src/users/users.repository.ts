@@ -168,7 +168,7 @@ export class UsersRepository {
     });
   }
   async getBlockUser(userId: number, blockedUserId: number) {
-    return await this.prisma.blockedUser.findFirst({
+    return this.prisma.blockedUser.findFirst({
       where: {
         userId: userId,
         blockedUserId: blockedUserId,
@@ -187,7 +187,7 @@ export class UsersRepository {
   async unblockUser(userId: number, blockedUserId: number) {
     const relation = await this.getBlockUser(userId, blockedUserId);
     if (relation) {
-      return await this.prisma.blockedUser.delete({
+      return this.prisma.blockedUser.delete({
         where: {
           id: relation.id,
         },

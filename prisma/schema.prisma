@@ -129,6 +129,7 @@ model ChatRoomMember {
   role       Role     @default(USER)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  unMuteAt   DateTime  @default(now())
 }
 
 model ChatRoomMessage {

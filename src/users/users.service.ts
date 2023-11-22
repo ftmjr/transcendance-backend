@@ -54,7 +54,7 @@ export enum BlockedStatus {
 }
 
 export function getRandomAvatarUrl(): string {
-  const serverBaseUrl = '/api/uploads';
+  const serverBaseUrl = '/uploads';
   const list = [
     'randomAvatars/icons8-bart-simpson-500.png',
     'randomAvatars/icons8-batman-500.png',
@@ -128,11 +128,10 @@ export class UsersService {
       return null;
     };
     if (params.provider === '42' && params.data.accessToken) {
-      const coalitions = await this.schoolNetworkService.getCoalitions(
+      oauthData.coalitions = await this.schoolNetworkService.getCoalitions(
         params.data.accessToken,
         params.providerId,
       );
-      oauthData.coalitions = coalitions;
     }
     return this.repository.createUser({
       data: {
@@ -236,6 +235,13 @@ export class UsersService {
       return BlockedStatus.BlockedBy;
     }
     return BlockedStatus.None;
+  }
+
+  async checkBlockedForMany(
+    userId: number,
+    ids: number[],
+  ): Promise<BlockedStatus[]> {
+    return await Promise.all(ids.map((id) => this.checkBlocked(userId, id)));
   }
 
   // Return a user without password if found
@@ -354,21 +360,14 @@ export class UsersService {
     return users.map((user) => exclude(user, ['password']));
   }
 
-  async blockUser(userId: number, blockedUserId: number): Promise<BlockedUser> {
-    try {
-      await this.friendsService.removeRequest(userId, blockedUserId);
-      await this.friendsService.removeFriend(userId, blockedUserId);
-    } catch (e) {
-      // Nothing to be done if there was an error
-    }
-    return await this.repository.blockUser(userId, blockedUserId);
+  async blockUser(user: User, blockedUserId: number): Promise<BlockedUser> {
+    return this.friendsService.blockUser(user, blockedUserId);
   }
-  async unblockUser(
-    userId: number,
-    blockedUserId: number,
-  ): Promise<BlockedUser> {
-    return this.repository.unblockUser(userId, blockedUserId);
+
+  async unblockUser(user: User, blockedUserId: number): Promise<BlockedUser> {
+    return this.friendsService.unblockUser(user, blockedUserId);
   }
+
   async getUsersWithProfiles() {
     const users = await this.repository.getUsers({
       include: { profile: true },
@@ -504,14 +503,18 @@ export class UsersService {
     });
   }
   async changeStatus(userId: number, status: Status) {
-    await this.repository.updateProfile({
-      where: {
-        userId: userId,
-      },
-      data: {
-        status: status,
-      },
-    });
+    try {
+      await this.repository.updateProfile({
+        where: {
+          userId: userId,
+        },
+        data: {
+          status: status,
+        },
+      });
+    } catch (e) {
+      console.log(`Can't change status for user: ${userId} to ${status}`);
+    }
   }
 
   async getUsersOrderedByWins(params: { skip: number; take: number }) {

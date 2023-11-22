@@ -11,6 +11,7 @@ import {
 import { FriendsService } from './friends.service';
 import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { AuthenticatedGuard } from '../auth/guards';
+import { RequestWithUser } from '../users/users.controller';
 
 @Controller('friends')
 export class FriendsController {
@@ -22,7 +23,7 @@ export class FriendsController {
   @ApiOperation({
     summary: 'Retrieve all friends of connected user',
   })
-  async getFriends(@Request() req) {
+  async getFriends(@Request() req: RequestWithUser) {
     return await this.friendsService.getFriends(req.user.id);
   }
 
@@ -32,7 +33,10 @@ export class FriendsController {
   @ApiOperation({
     summary: 'Check if a user is a friend',
   })
-  async checkFriend(@Request() req, @Param('id', ParseIntPipe) id: number) {
+  async checkFriend(
+    @Request() req: RequestWithUser,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
     return await this.friendsService.checkFriend(req.user.id, id);
   }
 
@@ -42,7 +46,7 @@ export class FriendsController {
   @ApiOperation({
     summary: 'Retrieve all sent friends requests',
   })
-  async getSentFriendRequests(@Request() req) {
+  async getSentFriendRequests(@Request() req: RequestWithUser) {
     return await this.friendsService.getSentFriendRequests(req.user.id);
   }
   @ApiBearerAuth()
@@ -51,7 +55,7 @@ export class FriendsController {
   @ApiOperation({
     summary: 'Retrieve all received friends requests',
   })
-  async getReceivedFriendRequests(@Request() req) {
+  async getReceivedFriendRequests(@Request() req: RequestWithUser) {
     return await this.friendsService.getReceivedFriendRequests(req.user.id);
   }
   @ApiBearerAuth()
@@ -60,8 +64,11 @@ export class FriendsController {
   @ApiOperation({
     summary: 'Remove a friend',
   })
-  async removeFriend(@Request() req, @Param('id', ParseIntPipe) id: number) {
-    return this.friendsService.removeFriend(req.user.id, id);
+  async removeFriend(
+    @Request() req: RequestWithUser,
+    @Param('id', ParseIntPipe) id: number,
+  ) {
+    return this.friendsService.removeFriend(req.user, id);
   }
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
@@ -70,7 +77,7 @@ export class FriendsController {
     summary: 'send a friend request',
   })
   async addFriendRequest(
-    @Request() req,
+    @Request() req: RequestWithUser,
     @Param('id', ParseIntPipe) id: number,
   ) {
     return this.friendsService.addFriendRequest(req.user, id);
@@ -81,8 +88,7 @@ export class FriendsController {
   @ApiOperation({
     summary: 'Cancel friend request I SENT',
   })
-  async cancelFriendRequest(@Request() req, @Param('id') id: string) {
-    const requestId = parseInt(id);
+  async cancelFriendRequest(@Param('id', ParseIntPipe) requestId: number) {
     return await this.friendsService.cancelFriendRequest(requestId);
   }
   @ApiBearerAuth()
@@ -92,10 +98,10 @@ export class FriendsController {
     summary: 'Accept friend request I RECEIVED',
   })
   async approveFriendRequest(
-    @Request() req,
+    @Request() req: RequestWithUser,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return await this.friendsService.approveFriendRequest(id);
+    return await this.friendsService.approveFriendRequest(req.user, id);
   }
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
@@ -104,9 +110,9 @@ export class FriendsController {
     summary: 'Decline friend request I RECEIVED',
   })
   async rejectFriendRequest(
-    @Request() req,
+    @Request() req: RequestWithUser,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return await this.friendsService.rejectFriendRequest(id);
+    return await this.friendsService.rejectFriendRequest(req.user, id);
   }
 }
