@@ -174,10 +174,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     },
   ) {
     const { roomId, data } = received;
-    console.log('received, ball served', roomId, data);
     const gameSession = this.gameSessionService.getGameSession(roomId);
     if (!gameSession) return;
-    console.log('ball will be served', roomId, data);
     this.gameRealtimeService.handleBallServed(gameSession, data);
     this.handleGameEvents(gameSession);
   }

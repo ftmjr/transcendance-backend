@@ -58,4 +58,5 @@ export interface WaitingGameSession {
   type: GameSessionType.PrivateGame | GameSessionType.QueListGame;
   participants: Gamer[];
   rules: GameRules;
+  played?: boolean;
 }

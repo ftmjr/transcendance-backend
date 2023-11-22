@@ -180,4 +180,19 @@ export class ChatController {
   async unMuteAllUnMuteTimePassed() {
     return this.service.unMuteAllWaitingMutedUsers();
   }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @ApiOperation({
+    summary: 'send an invitation to rejoin the room',
+  })
+  @Post('invite')
+  async inviteUserToRoom(
+    @Req() req: RequestWithUser,
+    @Body() inviteUserDto: { userId: number; roomId: number },
+  ) {
+    const { userId, roomId } = inviteUserDto;
+    const actorId = req.user.id;
+    return this.service.inviteUserToRoom(roomId, userId, actorId);
+  }
 }

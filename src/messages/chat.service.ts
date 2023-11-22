@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
@@ -76,19 +77,15 @@ export class ChatService {
     role: Role,
     roomName: string,
   ): Promise<ChatRoomMember> {
-    try {
-      const newMember = await this.repository.joinRoom(userId, roomId, role);
-      this.notificationService.createChatJoinNotification(
-        userId,
-        roomId,
-        `Vous avez été ajouté à la salle de chat ${roomName}`,
-      );
-      return newMember;
-    } catch (e) {
-      throw new UnauthorizedException(
-        'Impossible de rejoindre la salle de chat, pour cet utilisateur',
-      );
-    }
+    return this.repository
+      .joinRoom(userId, roomId, role)
+      .then((member) => {
+        this.notificationService.sendNewMemberInRoom(userId, roomId, roomName);
+        return member;
+      })
+      .catch(() => {
+        throw new BadRequestException('Failed to add member to  room');
+      });
   }
 
   // return true or throw error
@@ -143,10 +140,21 @@ export class ChatService {
       Role.USER,
       Role.ADMIN,
     ]);
-    return this.repository.updateChatRoomMember({
-      where: { id: member.id },
-      data: { role: Role.ADMIN },
-    });
+
+    return this.repository
+      .updateChatRoomMember({
+        where: { id: member.id },
+        data: { role: Role.ADMIN },
+      })
+      .then((adminMember) => {
+        this.notificationService.sendPromotedToAdmin(
+          actorId,
+          adminMember.memberId,
+          roomId,
+          room.name,
+        );
+        return adminMember;
+      });
   }
 
   // actorId is the user who is trying to act
@@ -164,10 +172,20 @@ export class ChatService {
         Role.USER,
         Role.ADMIN,
       ]);
-      return this.repository.updateChatRoomMember({
-        where: { id: member.id },
-        data: { role: Role.MUTED },
-      });
+      return this.repository
+        .updateChatRoomMember({
+          where: { id: member.id },
+          data: { role: Role.MUTED },
+        })
+        .then((mutedMember) => {
+          this.notificationService.sendRoomRolesUpdated(
+            actorId,
+            mutedMember.memberId,
+            roomId,
+            room.name,
+          );
+          return mutedMember;
+        });
     } catch (e) {
       throw new UnauthorizedException('Failed to mute user');
     }
@@ -189,21 +207,27 @@ export class ChatService {
   }
 
   async setUserAsBanned(roomId: number, userId: number, actorId: number) {
-    try {
-      const room = await this.getRoom({ roomId });
-      this.checkIfCanActInTheRoom(actorId, room, [Role.OWNER, Role.ADMIN]);
-      const member = this.checkIfCanActInTheRoom(userId, room, [
-        Role.MUTED,
-        Role.BAN,
-        Role.USER,
-      ]);
-      return this.repository.updateChatRoomMember({
+    const room = await this.getRoom({ roomId });
+    this.checkIfCanActInTheRoom(actorId, room, [Role.OWNER, Role.ADMIN]);
+    const member = this.checkIfCanActInTheRoom(userId, room, [
+      Role.MUTED,
+      Role.BAN,
+      Role.USER,
+    ]);
+    return this.repository
+      .updateChatRoomMember({
         where: { id: member.id },
         data: { role: Role.BAN },
+      })
+      .then((bannedMember) => {
+        this.notificationService.sendRoomRolesUpdated(
+          actorId,
+          bannedMember.memberId,
+          roomId,
+          room.name,
+        );
+        return bannedMember;
       });
-    } catch (e) {
-      throw new UnauthorizedException('Failed to ban user');
-    }
   }
 
   // Failed if user is not a member, if not owner/admin acting, or owner try to set himself as user
@@ -217,6 +241,12 @@ export class ChatService {
         Role.USER,
         Role.ADMIN,
       ]);
+      this.notificationService.sendRoomRolesUpdated(
+        actorId,
+        member.memberId,
+        roomId,
+        room.name,
+      );
       return this.repository.updateChatRoomMember({
         where: { id: member.id },
         data: { role: Role.USER },
@@ -264,12 +294,17 @@ export class ChatService {
       Role.USER,
       Role.ADMIN,
     ]);
-    this.notificationService.createChatRoomRemovedNotification(
-      member.memberId,
-      room.id,
-      `Vous avez été supprimé de la salle de chat ${room.name}`,
-    );
-    return this.repository.deleteMemberFromRoom(member.id);
+    return this.repository
+      .deleteMemberFromRoom(member.id)
+      .then((deletedMember) => {
+        this.notificationService.sendRemovedFromRoom(
+          userId,
+          deletedMember.memberId,
+          roomId,
+          room.name,
+        );
+        return deletedMember;
+      });
   }
 
   async removeMyselfFromRoom(roomId: number, userId: number) {
@@ -282,38 +317,53 @@ export class ChatService {
       Role.BAN,
     ]);
     if (member.role === Role.OWNER) {
-      const newOwner = await this.repository.findPotentialNewOwner(roomId);
-      // if no other member is found, delete the room
-      if (!newOwner) {
-        this.notificationService.createChatRoomDestroyedNotification(
-          room.members.map((m) => m.memberId),
-          room.id,
-          `La salle de chat ${room.name} a été supprimée`,
-        );
-        await this.repository.deleteRoom(roomId);
-        return;
-      }
-      await this.repository.updateChatRoomMember({
-        where: { id: newOwner.id },
-        data: { role: Role.OWNER },
-      });
-      this.notificationService.createChatRoomPromotionNotification(
-        newOwner.memberId,
-        room.id,
-        `Vous avez été promu propriétaire de la salle de chat ${room.name}`,
-      );
+      return this.specialSelfDeleteForOwner(roomId, member, room);
+    } else {
+      return this.repository
+        .deleteMemberFromRoom(member.id)
+        .then((deletedMember) => {
+          this.notificationService.sendRemovedFromRoom(
+            userId,
+            deletedMember.memberId,
+            roomId,
+            room.name,
+          );
+          return deletedMember;
+        });
     }
-    return this.repository.deleteMemberFromRoom(member.id);
   }
 
-  async deleteRoom(roomId: number, userId: number) {
-    const room = await this.getRoom({ roomId });
+  async specialSelfDeleteForOwner(
+    roomId: number,
+    owner: ChatRoomMember,
+    room: ChatRoomWithMembers,
+  ) {
+    // check if any admin is in the room first, then a regular user left to promote as owner
+    const newOwner = await this.repository.findPotentialNewOwner(roomId);
+    // if no other member is found, delete the room
+    if (!newOwner) return this.deleteRoom(roomId, owner.memberId, room);
+    await this.repository
+      .updateChatRoomMember({
+        where: { id: newOwner.id },
+        data: { role: Role.OWNER },
+      })
+      .then((newOwner) => {
+        this.notificationService.sendPromotedToAdmin(
+          owner.memberId,
+          newOwner.memberId,
+          roomId,
+          room.name,
+        );
+      });
+    return owner;
+  }
+
+  async deleteRoom(roomId: number, userId: number, room?: ChatRoomWithMembers) {
+    if (!room) {
+      room = await this.getRoom({ roomId });
+    }
     this.checkIfCanActInTheRoom(userId, room, [Role.OWNER]);
-    this.notificationService.createChatJoinNotification(
-      userId,
-      room.id,
-      `La salle de chat ${room.name} a été supprimée`,
-    );
+    this.notificationService.sendRoomDeleted(userId, roomId, room.name);
     return this.repository.deleteRoom(roomId);
   }
 
@@ -377,6 +427,7 @@ export class ChatService {
   async changeChatAvatar(roomId: number, userId: number, url: string) {
     const room = await this.getRoom({ roomId });
     this.checkIfCanActInTheRoom(userId, room, [Role.OWNER, Role.ADMIN]);
+    this.notificationService.sendRoomSettingsUpdated(roomId, room.name);
     return this.repository.updateRoom({
       where: { id: roomId },
       data: { avatar: url },
@@ -392,6 +443,27 @@ export class ChatService {
       where: { id: roomId },
       data: { password: hashedPassword },
     });
+  }
+
+  async inviteUserToRoom(roomId: number, userId: number, actorId: number) {
+    const room = await this.getRoom({ roomId });
+    const sender = this.checkIfCanActInTheRoom(actorId, room, [
+      Role.OWNER,
+      Role.ADMIN,
+      Role.USER,
+    ]);
+    // check if user is already a member
+    room.members.forEach((member) => {
+      if (member.memberId === userId) {
+        throw new BadRequestException(`Il est déjà membre de cette salle`);
+      }
+    });
+    this.notificationService.sendRoomInvitation(
+      sender.memberId,
+      userId,
+      roomId,
+      room.name,
+    );
   }
 
   /* utility functions */

@@ -23,7 +23,7 @@ import {
   GameSessionService,
   GameSessionShort,
 } from './game-session.service';
-import { WaitingGameSession } from './interfaces';
+import { GameMonitorState, WaitingGameSession } from './interfaces';
 import { RequestWithUser } from '../users/users.controller';
 
 @ApiTags('Game')
@@ -73,7 +73,21 @@ export class GamesController {
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @Post('/reject-invitation')
+  @Get('/is-valid-challenge/:challengeId')
+  @ApiOperation({ summary: 'Check if a challenge is still valid' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returned the validity of the challenge successfully.',
+  })
+  async isValidChallenge(
+    @Param('challengeId', ParseIntPipe) challengeId: number,
+  ) {
+    return this.gameSessionService.isValidChallenge(challengeId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Delete('/reject-invitation')
   @ApiOperation({ summary: 'Reject Challenge to a Game' })
   @ApiResponse({
     status: 200,
@@ -198,6 +212,20 @@ export class GamesController {
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
+  @Get('sessions/:gameId')
+  @ApiOperation({ summary: 'Get a game session state by id' })
+  @ApiResponse({
+    status: 200,
+    description: 'Retrieved the game session state successfully.',
+  })
+  async getGameSession(
+    @Param('gameId', ParseIntPipe) gameId: number,
+  ): Promise<GameMonitorState> {
+    return this.gameSessionService.gameSessionState(gameId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
   @Delete('sessions')
   @ApiOperation({ summary: 'Quit a game session' })
   @ApiResponse({
@@ -212,28 +240,4 @@ export class GamesController {
     const user = req.user;
     return this.gameSessionService.quitGameSession(gameId, user.id);
   }
-
-  //
-  // @ApiBearerAuth()
-  // @UseGuards(AuthenticatedGuard)
-  // @Post('/join-queue')
-  // @ApiOperation({ summary: 'Join the game session queue' })
-  // @ApiResponse({ status: 200, description: 'Joined the queue successfully.' })
-  // async joinQueue(@Req() req: RequestWithUser): Promise<GameSessionShort> {
-  //   const user = req.user;
-  //   return this.gameSessionService.joinQueue(user);
-  // }
-  // @ApiBearerAuth()
-  // @UseGuards(AuthenticatedGuard)
-  // @Get('/queued-sessions-count')
-  // @ApiOperation({ summary: 'Get the number of queued sessions available' })
-  // @ApiResponse({
-  //   status: 200,
-  //   description: 'Retrieved the count successfully.',
-  // })
-  // getQueuedSessionsCount(): number {
-
-  //   return this.gameSessionService.getNumberOfPlayerWaitingForAnOpponent();
-
-  // }
 }

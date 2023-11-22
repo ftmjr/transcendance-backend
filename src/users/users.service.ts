@@ -128,11 +128,10 @@ export class UsersService {
       return null;
     };
     if (params.provider === '42' && params.data.accessToken) {
-      const coalitions = await this.schoolNetworkService.getCoalitions(
+      oauthData.coalitions = await this.schoolNetworkService.getCoalitions(
         params.data.accessToken,
         params.providerId,
       );
-      oauthData.coalitions = coalitions;
     }
     return this.repository.createUser({
       data: {
@@ -238,11 +237,11 @@ export class UsersService {
     return BlockedStatus.None;
   }
 
-  async checkBlockedForMany(userId, ids: number[]): Promise<BlockedStatus[]> {
-    const blockedStatuses = await Promise.all(
-      ids.map((id) => this.checkBlocked(userId, id)),
-    );
-    return blockedStatuses;
+  async checkBlockedForMany(
+    userId: number,
+    ids: number[],
+  ): Promise<BlockedStatus[]> {
+    return await Promise.all(ids.map((id) => this.checkBlocked(userId, id)));
   }
 
   // Return a user without password if found
@@ -361,21 +360,14 @@ export class UsersService {
     return users.map((user) => exclude(user, ['password']));
   }
 
-  async blockUser(userId: number, blockedUserId: number): Promise<BlockedUser> {
-    try {
-      await this.friendsService.removeRequest(userId, blockedUserId);
-      await this.friendsService.removeFriend(userId, blockedUserId);
-    } catch (e) {
-      // Nothing to be done if there was an error
-    }
-    return await this.repository.blockUser(userId, blockedUserId);
+  async blockUser(user: User, blockedUserId: number): Promise<BlockedUser> {
+    return this.friendsService.blockUser(user, blockedUserId);
   }
-  async unblockUser(
-    userId: number,
-    blockedUserId: number,
-  ): Promise<BlockedUser> {
-    return this.repository.unblockUser(userId, blockedUserId);
+
+  async unblockUser(user: User, blockedUserId: number): Promise<BlockedUser> {
+    return this.friendsService.unblockUser(user, blockedUserId);
   }
+
   async getUsersWithProfiles() {
     const users = await this.repository.getUsers({
       include: { profile: true },

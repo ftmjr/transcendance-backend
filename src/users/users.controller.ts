@@ -21,7 +21,6 @@ import {
 } from '@nestjs/swagger';
 import { AuthenticatedGuard } from '../auth/guards';
 import { PaginationQuery, SearchQuery } from './dto';
-import { SchoolNetworkService } from './schoolNetwork.service';
 import * as express from 'express';
 
 export type RequestWithUser = express.Request & { user: UserWithData };
@@ -29,10 +28,7 @@ export type RequestWithUser = express.Request & { user: UserWithData };
 @ApiTags('UserActions')
 @Controller('users')
 export class UsersController {
-  constructor(
-    private readonly usersService: UsersService,
-    private readonly schoolNetworkService: SchoolNetworkService,
-  ) {}
+  constructor(private readonly usersService: UsersService) {}
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
   @Get()
@@ -166,7 +162,7 @@ export class UsersController {
     @Request() req: RequestWithUser,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return await this.usersService.blockUser(req.user.id, id);
+    return await this.usersService.blockUser(req.user, id);
   }
 
   @ApiBearerAuth()
@@ -183,7 +179,7 @@ export class UsersController {
     @Request() req: RequestWithUser,
     @Param('id', ParseIntPipe) id: number,
   ) {
-    return this.usersService.unblockUser(req.user.id, id);
+    return this.usersService.unblockUser(req.user, id);
   }
 
   @ApiBearerAuth()
