@@ -262,6 +262,7 @@ export class ChatService {
       case Role.ADMIN:
         return this.setUserAsAdmin(roomId, info.userId, actorId);
       case Role.MUTED:
+        console.log(info);
         if (info.expireAt) {
           return this.setUserAsMutedWithTime(
             roomId,
@@ -316,20 +317,19 @@ export class ChatService {
       Role.BAN,
     ]);
     if (member.role === Role.OWNER) {
-      return this.specialSelfDeleteForOwner(roomId, member, room);
-    } else {
-      return this.repository
-        .deleteMemberFromRoom(member.id)
-        .then((deletedMember) => {
-          this.notificationService.sendRemovedFromRoom(
-            userId,
-            deletedMember.memberId,
-            roomId,
-            room.name,
-          );
-          return deletedMember;
-        });
+      await this.specialSelfDeleteForOwner(roomId, member, room);
     }
+    return this.repository
+      .deleteMemberFromRoom(member.id)
+      .then((deletedMember) => {
+        this.notificationService.sendRemovedFromRoom(
+          userId,
+          deletedMember.memberId,
+          roomId,
+          room.name,
+        );
+        return deletedMember;
+      });
   }
 
   async specialSelfDeleteForOwner(
