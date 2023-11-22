@@ -24,7 +24,7 @@ import { ChatRoomMessage } from '@prisma/client';
 @ApiTags('ChatActions')
 @Controller('chat')
 export class ChatController {
-  constructor(private service: ChatService) { }
+  constructor(private service: ChatService) {}
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)

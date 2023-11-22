@@ -19,7 +19,7 @@ export class ChatService {
     private repository: ChatRepository,
     private usersService: UsersService,
     private notificationService: NotificationService,
-  ) { }
+  ) {}
 
   async createRoom(info: CreateRoomDto) {
     if (info.type === RoomType.PROTECTED && !info.password) {
