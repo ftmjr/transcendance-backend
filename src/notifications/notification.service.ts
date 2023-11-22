@@ -483,4 +483,18 @@ export class NotificationService {
       gameId,
     );
   }
+
+  sendGameEnded(gameId: number) {
+    const realTimeNotification = this.createRealTimeNotification(
+      'general',
+      RealTimeNotificationType.Game,
+      RealTimeNotificationTitle.GameEnded,
+      `La partie est terminé`,
+      undefined,
+      undefined,
+      undefined,
+      gameId,
+    );
+    this.sendGeneralRealTimeNotification(realTimeNotification);
+  }
 }

@@ -172,9 +172,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const roomName = `${gameSession.gameId}`;
     gameSession.eventsToPublishInRoom.forEach((eventObj) => {
       const { event, data } = eventObj;
-      if (this.server.to(roomName).emit(event, data)) {
-      }
+      this.server.to(roomName).emit(event, data);
     });
+    if (gameSession.state === GameMonitorState.Ended) {
+      this.server
+        .to(roomName)
+        .emit(GAME_EVENTS.GameStateChanged, GameMonitorState.Ended);
+    }
     gameSession.eventsToPublishInRoom.splice(
       0,
       gameSession.eventsToPublishInRoom.length,
@@ -188,7 +192,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       data,
     });
     const gameSession = this.gameSessionService.getGameSession(roomId);
-    this.handleGameEvents(gameSession);
+    // if one of the event is a GameEnded event, we need to handle it
+    if (gameSession.state === GameMonitorState.Ended) {
+      if (gameSession.state === GameMonitorState.Ended) {
+        this.server
+          .to(roomName)
+          .emit(GAME_EVENTS.GameStateChanged, GameMonitorState.Ended);
+      }
+    }
   }
 
   public sendScored(
@@ -199,6 +210,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     this.server.to(roomName).emit(GAME_EVENTS.ScoreChanged, {
       roomId,
       data: scores,
+    });
+    const gameSession = this.gameSessionService.getGameSession(roomId);
+    this.handleGameEvents(gameSession);
+  }
+
+  public sendBallPaddleCollision(paddleUserId: number, roomId: number) {
+    const roomName = `${roomId}`;
+    this.server.to(roomName).emit(GAME_EVENTS.BallPaddleCollision, {
+      roomId,
+      data: paddleUserId,
     });
     const gameSession = this.gameSessionService.getGameSession(roomId);
     this.handleGameEvents(gameSession);

@@ -174,6 +174,9 @@ export class AuthService {
     refreshToken: string,
     res: Response,
   ): Promise<{ accessToken: string }> {
+    if (!refreshToken) {
+      throw new UnauthorizedException('No refresh token found');
+    }
     const isValid = this.jwtService.verify(refreshToken) as JwtPayload;
     if (!isValid) {
       throw new UnauthorizedException('Invalid credentials');

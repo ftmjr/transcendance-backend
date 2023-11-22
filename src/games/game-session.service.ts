@@ -403,8 +403,11 @@ export class GameSessionService {
       event: GAME_EVENTS.GameStateChanged,
       data: { roomId: gameId, data: GameMonitorState.Ended },
     });
-    gameSession.gameEngine?.stopLoop();
     gameSession.state = GameMonitorState.Ended;
+    setTimeout(() => {
+      gameSession.gameEngine?.stopLoop();
+      this.cleanGameSessions();
+    }, 200);
     return;
   }
 
@@ -564,7 +567,7 @@ export class GameSessionService {
       ) {
         gameSession.state = GameMonitorState.Ended;
         gameSession.eventsToPublishInRoom.push({
-          event: GAME_EVENTS.GameStateChanged,
+          event: GAME_EVENTS.GameMonitorStateChanged,
           data: { roomId: gameSessionId, data: GameMonitorState.Ended },
         });
         gameSession.gameEngine?.stopLoop();
@@ -584,6 +587,7 @@ export class GameSessionService {
       }
     }
     for (const gameId of toDelete) {
+      this.notificationService.sendGameEnded(gameId);
       this.gameSessions.delete(gameId);
     }
   }

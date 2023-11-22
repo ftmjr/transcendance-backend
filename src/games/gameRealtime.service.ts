@@ -109,7 +109,7 @@ export class GameRealtimeService {
     });
     const scores = this.arrayOfPlayersWithScore(gameSession);
     gameSession.eventsToPublishInRoom.push({
-      event: GAME_EVENTS.ScoreChanged,
+      event: GAME_EVENTS.ViewerLoadScore,
       data: {
         roomId: roomId,
         data: scores,
@@ -136,7 +136,7 @@ export class GameRealtimeService {
         },
       });
       gameSession.eventsToPublishInRoom.push({
-        event: GAME_EVENTS.GameStateChanged,
+        event: GAME_EVENTS.GameMonitorStateChanged,
         data: {
           roomId: gameId,
           data: GameMonitorState.Ended,
@@ -259,14 +259,14 @@ export class GameRealtimeService {
     const needToEnd = this.checkRulesToEndGame(gameSession);
     if (needToEnd.stop) {
       this.handleGameEnding(gameSession, needToEnd.winnerId);
-      gameSession.gameEngine.pauseLoop();
       gameSession.eventsToPublishInRoom.push({
-        event: GAME_EVENTS.GameStateChanged,
+        event: GAME_EVENTS.GameMonitorStateChanged,
         data: {
           roomId: gameSession.gameId,
           data: GameMonitorState.Ended,
         },
       });
+      gameSession.gameEngine?.stopLoop();
     }
   }
 
@@ -286,7 +286,7 @@ export class GameRealtimeService {
     return { winnerId: null, stop: false };
   }
 
-  // called to end the game and set the winner and the looser
+  // called to end the game and set the winner and the looser in the database
   handleGameEnding(gameSession: GameSession, winnerId: number) {
     gameSession.state = GameMonitorState.Ended;
     for (const user of gameSession.participants) {
