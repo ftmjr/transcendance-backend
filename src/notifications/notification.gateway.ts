@@ -26,7 +26,7 @@ export class NotificationGateway
   }
 
   @SubscribeMessage('join')
-  handleJoin(client: Socket, userId: string) {
+  handleJoin(client: Socket, userId: number) {
     const room = `notification:${userId}`;
     // check if client has already joined the room
     const rooms = Object.keys(client.rooms);
@@ -34,7 +34,7 @@ export class NotificationGateway
   }
 
   @SubscribeMessage('join-room')
-  handleJoinRoom(client: Socket, roomId: string) {
+  handleJoinRoom(client: Socket, roomId: number) {
     const room = `room-notification:${roomId}`;
     // check if client has already joined the room
     const rooms = Object.keys(client.rooms);
@@ -42,7 +42,7 @@ export class NotificationGateway
   }
 
   @SubscribeMessage('leave-room')
-  handleLeaveRoom(client: Socket, roomId: string) {
+  handleLeaveRoom(client: Socket, roomId: number) {
     const room = `room-notification:${roomId}`;
     // check if client has already joined the room
     const rooms = Object.keys(client.rooms);

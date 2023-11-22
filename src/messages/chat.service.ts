@@ -3,7 +3,6 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { ChatRepository, ChatRoomWithMembers } from './chat.repository';
 import * as argon from 'argon2';
@@ -65,7 +64,7 @@ export class ChatService {
     // check if user is already a member
     room.members.forEach((member) => {
       if (member.memberId === info.userId) {
-        throw new UnauthorizedException(`Vous êtes déjà membre de cette salle`);
+        throw new BadRequestException(`Vous êtes déjà membre de cette salle`);
       }
     });
     return this.addMemberToRoom(info.roomId, info.userId, Role.USER, room.name);
@@ -132,7 +131,7 @@ export class ChatService {
     const room = await this.getRoom({ roomId });
     const owner = this.checkIfCanActInTheRoom(actorId, room, [Role.OWNER]);
     if (owner.memberId === userId) {
-      throw new UnauthorizedException('You cannot promote yourself');
+      throw new BadRequestException('You cannot promote yourself');
     }
     const member = this.checkIfCanActInTheRoom(userId, room, [
       Role.MUTED,
@@ -187,7 +186,7 @@ export class ChatService {
           return mutedMember;
         });
     } catch (e) {
-      throw new UnauthorizedException('Failed to mute user');
+      throw new BadRequestException('Failed to mute user');
     }
   }
 
@@ -202,7 +201,7 @@ export class ChatService {
       this.toBeUnMuted.push({ userId, roomId, time: timestamp });
       return mutedMember;
     } catch (e) {
-      throw new UnauthorizedException('Failed to mute user');
+      throw new BadRequestException('Failed to mute user');
     }
   }
 
@@ -275,7 +274,7 @@ export class ChatService {
       case Role.BAN:
         return this.setUserAsBanned(roomId, info.userId, actorId);
       default:
-        throw new UnauthorizedException('Invalid role');
+        throw new BadRequestException('Invalid role');
     }
   }
 
@@ -516,7 +515,7 @@ export class ChatService {
   ) {
     const member = chatRoom.members.find((m) => m.memberId === actorId);
     if (!member) {
-      throw new UnauthorizedException(`Vous n'êtes pas membre de cette salle`);
+      throw new BadRequestException(`Vous n'êtes pas membre de cette salle`);
     }
     if (!grantedRoles.includes(member.role)) {
       throw new ForbiddenException(`Vous n'avez pas la permission, ou le rôle`);

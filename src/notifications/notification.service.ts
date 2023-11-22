@@ -90,8 +90,8 @@ export class NotificationService {
       .then((notification) => {
         this.notificationGateway.sendNotificationToUser(userId, notification);
       })
-      .catch(() => {
-        this.logger.log("Notification couldn't be created");
+      .catch((e) => {
+        this.logger.log("Notification couldn't be created", e);
       });
   }
 
@@ -163,7 +163,7 @@ export class NotificationService {
       NotificationType.FRIEND_REQUEST,
       NotificationTitle.FriendRequest,
       message,
-      receiverId,
+      sender.id,
     );
   }
 
@@ -177,7 +177,7 @@ export class NotificationService {
       NotificationType.FRIEND_REQUEST,
       NotificationTitle.FriendRequestAccepted,
       message,
-      receiverId,
+      sender.id,
     );
   }
 
@@ -191,7 +191,7 @@ export class NotificationService {
       NotificationType.FRIEND_REQUEST,
       NotificationTitle.FriendRequestRejected,
       message,
-      receiverId,
+      sender.id,
     );
   }
 
