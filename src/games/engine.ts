@@ -94,8 +94,8 @@ class Paddle {
   }
   updateAiPlayer(ballPosition: { x: number; y: number }) {
     if (this.id !== 0) return;
-    const min_position = 300;
-    const max_position = 1300;
+    const min_position = 400;
+    const max_position = 1280;
     // code to check if ball is in a surface between min_position and max_position
     if (ballPosition.x > min_position && ballPosition.x < max_position) {
       const speedArray = [
@@ -110,10 +110,10 @@ class Paddle {
       const randomSpeed =
         speedArray[Math.floor(Math.random() * speedArray.length)];
       const distance = ballPosition.y - this.body.y;
-      if (distance > 32) {
+      if (distance > 48) {
         this.body.setVelocityY(randomSpeed);
         return;
-      } else if (distance < -32) {
+      } else if (distance < -48) {
         this.body.setVelocityY(-randomSpeed);
         return;
       }
@@ -385,9 +385,9 @@ export default class GameEngine {
     const ballVelocityX = ballBody.velocity.x;
     // if ball is going to the left
     if (ballVelocityX < 0) {
-      ballBody.setVelocityX(ballVelocityX - paddleVelocityY * 0.3);
+      ballBody.setVelocityX(ballVelocityX - paddleVelocityY * 0.9);
     } else {
-      ballBody.setVelocityX(ballVelocityX + paddleVelocityY * 0.3);
+      ballBody.setVelocityX(ballVelocityX + paddleVelocityY * 0.9);
     }
   }
 
