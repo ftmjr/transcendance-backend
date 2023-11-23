@@ -243,7 +243,7 @@ export class GameSessionService {
     if (host) {
       await this.notificationService.sendGameInvitationRejected(
         actor.username,
-        actor.id,
+        host.userId,
         waitingGameId,
       );
     }
