@@ -220,7 +220,7 @@ export class GameSessionService {
       participants,
       GameSessionType.PrivateGame,
       waitingGameSession.rules,
-    )
+    );
   }
 
   async rejectGameChallengeInvite(
