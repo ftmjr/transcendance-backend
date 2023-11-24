@@ -6,7 +6,11 @@ import {
 } from '@nestjs/common';
 import { ChatRepository, ChatRoomWithMembers } from './chat.repository';
 import * as argon from 'argon2';
-import { getRandomAvatarUrl, UsersService } from '../users/users.service';
+import {
+  getRandomAvatarUrl,
+  UsersService,
+  UserWithData,
+} from '../users/users.service';
 import { ChatRoom, ChatRoomMember, Role, RoomType } from '@prisma/client';
 import {
   CreateRoomDto,
@@ -471,12 +475,13 @@ export class ChatService {
     });
   }
 
-  async inviteUserToRoom(roomId: number, userId: number, actorId: number) {
+  async inviteUserToRoom(roomId: number, userId: number, actor: UserWithData) {
     const room = await this.getRoom({ roomId });
-    const sender = this.checkIfCanActInTheRoom(actorId, room, [
+    this.checkIfCanActInTheRoom(actor.id, room, [
       Role.OWNER,
       Role.ADMIN,
       Role.USER,
+      Role.MUTED,
     ]);
     // check if user is already a member
     room.members.forEach((member) => {
@@ -485,7 +490,7 @@ export class ChatService {
       }
     });
     this.notificationService.sendRoomInvitation(
-      sender.memberId,
+      actor,
       userId,
       roomId,
       room.name,

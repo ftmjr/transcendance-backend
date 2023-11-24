@@ -353,12 +353,12 @@ export class NotificationService {
   }
 
   async sendRoomInvitation(
-    senderId: User[`id`],
+    sender: User,
     receiverId: User[`id`],
     roomId: number,
     roomName: string,
   ) {
-    const message = `Tu as été invité à rejoindre la salle de chat ${roomName}`;
+    const message = `Tu as été invité par ${sender.username} à rejoindre la salle de chat ${roomName}`;
     await this.createNotification(
       receiverId,
       NotificationType.PRIVATE_MESSAGE,
