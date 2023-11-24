@@ -39,6 +39,7 @@ export class MessageRepository {
         OR: [{ senderId: userId }, { receiverId: userId }],
       },
       select: { senderId: true, receiverId: true },
+      orderBy: { timestamp: 'desc' },
     });
     const distinctUserIds = Array.from(
       new Set(

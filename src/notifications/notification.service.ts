@@ -228,6 +228,7 @@ export class NotificationService {
       receiverId,
     );
     this.sendRealTimeNotificationToUser(receiverId, realTimeNotification);
+    this.sendRealTimeNotificationToUser(sender.id, realTimeNotification);
   }
 
   async sendNewMemberInRoom(
