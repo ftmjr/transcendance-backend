@@ -115,7 +115,7 @@ export class FriendsService {
     const request = await this.repository.approveFriendRequest(requestId);
     await this.notificationService.sendFriendRequestApproved(
       user,
-      request.contactId,
+      request.userId,
     );
     return request;
   }
