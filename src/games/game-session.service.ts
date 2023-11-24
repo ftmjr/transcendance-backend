@@ -219,10 +219,8 @@ export class GameSessionService {
     return this.createGameSession(
       participants,
       GameSessionType.PrivateGame,
-    ).then((gameSession) => {
-      gameSession.rules = waitingGameSession.rules;
-      return gameSession;
-    });
+      waitingGameSession.rules,
+    )
   }
 
   async rejectGameChallengeInvite(
