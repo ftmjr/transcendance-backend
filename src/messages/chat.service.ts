@@ -8,7 +8,12 @@ import { ChatRepository, ChatRoomWithMembers } from './chat.repository';
 import * as argon from 'argon2';
 import { getRandomAvatarUrl, UsersService } from '../users/users.service';
 import { ChatRoom, ChatRoomMember, Role, RoomType } from '@prisma/client';
-import { CreateRoomDto, UpdatePasswordDto, UpdateRoomInfoDto, UpdateRoleDto } from './dto';
+import {
+  CreateRoomDto,
+  UpdatePasswordDto,
+  UpdateRoomInfoDto,
+  UpdateRoleDto,
+} from './dto';
 import { NotificationService } from '../notifications/notification.service';
 
 @Injectable()
@@ -448,20 +453,20 @@ export class ChatService {
     const { roomId, roomType, oldPassword, password } = data;
     const room = await this.getRoom({ roomId });
     this.checkIfCanActInTheRoom(userId, room, [Role.OWNER, Role.ADMIN]);
-    if (room.type == RoomType.PROTECTED) {
+    if (room.type === RoomType.PROTECTED) {
       if (!(await argon.verify(room.password, oldPassword))) {
         throw new ForbiddenException(`Mot de passe incorrect`);
       }
     }
-    let hashedPassword = "";
-    if (roomType == RoomType.PROTECTED) {
+    let hashedPassword = '';
+    if (roomType === RoomType.PROTECTED) {
       hashedPassword = await argon.hash(password);
     }
     return this.repository.updateRoom({
       where: { id: roomId },
-      data: { 
-        roomType: roomType,
-        password: hashedPassword
+      data: {
+        type: roomType,
+        password: hashedPassword,
       },
     });
   }

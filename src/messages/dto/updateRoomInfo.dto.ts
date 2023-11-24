@@ -1,5 +1,12 @@
-import { IsInt, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
+import {
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  MinLength,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { RoomType } from '@prisma/client';
 
 export class UpdateRoomInfoDto {
   @ApiProperty()
@@ -10,7 +17,7 @@ export class UpdateRoomInfoDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
-  roomType: string;
+  roomType: RoomType;
 
   @ApiProperty()
   @IsString()
