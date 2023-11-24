@@ -216,7 +216,13 @@ export class GameSessionService {
     // create a new game session with the host and the new player
     const participants = waitingGameSession.participants;
     waitingGameSession.played = true;
-    return this.createGameSession(participants, GameSessionType.PrivateGame);
+    return this.createGameSession(
+      participants,
+      GameSessionType.PrivateGame,
+    ).then((gameSession) => {
+      gameSession.rules = waitingGameSession.rules;
+      return gameSession;
+    });
   }
 
   async rejectGameChallengeInvite(
