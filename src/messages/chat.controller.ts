@@ -14,6 +14,7 @@ import {
   JoinRoomDto,
   RemoveFromRoomDto,
   UpdatePasswordDto,
+  UpdateRoomInfoDto,
   UpdateRoleDto,
 } from './dto';
 import { AuthenticatedGuard } from '../auth/guards';
@@ -75,6 +76,17 @@ export class ChatController {
   ) {
     const userId = req.user.id;
     return this.service.updateRoomPassword(updatePasswordDto, userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Patch('update-room-info')
+  async updateRoomInfo(
+    @Req() req: RequestWithUser,
+    @Body() updateRoomInfoDto: UpdateRoomInfoDto,
+  ) {
+    const userId = req.user.id;
+    return this.service.updateRoomInfo(updateRoomInfoDto, userId);
   }
 
   @ApiBearerAuth()
