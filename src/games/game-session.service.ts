@@ -403,7 +403,7 @@ export class GameSessionService {
   async quitGameSession(gameId: number, userId: number): Promise<string> {
     const gameSession = this.gameSessions.get(gameId);
     if (!gameSession) return 'No game session found, with this id';
-    if (gameSession.state === GameMonitorState.Ended) return;
+    if (gameSession.state === GameMonitorState.Ended) return 'Game ended';
     const gamer = gameSession.participants.find((p) => p.userId === userId);
     if (!gamer) return 'No game session found, with this id';
     gameSession.eventsToPublishInRoom.push({
