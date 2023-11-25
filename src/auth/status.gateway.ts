@@ -66,7 +66,7 @@ export class StatusGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ): Promise<void> {
     try {
       const userId = client.handshake.query.userId;
-      if (!userId) throw new Error('User ID is required');
+      if (!userId) return;
       const id = Number(userId);
       await this.usersService.changeStatus(id, newStatus);
       this.server.emit('statusUpdate', {

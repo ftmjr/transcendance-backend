@@ -66,7 +66,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!rooms.includes(roomName)) {
         client.join(roomName);
       }
-      this.handleGameEvents(gameSession);
+      setTimeout(() => {
+        this.handleGameEvents(gameSession);
+      }, 35);
       return {
         worked: true,
         roomId: gameSession.gameId,
@@ -81,8 +83,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!rooms.includes(roomName)) {
         client.join(roomName);
       }
-      await client.join(roomName);
-      this.handleGameEvents(gameSession);
+      setTimeout(() => {
+        this.handleGameEvents(gameSession);
+      }, 35);
       return {
         worked: true,
         roomId: gameSession.gameId,
