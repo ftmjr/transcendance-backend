@@ -32,10 +32,17 @@ export class ChatService {
 
   async createRoom(info: CreateRoomDto) {
     if (info.type === RoomType.PROTECTED && !info.password) {
-      throw new Error('Password is required, for protected room');
+      throw new BadRequestException('Password is required, for protected room');
     }
     if (info.password) {
       info.password = await argon.hash(info.password); // hash password before save to database
+    }
+    // check if there is no other room with same name
+    const room = await this.repository.getSimpleRoom({
+      where: { name: info.name },
+    });
+    if (room) {
+      throw new BadRequestException('Une salle avec ce nom existe déjà');
     }
     const data = {
       name: info.name,

@@ -142,7 +142,7 @@ export class GameRealtimeService {
           data: GameMonitorState.Ended,
         },
       });
-      // pause the game if it is not already paused
+      // destroy the game engine
       gameSession.gameEngine?.stopLoop();
       gameSession.state = GameMonitorState.Ended;
     }
@@ -173,6 +173,9 @@ export class GameRealtimeService {
             },
           });
           gameSession.state = GameMonitorState.Play;
+          if (gameSession.gameEngine) {
+            gameSession.gameEngine.activateLoop(); // 60 times per second
+          }
         }
         break;
       case GameMonitorState.Pause:
@@ -336,7 +339,6 @@ export class GameRealtimeService {
         gameGateway,
         gameSession.score,
       );
-      gameSession.gameEngine.activateLoop(); // 60 times per second
       return;
     }
   }

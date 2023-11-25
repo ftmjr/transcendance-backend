@@ -174,11 +174,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const { event, data } = eventObj;
       this.server.to(roomName).emit(event, data);
     });
-    if (gameSession.state === GameMonitorState.Ended) {
-      this.server
-        .to(roomName)
-        .emit(GAME_EVENTS.GameStateChanged, GameMonitorState.Ended);
-    }
     gameSession.eventsToPublishInRoom.splice(
       0,
       gameSession.eventsToPublishInRoom.length,
@@ -193,13 +188,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
     const gameSession = this.gameSessionService.getGameSession(roomId);
     // if one of the event is a GameEnded event, we need to handle it
-    if (gameSession.state === GameMonitorState.Ended) {
-      if (gameSession.state === GameMonitorState.Ended) {
-        this.server
-          .to(roomName)
-          .emit(GAME_EVENTS.GameStateChanged, GameMonitorState.Ended);
-      }
-    }
+    this.handleGameEvents(gameSession);
   }
 
   public sendScored(

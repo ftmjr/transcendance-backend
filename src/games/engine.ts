@@ -417,6 +417,7 @@ export default class GameEngine {
   }
 
   activateLoop(): void {
+    console.log('trying to activate loop for game: ', this.roomId);
     if (this.isLoopActive) {
       return;
     }
@@ -453,6 +454,7 @@ export default class GameEngine {
     // destroy after the loop is stopped
     setTimeout(() => {
       try {
+        console.log('try physics destroy, for game: ', this.roomId);
         this.physics?.destroy();
       } catch (e) {
         // do nothing
