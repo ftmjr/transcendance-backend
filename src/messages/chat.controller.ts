@@ -204,7 +204,6 @@ export class ChatController {
     @Body() inviteUserDto: { userId: number; roomId: number },
   ) {
     const { userId, roomId } = inviteUserDto;
-    const actorId = req.user.id;
-    return this.service.inviteUserToRoom(roomId, userId, actorId);
+    return this.service.inviteUserToRoom(roomId, userId, req.user);
   }
 }
