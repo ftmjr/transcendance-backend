@@ -226,7 +226,7 @@ export class GamesController {
   })
   async getAllGameSessions(
     @Req() req: RequestWithUser,
-  ): Promise<GameSessionShort[]> {
+  ): Promise<GameSessionShort[] | string> {
     const user = req.user;
     return this.gameSessionService.getUserGameSessions(user.id);
   }

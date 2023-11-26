@@ -453,6 +453,7 @@ export default class GameEngine {
     // destroy after the loop is stopped
     setTimeout(() => {
       try {
+        console.info('Destroying Engine, for game: ', this.roomId);
         this.physics?.destroy();
       } catch (e) {
         // do nothing

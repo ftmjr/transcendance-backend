@@ -262,18 +262,16 @@ export class GameSessionService {
     return { valid: true, played: waitingGameSession.played ?? false };
   }
 
-  async quitWaitingRoom(actor: UserWithData): Promise<void> {
+  async quitWaitingRoom(actor: UserWithData): Promise<string> {
     if (this.waitingRoomGame) {
       if (this.waitingRoomGame.hostId === actor.id) {
         this.waitingRoomGame = undefined;
         this.notificationService.sendPlayerLeftQue(actor.id, actor.username);
       } else {
-        throw new BadRequestException(
-          `Vous n'êtes pas l'hôte de la file d'attente`,
-        );
+        return 'ok';
       }
     } else {
-      throw new NotFoundException("File d'attente non trouvée");
+      return 'ok';
     }
   }
 
@@ -353,7 +351,9 @@ export class GameSessionService {
     return gameSession;
   }
 
-  async getUserGameSessions(userId: number): Promise<GameSessionShort[]> {
+  async getUserGameSessions(
+    userId: number,
+  ): Promise<GameSessionShort[] | string> {
     const gameSessions: GameSessionShort[] = [];
     this.gameSessions.forEach((gameSession) => {
       if (
@@ -363,6 +363,9 @@ export class GameSessionService {
         gameSessions.push(selectSessionDataForFrontend(gameSession));
       }
     });
+    if (gameSessions.length === 0) {
+      return 'No game session found, for this user';
+    }
     return gameSessions;
   }
 
@@ -397,22 +400,22 @@ export class GameSessionService {
     return userIds.map((userId) => this.getUserGameStatus(userId));
   }
 
-  async quitGameSession(gameId: number, userId: number): Promise<void> {
+  async quitGameSession(gameId: number, userId: number): Promise<string> {
     const gameSession = this.gameSessions.get(gameId);
-    if (!gameSession) return;
-    if (gameSession.state === GameMonitorState.Ended) return;
+    if (!gameSession) return 'No game session found, with this id';
+    if (gameSession.state === GameMonitorState.Ended) return 'Game ended';
     const gamer = gameSession.participants.find((p) => p.userId === userId);
-    if (!gamer) return;
+    if (!gamer) return 'No game session found, with this id';
     gameSession.eventsToPublishInRoom.push({
-      event: GAME_EVENTS.GameStateChanged,
+      event: GAME_EVENTS.GameMonitorStateChanged,
       data: { roomId: gameId, data: GameMonitorState.Ended },
     });
     gameSession.state = GameMonitorState.Ended;
+    gameSession.gameEngine?.stopLoop();
     setTimeout(() => {
-      gameSession.gameEngine?.stopLoop();
       this.cleanGameSessions();
     }, 200);
-    return;
+    return 'Game session ended';
   }
 
   // Utils for http request methods

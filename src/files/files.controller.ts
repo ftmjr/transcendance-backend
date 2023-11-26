@@ -1,15 +1,13 @@
 import {
   Controller,
   Post,
-  Body,
   UseInterceptors,
   UseGuards,
   UploadedFile,
-  ParseFilePipe,
-  FileTypeValidator,
-  MaxFileSizeValidator,
   Req,
   Delete,
+  Param,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { FilesService } from './files.service';
 import { AuthenticatedGuard } from '../auth/guards';
@@ -60,7 +58,7 @@ export class FilesController {
 
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
-  @Post('chatRoomAvatar')
+  @Post('chatRoomAvatar/:roomId')
   @UseInterceptors(
     FileInterceptor('file', {
       storage: diskStorage({
@@ -82,7 +80,7 @@ export class FilesController {
   async changeChatAvatar(
     @Req() req: RequestWithUser,
     @UploadedFile() file: Express.Multer.File,
-    @Body('roomId') roomId: number,
+    @Param('roomId', ParseIntPipe) roomId: number,
   ) {
     return this.filesService.updateChatRoomAvatar(
       file.filename,
