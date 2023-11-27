@@ -31,11 +31,12 @@ export class ChatService {
   ) {}
 
   async createRoom(info: CreateRoomDto) {
-    if (info.type === RoomType.PROTECTED && !info.password) {
-      throw new BadRequestException('Password is required, for protected room');
-    }
-    if (info.password) {
-      info.password = await argon.hash(info.password); // hash password before save to database
+    if (info.type === RoomType.PROTECTED || info.type === RoomType.PRIVATE) {
+      if (!info.password) {
+        throw new BadRequestException(
+          'Password is required, for protected room',
+        );
+      }
     }
     // check if there is no other room with same name
     const room = await this.repository.getSimpleRoom({
@@ -44,11 +45,15 @@ export class ChatService {
     if (room) {
       throw new BadRequestException('Une salle avec ce nom existe déjà');
     }
+    let hashedPassword = '';
+    if (info.password) {
+      hashedPassword = await argon.hash(info.password);
+    }
     const data = {
       name: info.name,
       type: info.type,
       avatar: info.avatar ?? getRandomAvatarUrl(),
-      password: info.password,
+      password: info.type === RoomType.PUBLIC ? null : hashedPassword,
     };
     const ownerId = info.ownerId;
     return this.repository.createRoom({ data }, ownerId);
@@ -461,20 +466,54 @@ export class ChatService {
   }
 
   async updateRoomInfo(data: UpdateRoomInfoDto, userId: number) {
-    const { roomId, roomType, oldPassword, password } = data;
+    const { roomId, roomType } = data;
     const room = await this.getRoom({ roomId });
     this.checkIfCanActInTheRoom(userId, room, [Role.OWNER, Role.ADMIN]);
-    if (room.type === RoomType.PROTECTED) {
-      if (!(await argon.verify(room.password, oldPassword))) {
-        throw new ForbiddenException(`Mot de passe incorrect`);
-      }
+    if (roomType === RoomType.PROTECTED || roomType === RoomType.PRIVATE) {
+      return this.updateToPrivateOrProtected(room, data);
+    } else {
+      return this.updateToPublic(room, data);
     }
-    let hashedPassword = '';
-    if (roomType === RoomType.PROTECTED) {
-      hashedPassword = await argon.hash(password);
-    }
+  }
+  async updateToPublic(room: ChatRoomWithMembers, data: UpdateRoomInfoDto) {
+    // const { oldPassword } = data;
+    // can be move if we don't want to check old
+    // if (room.password?.length && oldPassword) {
+    //   if (!(await argon.verify(room.password, oldPassword))) {
+    //     throw new ForbiddenException(`Mot de passe incorrect`);
+    //   }
+    // }
     return this.repository.updateRoom({
-      where: { id: roomId },
+      where: { id: room.id },
+      data: {
+        type: RoomType.PUBLIC,
+        password: null,
+      },
+    });
+  }
+  async updateToPrivateOrProtected(
+    room: ChatRoomWithMembers,
+    data: UpdateRoomInfoDto,
+  ) {
+    const { roomType, password } = data;
+    let hashedPassword = '';
+    // if (!oldPassword && room.password?.length > 0) {
+    //   throw new BadRequestException('Mot de passe requis');
+    // }
+
+    // can be move if we don't want to check old
+    // if (room.password?.length && oldPassword) {
+    //   if (!(await argon.verify(room.password, oldPassword))) {
+    //     throw new ForbiddenException(`Mot de passe incorrect`);
+    //   }
+    // }
+
+    if (!password) {
+      throw new BadRequestException('Mot de passe requis pour ce type de room');
+    }
+    hashedPassword = await argon.hash(password);
+    return this.repository.updateRoom({
+      where: { id: room.id },
       data: {
         type: roomType,
         password: hashedPassword,
