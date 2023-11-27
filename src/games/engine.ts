@@ -93,19 +93,29 @@ class Paddle {
   }
   updateAiPlayer(ballPosition: { x: number; y: number }) {
     if (this.id !== 0) return;
-    const min_position = 667;
+    const min_position = 600;
     const max_position = 1234;
     // code to check if ball is in a surface between min_position and max_position
     if (ballPosition.x > min_position && ballPosition.x < max_position) {
-      const speedArray = [IA_VELOCITY * 0.8, IA_VELOCITY, IA_VELOCITY * 1.5];
-      // select one of the element of speedArray randomly
-      const randomSpeed =
-        speedArray[Math.floor(Math.random() * speedArray.length)];
+      const speedArray = [
+        IA_VELOCITY * 0.6,
+        IA_VELOCITY * 0.8,
+        IA_VELOCITY,
+        IA_VELOCITY * 1.2,
+        IA_VELOCITY * 1.5,
+      ];
       const distance = ballPosition.y - this.body.y;
-      if (distance > 32) {
+      // depending on time to get on ball we choose the speed in the array
+      let index = Math.floor(Math.abs(distance) / 128);
+      if (index > 4) index = 4;
+      const perfectSpeed = speedArray[index];
+      // we generate a random speed that is 20% different from the perfect speed
+      const randomSpeed =
+        perfectSpeed + (Math.random() * perfectSpeed) / 5 - perfectSpeed / 10;
+      if (distance > 64) {
         this.body.setVelocityY(randomSpeed);
         return;
-      } else if (distance < -32) {
+      } else if (distance < -64) {
         this.body.setVelocityY(-randomSpeed);
         return;
       }
@@ -419,8 +429,8 @@ export default class GameEngine {
 
   private handleBallPaddleCollision(ballBody: Body, paddleBody: Body): void {
     // Adjust the ball's y-speed based on the yOffset
-    const yOffset = ballBody.y - paddleBody.y; // To DO
-    const newVelocityY = ballBody.velocity.y + yOffset * 10;
+    const yOffset = ballBody.y - paddleBody.y;
+    const newVelocityY = ballBody.velocity.y + yOffset * 5;
     ballBody.setVelocityY(newVelocityY);
     // add speed in x depending on speed of the paddle in y in absolute value
     const paddleVelocityY = Math.abs(paddleBody.velocity.y);
@@ -428,9 +438,9 @@ export default class GameEngine {
     const ballVelocityX = ballBody.velocity.x;
     // if ball is going to the left
     if (ballVelocityX < 0) {
-      ballBody.setVelocityX(ballVelocityX - paddleVelocityY * 0.9);
+      ballBody.setVelocityX(ballVelocityX - paddleVelocityY * 0.4);
     } else {
-      ballBody.setVelocityX(ballVelocityX + paddleVelocityY * 0.9);
+      ballBody.setVelocityX(ballVelocityX + paddleVelocityY * 0.4);
     }
   }
 
