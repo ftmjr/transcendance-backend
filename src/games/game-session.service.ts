@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -51,6 +52,7 @@ export class GameSessionService {
   private gameSessions: Map<number, GameSession> = new Map();
   private waitingRoomGame: WaitingGameSession | undefined = undefined;
   private waitingChallenge: Map<number, WaitingGameSession> = new Map();
+  private readonly logger = new Logger(GameSessionService.name);
 
   constructor(
     private gameService: GamesService,
@@ -403,7 +405,10 @@ export class GameSessionService {
   async quitGameSession(gameId: number, userId: number): Promise<string> {
     const gameSession = this.gameSessions.get(gameId);
     if (!gameSession) return 'No game session found, with this id';
-    if (gameSession.state === GameMonitorState.Ended) return 'Game ended';
+    if (gameSession.state === GameMonitorState.Ended) {
+      this.cleanGameSessions();
+      return 'Game Ended';
+    }
     const gamer = gameSession.participants.find((p) => p.userId === userId);
     if (!gamer) return 'No game session found, with this id';
     gameSession.eventsToPublishInRoom.push({
@@ -411,10 +416,11 @@ export class GameSessionService {
       data: { roomId: gameId, data: GameMonitorState.Ended },
     });
     gameSession.state = GameMonitorState.Ended;
+    this.logger.log(
+      `Quit Game - stopping engine loop, and destroying engine for session: ${gameSession.gameId}`,
+    );
     gameSession.gameEngine?.stopLoop();
-    setTimeout(() => {
-      this.cleanGameSessions();
-    }, 200);
+    this.cleanGameSessions();
     return 'Game session ended';
   }
 
@@ -577,23 +583,30 @@ export class GameSessionService {
           event: GAME_EVENTS.GameMonitorStateChanged,
           data: { roomId: gameSessionId, data: GameMonitorState.Ended },
         });
+        this.logger.log(
+          `try stopping engine loop, if exist for gameSession: ${gameSessionId}`,
+        );
         gameSession.gameEngine?.stopLoop();
-        // destroy the game engine from memory
-        gameSession.gameEngine = undefined;
       }
     });
   }
 
   cleanGameSessions(): void {
     const toDelete = [];
+    this.logger.log('cleaning game sessions');
     for (const gameSession of this.gameSessions.values()) {
       if (gameSession.state === GameMonitorState.Ended) {
+        this.logger.log(
+          `cleaning - stopping engine loop, and destroying engine for session: ${gameSession.gameId}`,
+        );
         gameSession.gameEngine?.stopLoop();
-        gameSession.gameEngine = undefined;
+        // wait for 40ms to be sure the game engine is stopped
+        delete gameSession.gameEngine;
         toDelete.push(gameSession.gameId);
       }
     }
     for (const gameId of toDelete) {
+      this.logger.log(`deleting game session in memory ${gameId}`);
       this.notificationService.sendGameEnded(gameId);
       this.gameSessions.delete(gameId);
     }
@@ -605,7 +618,10 @@ export class GameSessionService {
       throw new NotFoundException("Game session doesn't exist");
     }
     gameSession.gameEngine?.stopLoop();
-    this.gameSessions.delete(gameId);
+    setTimeout(() => {
+      delete gameSession.gameEngine;
+      this.gameSessions.delete(gameId);
+    }, 40);
   }
 
   getGameSession(gameId: number): GameSession | undefined {

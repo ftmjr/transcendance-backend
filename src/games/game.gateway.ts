@@ -1,4 +1,3 @@
-// src/games/game.gateway.ts
 import {
   ConnectedSocket,
   MessageBody,
@@ -21,10 +20,12 @@ import {
 import { GameUser, JoinGameEvent } from './dto';
 import { GameSessionService } from './game-session.service';
 import { GameStateDataPacket } from './engine';
+import { Logger } from '@nestjs/common';
 
 @WebSocketGateway({ namespace: 'game' })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
+  private readonly logger = new Logger(GameGateway.name);
 
   constructor(
     private gameRealtimeService: GameRealtimeService,
@@ -32,7 +33,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {}
 
   handleConnection(client: Socket, ...args: any[]) {
-    // empty to avoid logging too much
+    this.logger.log(`Client connected to game socket: ${client.id}`);
   }
 
   handleDisconnect(@ConnectedSocket() client: Socket): any {
@@ -44,6 +45,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       for (const gameSession of gameSessions) {
         this.handleGameEvents(gameSession);
       }
+      this.gameSessionService.cleanGameSessions();
     } catch (e) {
       console.log(e);
     }
@@ -130,7 +132,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { roomId, gameState, user } = received;
     const gameSession = this.gameSessionService.getGameSession(roomId);
     if (!gameSession) return;
-    this.gameRealtimeService.handleGameStateChanged(
+    this.gameRealtimeService.handleClientGameStateChanged(
       gameSession,
       user.userId,
       gameState,
@@ -189,9 +191,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       roomId,
       data,
     });
-    const gameSession = this.gameSessionService.getGameSession(roomId);
-    // if one of the event is a GameEnded event, we need to handle it
-    this.handleGameEvents(gameSession);
   }
 
   public sendScored(

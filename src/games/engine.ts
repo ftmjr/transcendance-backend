@@ -12,7 +12,7 @@ const BALL_RADIUS = 20; // Radius of the ball
 const BALL_DIAMETER = BALL_RADIUS * 2; // Diameter of the ball
 const PADDLE_WIDTH = 32; // Width of the paddle
 const PADDLE_HEIGHT = 128; // Height of the paddle
-const IA_VELOCITY = 700;
+const IA_VELOCITY = 400;
 const BALL_MAX_SPEED = 400;
 
 export interface PaddleEngineData {
@@ -74,6 +74,7 @@ class Paddle {
     this.body.pushable = false;
     this.body
       .setBounce(DEFAULT_BOUNCE.x, DEFAULT_BOUNCE.y)
+      .setMass(1000)
       .setImmovable(true)
       .setCollideWorldBounds(
         true,
@@ -86,37 +87,31 @@ class Paddle {
   applyDeceleration(): void {
     const currentVelocity = this.body?.velocity.y ?? 0;
     if (currentVelocity === 0) return;
-    if (this.id === 0) {
-      this.body.setVelocityY(currentVelocity * IA_DECELERATION_FACTOR);
-    } else {
+    if (this.id !== 0) {
       this.body.setVelocityY(currentVelocity * DECELERATION_FACTOR);
     }
   }
   updateAiPlayer(ballPosition: { x: number; y: number }) {
     if (this.id !== 0) return;
-    const min_position = 400;
-    const max_position = 1280;
+    const min_position = 667;
+    const max_position = 1234;
     // code to check if ball is in a surface between min_position and max_position
     if (ballPosition.x > min_position && ballPosition.x < max_position) {
-      const speedArray = [
-        IA_VELOCITY,
-        IA_VELOCITY * 1.2,
-        IA_VELOCITY * 1.4,
-        IA_VELOCITY * 1.5,
-        IA_VELOCITY * 1.6,
-        IA_VELOCITY * 1.8,
-      ];
+      const speedArray = [IA_VELOCITY * 0.8, IA_VELOCITY, IA_VELOCITY * 1.5];
       // select one of the element of speedArray randomly
       const randomSpeed =
         speedArray[Math.floor(Math.random() * speedArray.length)];
       const distance = ballPosition.y - this.body.y;
-      if (distance > 48) {
+      if (distance > 32) {
         this.body.setVelocityY(randomSpeed);
         return;
-      } else if (distance < -48) {
+      } else if (distance < -32) {
         this.body.setVelocityY(-randomSpeed);
         return;
       }
+    } else {
+      const currentVelocity = this.body?.velocity.y ?? 0;
+      this.body.setVelocityY(currentVelocity * IA_DECELERATION_FACTOR);
     }
   }
 
@@ -211,8 +206,26 @@ class TrackableState {
   }
 
   set paddles(value: PaddleState[]) {
-    this.state.paddles = value;
-    this.changedProperties.add('paddles');
+    let changePaddle = false;
+    // compare with previous value
+    const previousPaddles = this.state.paddles;
+    if (previousPaddles) {
+      for (let i = 0; i < previousPaddles.length; i++) {
+        if (
+          previousPaddles[i].position.x !== value[i].position.x ||
+          previousPaddles[i].position.y !== value[i].position.y ||
+          previousPaddles[i].speed.x !== value[i].speed.x ||
+          previousPaddles[i].speed.y !== value[i].speed.y ||
+          previousPaddles[i].direction !== value[i].direction
+        ) {
+          changePaddle = true;
+        }
+      }
+    }
+    if (changePaddle) {
+      this.state.paddles = value;
+      this.changedProperties.add('paddles');
+    }
   }
 
   get ball() {
@@ -220,8 +233,23 @@ class TrackableState {
   }
 
   set ball(value: BallState) {
-    this.state.ball = value;
-    this.changedProperties.add('ball');
+    let changeBall = false;
+    // compare with previous value
+    const previousBall = this.state.ball;
+    if (previousBall) {
+      if (
+        previousBall.position.x !== value.position.x ||
+        previousBall.position.y !== value.position.y ||
+        previousBall.speed.x !== value.speed.x ||
+        previousBall.speed.y !== value.speed.y
+      ) {
+        changeBall = true;
+      }
+    }
+    if (changeBall) {
+      this.state.ball = value;
+      this.changedProperties.add('ball');
+    }
   }
 
   get scores() {
@@ -229,24 +257,39 @@ class TrackableState {
   }
 
   set scores(value: ScoreState[]) {
-    this.state.scores = value;
-    this.changedProperties.add('scores');
+    let changeScores = false;
+    // compare with previous value
+    const previousScores = this.state.scores;
+    if (previousScores) {
+      for (let i = 0; i < previousScores.length; i++) {
+        if (
+          previousScores[i].userId !== value[i].userId ||
+          previousScores[i].score !== value[i].score
+        ) {
+          changeScores = true;
+        }
+      }
+    }
+    if (changeScores) {
+      this.state.scores = value;
+      this.changedProperties.add('scores');
+    }
   }
 
   getChangedProperties(): Partial<GameStateDataPacket> {
     const changes: Partial<GameStateDataPacket> = {};
     for (const key of this.changedProperties) {
       switch (key) {
-        case 'timestamp':
-          changes.timestamp = this.state.timestamp;
-          break;
         case 'paddles':
+          changes.timestamp = this.state.timestamp;
           changes.paddles = this.state.paddles as PaddleState[];
           break;
         case 'ball':
+          changes.timestamp = this.state.timestamp;
           changes.ball = this.state.ball as BallState;
           break;
         case 'scores':
+          changes.timestamp = this.state.timestamp;
           changes.scores = this.state.scores as ScoreState[];
           break;
       }
@@ -259,7 +302,7 @@ class TrackableState {
 export default class GameEngine {
   private readonly paddles: Paddle[] = [];
   private readonly ball: Ball;
-  private readonly physics: ArcadePhysics;
+  private physics: ArcadePhysics;
   private timer: NodeJS.Timer;
   public timestamp = 0;
   private isLoopActive = false;
@@ -409,6 +452,7 @@ export default class GameEngine {
   }
 
   private updateAiPlayer() {
+    if (this.state === EngineState.STOPPED) return;
     const ballPosition = { x: this.ball.body.x, y: this.ball.body.y };
     const aiPlayer = this.paddles.find((paddle) => paddle.id === 0);
     if (aiPlayer) {
@@ -422,18 +466,17 @@ export default class GameEngine {
     }
     let tick = 0;
     this.timer = setInterval(() => {
-      this.physics.world.update(tick * 1000, this.timePerFrame);
-      this.updateBallState();
-      this.updatePaddleState();
-      this.updateScoresState();
-      this.updateAiPlayer();
-      this.physics.world.postUpdate();
-      tick++;
-      this.paddles.forEach((paddle) => paddle.applyDeceleration());
-      this.sendNewGameStateToUsers();
-      if (this.state === EngineState.STOPPED) {
-        this.physics.destroy();
+      if (this.physics && this.state !== EngineState.STOPPED) {
+        this.physics?.world.update(tick * 1000, this.timePerFrame);
+        this.updateAiPlayer();
+        this.updateBallState();
+        this.updatePaddleState();
+        this.updateScoresState();
+        this.physics?.world.postUpdate();
+        this.paddles.forEach((paddle) => paddle.applyDeceleration());
       }
+      tick++;
+      this.sendNewGameStateToUsers();
     }, this.timePerFrame);
 
     this.isLoopActive = true;
@@ -450,15 +493,8 @@ export default class GameEngine {
     }
     this.isLoopActive = false;
     this.state = EngineState.STOPPED;
-    // destroy after the loop is stopped
-    setTimeout(() => {
-      try {
-        console.info('Destroying Engine, for game: ', this.roomId);
-        this.physics?.destroy();
-      } catch (e) {
-        // do nothing
-      }
-    }, this.timePerFrame * 2);
+    this.physics?.destroy();
+    delete this.physics;
   }
 
   /**
@@ -493,6 +529,7 @@ export default class GameEngine {
    * Code Optimiser for data
    */
   updatePaddleState(): void {
+    if (this.state === EngineState.STOPPED) return;
     this.gameState.paddles = this.paddles.map((p) => {
       return {
         userId: p.id,
@@ -504,6 +541,7 @@ export default class GameEngine {
   }
 
   updateBallState(): void {
+    if (this.state === EngineState.STOPPED) return;
     this.gameState.ball = {
       position: { x: this.ball.body.x, y: this.ball.body.y },
       speed: { x: this.ball.body.velocity.x, y: this.ball.body.velocity.y },

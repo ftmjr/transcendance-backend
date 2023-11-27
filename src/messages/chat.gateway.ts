@@ -22,13 +22,13 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     ServerToClientEvents,
     ClientToServerEvents
   >();
+  private readonly logger = new Logger(ChatGateway.name);
 
   constructor(
     private chatService: ChatService,
     private privateMessageService: MessageService,
   ) {}
 
-  private logger = new Logger('ChatGateway');
   async handleConnection(client: Socket, ...args: any[]) {
     try {
       const userId = client.handshake.query.userId;
@@ -139,6 +139,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }> {
     const { senderId, receiverId, content } = data;
     try {
+      this.logger.log(
+        `Sending private message from ${senderId} to ${receiverId}`,
+      );
       const message = await this.privateMessageService.createPrivateMessage(
         { content, receiverId },
         senderId,
