@@ -14,6 +14,7 @@ import {
   JoinRoomDto,
   RemoveFromRoomDto,
   UpdatePasswordDto,
+  UpdateRoomInfoDto,
   UpdateRoleDto,
 } from './dto';
 import { AuthenticatedGuard } from '../auth/guards';
@@ -44,14 +45,11 @@ export class ChatController {
     @Param('roomId', ParseIntPipe) roomId: number,
     @Body() joinRoomDto: JoinRoomDto,
   ) {
-    const actorId = req.user.id; // replace with actual actorId
-    return this.service.addUserToARoom(
-      {
-        roomId,
-        ...joinRoomDto,
-      },
-      actorId,
-    );
+    // const actorId = req.user.id; // replace with actual actorId
+    return this.service.addUserToARoom({
+      roomId,
+      ...joinRoomDto,
+    });
   }
 
   @UseGuards(AuthenticatedGuard)
@@ -78,6 +76,17 @@ export class ChatController {
   ) {
     const userId = req.user.id;
     return this.service.updateRoomPassword(updatePasswordDto, userId);
+  }
+
+  @ApiBearerAuth()
+  @UseGuards(AuthenticatedGuard)
+  @Patch('update-room-info')
+  async updateRoomInfo(
+    @Req() req: RequestWithUser,
+    @Body() updateRoomInfoDto: UpdateRoomInfoDto,
+  ) {
+    const userId = req.user.id;
+    return this.service.updateRoomInfo(updateRoomInfoDto, userId);
   }
 
   @ApiBearerAuth()
@@ -177,10 +186,14 @@ export class ChatController {
   @ApiBearerAuth()
   @UseGuards(AuthenticatedGuard)
   @ApiOperation({
-    summary: 'unMute all users that time is expired',
+    summary: 'send an invitation to rejoin the room',
   })
-  @Get('checkMuted')
-  async unMuteAllUnMuteTimePassed() {
-    return this.service.unMuteAllWaitingMutedUsers();
+  @Post('invite')
+  async inviteUserToRoom(
+    @Req() req: RequestWithUser,
+    @Body() inviteUserDto: { userId: number; roomId: number },
+  ) {
+    const { userId, roomId } = inviteUserDto;
+    return this.service.inviteUserToRoom(roomId, userId, req.user);
   }
 }

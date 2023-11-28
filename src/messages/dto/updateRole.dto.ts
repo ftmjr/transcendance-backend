@@ -16,7 +16,7 @@ export class UpdateRoleDto {
   @ApiProperty()
   @IsString()
   @IsNotEmpty()
-  @MinLength(4)
+  @MinLength(3)
   role: Role;
 
   @ApiProperty()

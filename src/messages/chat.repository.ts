@@ -71,7 +71,7 @@ export class ChatRepository {
     where: Prisma.ChatRoomWhereUniqueInput;
   }): Promise<ChatRoom> {
     const { where } = params;
-    return this.prisma.chatRoom.findUnique({
+    return this.prisma.chatRoom.findFirst({
       where,
     });
   }
@@ -136,12 +136,12 @@ export class ChatRepository {
   }
 
   async getChatRoomMember(
-    memberId: User[`id`],
+    userId: User[`id`],
     roomId: ChatRoom[`id`],
   ): Promise<MemberRoomWithUserProfiles> {
     return this.prisma.chatRoomMember.findFirst({
       where: {
-        memberId: memberId,
+        memberId: userId,
         chatroomId: roomId,
       },
       include: {
@@ -199,6 +199,14 @@ export class ChatRepository {
     return this.prisma.chatRoomMember.update({ data, where });
   }
 
+  async updateManyChatRoomMembers(params: {
+    where: Prisma.ChatRoomMemberWhereInput;
+    data: Prisma.ChatRoomMemberUpdateInput;
+  }) {
+    const { data, where } = params;
+    return this.prisma.chatRoomMember.updateMany({ data, where });
+  }
+
   /*
    * First, try to find an ADMIN from the messages room.
    * Or any member who is not banned.
@@ -220,7 +228,7 @@ export class ChatRepository {
       where: {
         chatroomId: roomId,
         NOT: {
-          role: Role.BAN,
+          OR: [{ role: Role.OWNER }, { role: Role.BAN }],
         },
       },
     });

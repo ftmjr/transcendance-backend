@@ -1,99 +1,130 @@
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { ChatRepository, ChatRoomWithMembers } from './chat.repository';
 import * as argon from 'argon2';
-import { getRandomAvatarUrl, UsersService } from '../users/users.service';
+import { getRandomAvatarUrl, UserWithData } from '../users/users.service';
 import { ChatRoom, ChatRoomMember, Role, RoomType } from '@prisma/client';
-import { CreateRoomDto, UpdatePasswordDto, UpdateRoleDto } from './dto';
+import {
+  CreateRoomDto,
+  UpdatePasswordDto,
+  UpdateRoomInfoDto,
+  UpdateRoleDto,
+} from './dto';
 import { NotificationService } from '../notifications/notification.service';
 
 @Injectable()
 export class ChatService {
-  private toBeUnMuted: { userId: number; roomId: number; time: number }[] = [];
-
   constructor(
     private repository: ChatRepository,
-    private usersService: UsersService,
     private notificationService: NotificationService,
   ) {}
 
   async createRoom(info: CreateRoomDto) {
-    if (info.type === RoomType.PROTECTED && !info.password) {
-      throw new Error('Password is required, for protected room');
+    if (info.type === RoomType.PROTECTED || info.type === RoomType.PRIVATE) {
+      if (!info.password) {
+        throw new BadRequestException(
+          'Password is required, for protected room',
+        );
+      }
     }
+    // check if there is no other room with same name
+    const room = await this.repository.getSimpleRoom({
+      where: { name: info.name },
+    });
+    if (room) {
+      throw new BadRequestException('Une salle avec ce nom existe déjà');
+    }
+    let hashedPassword = '';
     if (info.password) {
-      info.password = await argon.hash(info.password); // hash password before save to database
+      hashedPassword = await argon.hash(info.password);
     }
     const data = {
       name: info.name,
       type: info.type,
       avatar: info.avatar ?? getRandomAvatarUrl(),
-      password: info.password,
+      password: info.type === RoomType.PUBLIC ? null : hashedPassword,
     };
     const ownerId = info.ownerId;
     return this.repository.createRoom({ data }, ownerId);
   }
-  async addUserToARoom(
-    info: { roomId: number; userId: number; password?: string },
-    actorId: number,
-  ) {
+  async addUserToARoom(info: {
+    roomId: number;
+    userId: number;
+    password?: string;
+  }) {
     const room = await this.getRoom({ roomId: info.roomId });
     if (!room) {
       throw new NotFoundException(`Salle de chat introuvable`);
     }
-    if (room.type === RoomType.PRIVATE) {
-      // only admin and owner can add member to private room
-      this.checkIfCanActInTheRoom(actorId, room, [Role.OWNER, Role.ADMIN]);
-    } else if (room.type === RoomType.PROTECTED) {
-      // anyone can join a protected room, if they have the password
-      if (!info.password) {
-        throw new UnauthorizedException(
-          `Vous devez fournir un mot de passe pour rejoindre cette salle de chat`,
-        );
-      }
+
+    // // private room can only be joined by invited user
+    // if (room.type === RoomType.PRIVATE) {
+    //   // only admin and owner can add member to private room
+    //   this.checkIfCanActInTheRoom(actorId, room, [Role.OWNER, Role.ADMIN]);
+    // }
+
+    // need to provide the password if a room as a password
+    if (room.password && !info.password) {
+      throw new ForbiddenException(`Mot de passe requis`);
+    } else if (room.password && info.password) {
       if (!(await argon.verify(room.password, info.password))) {
         throw new ForbiddenException(`Mot de passe incorrect`);
       }
     }
-    try {
-      const newMember = await this.repository.joinRoom(
-        info.userId,
-        info.roomId,
-        Role.USER,
-      );
-      await this.notificationService.createChatJoinNotification(
-        newMember.memberId,
-        room.id,
-        `Vous avez été ajouté à la salle de chat ${room.name}`,
-      );
-      return newMember;
-    } catch (e) {
-      throw new Error('Failed to add user to room');
-    }
+    // check if user is already a member
+    room.members.forEach((member) => {
+      if (member.memberId === info.userId) {
+        throw new BadRequestException(`Vous êtes déjà membre de cette salle`);
+      }
+    });
+    return this.addMemberToRoom(info.roomId, info.userId, Role.USER, room.name);
+  }
+
+  async addMemberToRoom(
+    roomId: number,
+    userId: number,
+    role: Role,
+    roomName: string,
+  ): Promise<ChatRoomMember> {
+    return this.repository
+      .joinRoom(userId, roomId, role)
+      .then((member) => {
+        this.notificationService.sendNewMemberInRoom(userId, roomId, roomName);
+        return member;
+      })
+      .catch(() => {
+        throw new BadRequestException('Failed to add member to  room');
+      });
   }
 
   // return true or throw error
   async canListenToRoom(roomId: number, userId: number) {
-    const room = await this.getRoom({ roomId });
-    if (room.type === RoomType.PRIVATE || room.type === RoomType.PROTECTED) {
-      this.checkIfCanActInTheRoom(userId, room, [
-        Role.OWNER,
-        Role.ADMIN,
-        Role.USER,
-        Role.MUTED,
-      ]);
+    try {
+      const room = await this.getRoom({ roomId });
+      if (room.type === RoomType.PRIVATE || room.type === RoomType.PROTECTED) {
+        this.checkIfCanActInTheRoom(userId, room, [
+          Role.OWNER,
+          Role.ADMIN,
+          Role.USER,
+          Role.MUTED,
+          Role.BAN,
+        ]);
+      }
+      return true;
+    } catch (e) {
+      return false;
     }
-    return true;
   }
 
   // Return PUBLIC and PROTECTED rooms
   async getPublicRooms(): Promise<ChatRoomWithMembers[]> {
     return this.repository.getPublicRooms();
   }
+
   async sendMessageToRoom(roomId: number, content: string, senderId: number) {
     const room = await this.getRoom({ roomId });
     this.checkIfCanActInTheRoom(senderId, room, [
@@ -114,18 +145,29 @@ export class ChatService {
     const room = await this.getRoom({ roomId });
     const owner = this.checkIfCanActInTheRoom(actorId, room, [Role.OWNER]);
     if (owner.memberId === userId) {
-      throw new UnauthorizedException('You cannot promote yourself');
+      throw new BadRequestException('You cannot promote yourself');
     }
-    const member = this.checkIfCanActInTheRoom(actorId, room, [
+    const member = this.checkIfCanActInTheRoom(userId, room, [
       Role.MUTED,
       Role.BAN,
       Role.USER,
       Role.ADMIN,
     ]);
-    return this.repository.updateChatRoomMember({
-      where: { id: member.id },
-      data: { role: Role.ADMIN },
-    });
+
+    return this.repository
+      .updateChatRoomMember({
+        where: { id: member.id },
+        data: { role: Role.ADMIN },
+      })
+      .then((adminMember) => {
+        this.notificationService.sendPromotedToAdmin(
+          actorId,
+          adminMember.memberId,
+          roomId,
+          room.name,
+        );
+        return adminMember;
+      });
   }
 
   // actorId is the user who is trying to act
@@ -141,13 +183,24 @@ export class ChatService {
         Role.MUTED,
         Role.BAN,
         Role.USER,
+        Role.ADMIN,
       ]);
-      return this.repository.updateChatRoomMember({
-        where: { id: member.id },
-        data: { role: Role.MUTED },
-      });
+      return this.repository
+        .updateChatRoomMember({
+          where: { id: member.id },
+          data: { role: Role.MUTED },
+        })
+        .then((mutedMember) => {
+          this.notificationService.sendRoomRolesUpdated(
+            actorId,
+            mutedMember.memberId,
+            roomId,
+            room.name,
+          );
+          return mutedMember;
+        });
     } catch (e) {
-      throw new UnauthorizedException('Failed to mute user');
+      throw new BadRequestException('Failed to mute user');
     }
   }
 
@@ -155,18 +208,8 @@ export class ChatService {
     roomId: number,
     userId: number,
     actorId: number,
-    timestamp: number, // expiration time
+    expireAt: number, // expiration time
   ): Promise<ChatRoomMember> {
-    try {
-      const mutedMember = await this.setUserAsMuted(roomId, userId, actorId);
-      this.toBeUnMuted.push({ userId, roomId, time: timestamp });
-      return mutedMember;
-    } catch (e) {
-      throw new UnauthorizedException('Failed to mute user');
-    }
-  }
-
-  async setUserAsBanned(roomId: number, userId: number, actorId: number) {
     try {
       const room = await this.getRoom({ roomId });
       this.checkIfCanActInTheRoom(actorId, room, [Role.OWNER, Role.ADMIN]);
@@ -174,14 +217,49 @@ export class ChatService {
         Role.MUTED,
         Role.BAN,
         Role.USER,
+        Role.ADMIN,
       ]);
-      return this.repository.updateChatRoomMember({
+      return this.repository
+        .updateChatRoomMember({
+          where: { id: member.id },
+          data: { role: Role.MUTED, unMuteAt: new Date(expireAt) },
+        })
+        .then((mutedMember) => {
+          this.notificationService.sendRoomRolesUpdated(
+            actorId,
+            mutedMember.memberId,
+            roomId,
+            room.name,
+          );
+          return mutedMember;
+        });
+    } catch (e) {
+      throw new BadRequestException('Failed to mute user');
+    }
+  }
+
+  async setUserAsBanned(roomId: number, userId: number, actorId: number) {
+    const room = await this.getRoom({ roomId });
+    this.checkIfCanActInTheRoom(actorId, room, [Role.OWNER, Role.ADMIN]);
+    const member = this.checkIfCanActInTheRoom(userId, room, [
+      Role.MUTED,
+      Role.BAN,
+      Role.USER,
+    ]);
+    return this.repository
+      .updateChatRoomMember({
         where: { id: member.id },
         data: { role: Role.BAN },
+      })
+      .then((bannedMember) => {
+        this.notificationService.sendRoomRolesUpdated(
+          actorId,
+          bannedMember.memberId,
+          roomId,
+          room.name,
+        );
+        return bannedMember;
       });
-    } catch (e) {
-      throw new UnauthorizedException('Failed to ban user');
-    }
   }
 
   // Failed if user is not a member, if not owner/admin acting, or owner try to set himself as user
@@ -195,6 +273,12 @@ export class ChatService {
         Role.USER,
         Role.ADMIN,
       ]);
+      this.notificationService.sendRoomRolesUpdated(
+        actorId,
+        member.memberId,
+        roomId,
+        room.name,
+      );
       return this.repository.updateChatRoomMember({
         where: { id: member.id },
         data: { role: Role.USER },
@@ -223,7 +307,7 @@ export class ChatService {
       case Role.BAN:
         return this.setUserAsBanned(roomId, info.userId, actorId);
       default:
-        throw new UnauthorizedException('Invalid role');
+        throw new BadRequestException('Invalid role');
     }
   }
 
@@ -242,12 +326,17 @@ export class ChatService {
       Role.USER,
       Role.ADMIN,
     ]);
-    this.notificationService.createChatRoomRemovedNotification(
-      member.memberId,
-      room.id,
-      `Vous avez été supprimé de la salle de chat ${room.name}`,
-    );
-    return this.repository.deleteMemberFromRoom(member.id);
+    return this.repository
+      .deleteMemberFromRoom(member.id)
+      .then((deletedMember) => {
+        this.notificationService.sendRemovedFromRoom(
+          userId,
+          deletedMember.memberId,
+          roomId,
+          room.name,
+        );
+        return deletedMember;
+      });
   }
 
   async removeMyselfFromRoom(roomId: number, userId: number) {
@@ -260,38 +349,53 @@ export class ChatService {
       Role.BAN,
     ]);
     if (member.role === Role.OWNER) {
-      const newOwner = await this.repository.findPotentialNewOwner(roomId);
-      // if no other member is found, delete the room
-      if (!newOwner) {
-        this.notificationService.createChatRoomDestroyedNotification(
-          room.members.map((m) => m.memberId),
-          room.id,
-          `La salle de chat ${room.name} a été supprimée`,
-        );
-        await this.repository.deleteRoom(roomId);
-        return;
-      }
-      await this.repository.updateChatRoomMember({
-        where: { id: newOwner.id },
-        data: { role: Role.OWNER },
-      });
-      this.notificationService.createChatRoomPromotionNotification(
-        newOwner.memberId,
-        room.id,
-        `Vous avez été promu propriétaire de la salle de chat ${room.name}`,
-      );
+      return this.specialSelfDeleteForOwner(roomId, member, room);
     }
-    return this.repository.deleteMemberFromRoom(member.id);
+    return this.repository
+      .deleteMemberFromRoom(member.id)
+      .then((deletedMember) => {
+        this.notificationService.sendRemovedFromRoom(
+          userId,
+          deletedMember.memberId,
+          roomId,
+          room.name,
+        );
+        return deletedMember;
+      });
   }
 
-  async deleteRoom(roomId: number, userId: number) {
-    const room = await this.getRoom({ roomId });
+  async specialSelfDeleteForOwner(
+    roomId: number,
+    owner: ChatRoomMember,
+    room: ChatRoomWithMembers,
+  ) {
+    // check if any admin is in the room first, then a regular user left to promote as owner
+    const newOwner = await this.repository.findPotentialNewOwner(roomId);
+    // if no other member is found, delete the room
+    if (!newOwner) return this.deleteRoom(roomId, owner.memberId, room);
+    await this.repository.deleteMemberFromRoom(owner.id);
+    await this.repository
+      .updateChatRoomMember({
+        where: { id: newOwner.id },
+        data: { role: Role.OWNER },
+      })
+      .then((newOwner) => {
+        this.notificationService.sendPromotedToAdmin(
+          owner.memberId,
+          newOwner.memberId,
+          roomId,
+          room.name,
+        );
+      });
+    return owner;
+  }
+
+  async deleteRoom(roomId: number, userId: number, room?: ChatRoomWithMembers) {
+    if (!room) {
+      room = await this.getRoom({ roomId });
+    }
     this.checkIfCanActInTheRoom(userId, room, [Role.OWNER]);
-    this.notificationService.createChatJoinNotification(
-      userId,
-      room.id,
-      `La salle de chat ${room.name} a été supprimée`,
-    );
+    this.notificationService.sendRoomDeleted(userId, roomId, room.name);
     return this.repository.deleteRoom(roomId);
   }
 
@@ -302,6 +406,12 @@ export class ChatService {
     info: { skip?: number; take?: number },
   ) {
     const room = await this.getRoom({ roomId });
+    if (room.type === RoomType.PUBLIC) {
+      return this.repository.getRoomMessages(roomId, {
+        skip: info.skip,
+        take: info.take,
+      });
+    }
     this.checkIfCanActInTheRoom(userId, room, [
       Role.OWNER,
       Role.ADMIN,
@@ -326,6 +436,7 @@ export class ChatService {
         Role.BAN,
       ]);
     }
+    await this.unMuteAllWaitingMutedUsers(room);
     return this.repository.getChatRoomMembers(roomId);
   }
 
@@ -349,6 +460,7 @@ export class ChatService {
   async changeChatAvatar(roomId: number, userId: number, url: string) {
     const room = await this.getRoom({ roomId });
     this.checkIfCanActInTheRoom(userId, room, [Role.OWNER, Role.ADMIN]);
+    this.notificationService.sendRoomSettingsUpdated(roomId, room.name);
     return this.repository.updateRoom({
       where: { id: roomId },
       data: { avatar: url },
@@ -364,6 +476,84 @@ export class ChatService {
       where: { id: roomId },
       data: { password: hashedPassword },
     });
+  }
+
+  async updateRoomInfo(data: UpdateRoomInfoDto, userId: number) {
+    const { roomId, roomType } = data;
+    const room = await this.getRoom({ roomId });
+    this.checkIfCanActInTheRoom(userId, room, [Role.OWNER, Role.ADMIN]);
+    if (roomType === RoomType.PROTECTED || roomType === RoomType.PRIVATE) {
+      return this.updateToPrivateOrProtected(room, data);
+    } else {
+      return this.updateToPublic(room, data);
+    }
+  }
+  async updateToPublic(room: ChatRoomWithMembers, data: UpdateRoomInfoDto) {
+    // const { oldPassword } = data;
+    // can be move if we don't want to check old
+    // if (room.password?.length && oldPassword) {
+    //   if (!(await argon.verify(room.password, oldPassword))) {
+    //     throw new ForbiddenException(`Mot de passe incorrect`);
+    //   }
+    // }
+    return this.repository.updateRoom({
+      where: { id: room.id },
+      data: {
+        type: RoomType.PUBLIC,
+        password: null,
+      },
+    });
+  }
+  async updateToPrivateOrProtected(
+    room: ChatRoomWithMembers,
+    data: UpdateRoomInfoDto,
+  ) {
+    const { roomType, password } = data;
+    let hashedPassword = '';
+    // if (!oldPassword && room.password?.length > 0) {
+    //   throw new BadRequestException('Mot de passe requis');
+    // }
+
+    // can be move if we don't want to check old
+    // if (room.password?.length && oldPassword) {
+    //   if (!(await argon.verify(room.password, oldPassword))) {
+    //     throw new ForbiddenException(`Mot de passe incorrect`);
+    //   }
+    // }
+
+    if (!password) {
+      throw new BadRequestException('Mot de passe requis pour ce type de room');
+    }
+    hashedPassword = await argon.hash(password);
+    return this.repository.updateRoom({
+      where: { id: room.id },
+      data: {
+        type: roomType,
+        password: hashedPassword,
+      },
+    });
+  }
+
+  async inviteUserToRoom(roomId: number, userId: number, actor: UserWithData) {
+    const room = await this.getRoom({ roomId });
+    this.checkIfCanActInTheRoom(actor.id, room, [
+      Role.OWNER,
+      Role.ADMIN,
+      Role.USER,
+      Role.MUTED,
+    ]);
+    // check if user is already a member
+    room.members.forEach((member) => {
+      if (member.memberId === userId) {
+        throw new BadRequestException(`Il est déjà membre de cette salle`);
+      }
+    });
+    this.notificationService.sendRoomInvitation(
+      actor,
+      userId,
+      roomId,
+      room.name,
+    );
   }
 
   /* utility functions */
@@ -388,18 +578,27 @@ export class ChatService {
   }
 
   // unMute all users that are muted and the time is up
-  async unMuteAllWaitingMutedUsers() {
-    const now = Date.now();
-    this.toBeUnMuted = this.toBeUnMuted.filter((mutedUser) => {
-      if (mutedUser.time <= now) {
-        this.repository.updateChatRoomMember({
-          where: { id: mutedUser.userId },
-          data: { role: Role.USER },
-        });
-        return false;
+  async unMuteAllWaitingMutedUsers(room: ChatRoomWithMembers) {
+    const now = new Date().getTime();
+    const toUnMuteMembers = room.members.filter((member) => {
+      if (member.role === Role.MUTED && member.unMuteAt) {
+        return member.unMuteAt.getTime() < now;
       }
-      return true;
     });
+    if (toUnMuteMembers.length > 0) {
+      await this.repository.updateManyChatRoomMembers({
+        where: { id: { in: toUnMuteMembers.map((m) => m.id) } },
+        data: { role: Role.USER, unMuteAt: new Date() },
+      });
+      toUnMuteMembers.forEach((member) => {
+        this.notificationService.sendRoomRolesUpdated(
+          member.memberId,
+          member.memberId,
+          member.chatroomId,
+          'room',
+        );
+      });
+    }
   }
 
   /*
@@ -416,7 +615,7 @@ export class ChatService {
   ) {
     const member = chatRoom.members.find((m) => m.memberId === actorId);
     if (!member) {
-      throw new UnauthorizedException(`Vous n'êtes pas membre de cette salle`);
+      throw new BadRequestException(`Vous n'êtes pas membre de cette salle`);
     }
     if (!grantedRoles.includes(member.role)) {
       throw new ForbiddenException(`Vous n'avez pas la permission, ou le rôle`);

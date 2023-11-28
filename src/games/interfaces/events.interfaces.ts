@@ -14,6 +14,8 @@ export enum GAME_EVENTS {
   reloadViewersList = 'reloadViewersList',
   GameObjectState = 'gameObjectState',
   PlayerLeft = 'player-left',
+  ViewerLoadScore = 'viewer-load-score',
+  BallPaddleCollision = 'ball-paddle-collision',
 }
 
 export enum GameUserType {

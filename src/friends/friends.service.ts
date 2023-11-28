@@ -1,10 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   ContactRequestWithReceiver,
   ContactRequestWithSender,
   FriendsRepository,
 } from './friends.repository';
-import { InvalidRequestError } from 'express-oauth2-jwt-bearer';
 import { Contact, User } from '@prisma/client';
 import { NotificationService } from '../notifications/notification.service';
 
@@ -92,47 +91,64 @@ export class FriendsService {
   async getReceivedFriendRequests(userId: number) {
     return this.repository.getReceivedFriendRequests(userId);
   }
-  async removeFriend(userId: number, friendId: number) {
-    return this.repository.removeFriend(userId, friendId);
+  async removeFriend(user: User, friendId: number) {
+    await this.repository.removeFriend(user.id, friendId);
+    await this.notificationService.sendBrokenFriendship(user, friendId);
   }
   async removeRequest(userId: number, friendId: number) {
     return this.repository.removeRequest(userId, friendId);
   }
   async addFriendRequest(user: User, friendId: number) {
     const friend = await this.repository.getFriend(user.id, friendId);
-    if (friend) {
-      throw new InvalidRequestError('User is already your friend');
-    }
+    if (friend) throw new BadRequestException('Already friends');
     const contactRequest = await this.repository.addFriendRequest(
       user.id,
       friendId,
     );
-    await this.notificationService.createFriendRequestNotification(
-      user.id,
-      friendId,
-      `Tu as reçu une demande d'ami de ${user.username}`,
-    );
+    await this.notificationService.sendFriendRequest(user, friendId);
     return contactRequest;
   }
   async cancelFriendRequest(requestId: number) {
     return this.repository.cancelFriendRequest(requestId);
   }
-  async approveFriendRequest(requestId: number) {
+  async approveFriendRequest(user: User, requestId: number) {
     const request = await this.repository.approveFriendRequest(requestId);
-    await this.notificationService.createFriendRequestAcceptedNotification(
+    await this.notificationService.sendFriendRequestApproved(
+      user,
       request.userId,
-      request.contactId,
-      `Ta demande d'ami a été acceptée`,
     );
     return request;
   }
-  async rejectFriendRequest(requestId: number) {
+  async rejectFriendRequest(user: User, requestId: number) {
     const request = await this.repository.rejectFriendRequest(requestId);
-    await this.notificationService.createFriendRequestRejectedNotification(
+    await this.notificationService.sendFriendRequestRejected(
+      user,
       request.senderId,
-      request.receiverId,
-      `Ta demande d'ami a été refusée`,
     );
     return request;
+  }
+
+  async blockUser(user: User, blockedUserId: User['id']) {
+    try {
+      await this.removeRequest(user.id, blockedUserId);
+      await this.removeFriend(user, blockedUserId);
+      return this.repository.blockUser(user.id, blockedUserId);
+    } catch (e) {
+      throw new BadRequestException("Can't block user");
+    }
+  }
+  async unblockUser(user: User, blockedUserId: number) {
+    return this.repository.unblockUser(user.id, blockedUserId).then((res) => {
+      if (res) {
+        this.notificationService.sendBlockedStatusChanged(
+          user,
+          blockedUserId,
+          false,
+        );
+        return res;
+      } else {
+        throw new BadRequestException("Can't unblock user");
+      }
+    });
   }
 }

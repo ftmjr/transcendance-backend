@@ -1,4 +1,3 @@
-// src/games/game.gateway.ts
 import {
   ConnectedSocket,
   MessageBody,
@@ -21,10 +20,12 @@ import {
 import { GameUser, JoinGameEvent } from './dto';
 import { GameSessionService } from './game-session.service';
 import { GameStateDataPacket } from './engine';
+import { Logger } from '@nestjs/common';
 
 @WebSocketGateway({ namespace: 'game' })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer() server: Server;
+  private readonly logger = new Logger(GameGateway.name);
 
   constructor(
     private gameRealtimeService: GameRealtimeService,
@@ -32,7 +33,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {}
 
   handleConnection(client: Socket, ...args: any[]) {
-    // empty to avoid logging too much
+    this.logger.log(`Client connected to game socket: ${client.id}`);
   }
 
   handleDisconnect(@ConnectedSocket() client: Socket): any {
@@ -44,6 +45,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       for (const gameSession of gameSessions) {
         this.handleGameEvents(gameSession);
       }
+      this.gameSessionService.cleanGameSessions();
     } catch (e) {
       console.log(e);
     }
@@ -66,7 +68,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!rooms.includes(roomName)) {
         client.join(roomName);
       }
-      this.handleGameEvents(gameSession);
+      setTimeout(() => {
+        this.handleGameEvents(gameSession);
+      }, 35);
       return {
         worked: true,
         roomId: gameSession.gameId,
@@ -81,8 +85,13 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       if (!rooms.includes(roomName)) {
         client.join(roomName);
       }
-      await client.join(roomName);
-      this.handleGameEvents(gameSession);
+      setTimeout(() => {
+        this.handleGameEvents(gameSession);
+      }, 35);
+      return {
+        worked: true,
+        roomId: gameSession.gameId,
+      };
     }
   }
 
@@ -123,7 +132,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const { roomId, gameState, user } = received;
     const gameSession = this.gameSessionService.getGameSession(roomId);
     if (!gameSession) return;
-    this.gameRealtimeService.handleGameStateChanged(
+    this.gameRealtimeService.handleClientGameStateChanged(
       gameSession,
       user.userId,
       gameState,
@@ -168,8 +177,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const roomName = `${gameSession.gameId}`;
     gameSession.eventsToPublishInRoom.forEach((eventObj) => {
       const { event, data } = eventObj;
-      if (this.server.to(roomName).emit(event, data)) {
-      }
+      this.server.to(roomName).emit(event, data);
     });
     gameSession.eventsToPublishInRoom.splice(
       0,
@@ -184,6 +192,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       data,
     });
   }
+
   public sendScored(
     roomId: number,
     scores: Array<{ userId: number; score: number }>,
@@ -194,7 +203,16 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       data: scores,
     });
     const gameSession = this.gameSessionService.getGameSession(roomId);
-    if (!gameSession) return;
+    this.handleGameEvents(gameSession);
+  }
+
+  public sendBallPaddleCollision(paddleUserId: number, roomId: number) {
+    const roomName = `${roomId}`;
+    this.server.to(roomName).emit(GAME_EVENTS.BallPaddleCollision, {
+      roomId,
+      data: paddleUserId,
+    });
+    const gameSession = this.gameSessionService.getGameSession(roomId);
     this.handleGameEvents(gameSession);
   }
 }
