@@ -6,11 +6,7 @@ import {
 } from '@nestjs/common';
 import { ChatRepository, ChatRoomWithMembers } from './chat.repository';
 import * as argon from 'argon2';
-import {
-  getRandomAvatarUrl,
-  UsersService,
-  UserWithData,
-} from '../users/users.service';
+import { getRandomAvatarUrl, UserWithData } from '../users/users.service';
 import { ChatRoom, ChatRoomMember, Role, RoomType } from '@prisma/client';
 import {
   CreateRoomDto,
@@ -22,11 +18,8 @@ import { NotificationService } from '../notifications/notification.service';
 
 @Injectable()
 export class ChatService {
-  private toBeUnMuted: { userId: number; roomId: number; time: number }[] = [];
-
   constructor(
     private repository: ChatRepository,
-    private usersService: UsersService,
     private notificationService: NotificationService,
   ) {}
 
@@ -215,12 +208,31 @@ export class ChatService {
     roomId: number,
     userId: number,
     actorId: number,
-    timestamp: number, // expiration time
+    expireAt: number, // expiration time
   ): Promise<ChatRoomMember> {
     try {
-      const mutedMember = await this.setUserAsMuted(roomId, userId, actorId);
-      this.toBeUnMuted.push({ userId, roomId, time: timestamp });
-      return mutedMember;
+      const room = await this.getRoom({ roomId });
+      this.checkIfCanActInTheRoom(actorId, room, [Role.OWNER, Role.ADMIN]);
+      const member = this.checkIfCanActInTheRoom(userId, room, [
+        Role.MUTED,
+        Role.BAN,
+        Role.USER,
+        Role.ADMIN,
+      ]);
+      return this.repository
+        .updateChatRoomMember({
+          where: { id: member.id },
+          data: { role: Role.MUTED, unMuteAt: new Date(expireAt) },
+        })
+        .then((mutedMember) => {
+          this.notificationService.sendRoomRolesUpdated(
+            actorId,
+            mutedMember.memberId,
+            roomId,
+            room.name,
+          );
+          return mutedMember;
+        });
     } catch (e) {
       throw new BadRequestException('Failed to mute user');
     }
@@ -283,7 +295,6 @@ export class ChatService {
       case Role.ADMIN:
         return this.setUserAsAdmin(roomId, info.userId, actorId);
       case Role.MUTED:
-        console.log(info);
         if (info.expireAt) {
           return this.setUserAsMutedWithTime(
             roomId,
@@ -425,6 +436,7 @@ export class ChatService {
         Role.BAN,
       ]);
     }
+    await this.unMuteAllWaitingMutedUsers(room);
     return this.repository.getChatRoomMembers(roomId);
   }
 
@@ -566,18 +578,27 @@ export class ChatService {
   }
 
   // unMute all users that are muted and the time is up
-  async unMuteAllWaitingMutedUsers() {
-    const now = Date.now();
-    this.toBeUnMuted = this.toBeUnMuted.filter((mutedUser) => {
-      if (mutedUser.time <= now) {
-        this.repository.updateChatRoomMember({
-          where: { id: mutedUser.userId },
-          data: { role: Role.USER },
-        });
-        return false;
+  async unMuteAllWaitingMutedUsers(room: ChatRoomWithMembers) {
+    const now = new Date().getTime();
+    const toUnMuteMembers = room.members.filter((member) => {
+      if (member.role === Role.MUTED && member.unMuteAt) {
+        return member.unMuteAt.getTime() < now;
       }
-      return true;
     });
+    if (toUnMuteMembers.length > 0) {
+      await this.repository.updateManyChatRoomMembers({
+        where: { id: { in: toUnMuteMembers.map((m) => m.id) } },
+        data: { role: Role.USER, unMuteAt: new Date() },
+      });
+      toUnMuteMembers.forEach((member) => {
+        this.notificationService.sendRoomRolesUpdated(
+          member.memberId,
+          member.memberId,
+          member.chatroomId,
+          'room',
+        );
+      });
+    }
   }
 
   /*

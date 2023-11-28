@@ -199,6 +199,14 @@ export class ChatRepository {
     return this.prisma.chatRoomMember.update({ data, where });
   }
 
+  async updateManyChatRoomMembers(params: {
+    where: Prisma.ChatRoomMemberWhereInput;
+    data: Prisma.ChatRoomMemberUpdateInput;
+  }) {
+    const { data, where } = params;
+    return this.prisma.chatRoomMember.updateMany({ data, where });
+  }
+
   /*
    * First, try to find an ADMIN from the messages room.
    * Or any member who is not banned.
