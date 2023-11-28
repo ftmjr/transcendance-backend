@@ -6,11 +6,7 @@ import {
 } from '@nestjs/common';
 import { ChatRepository, ChatRoomWithMembers } from './chat.repository';
 import * as argon from 'argon2';
-import {
-  getRandomAvatarUrl,
-  UsersService,
-  UserWithData,
-} from '../users/users.service';
+import { getRandomAvatarUrl, UserWithData } from '../users/users.service';
 import { ChatRoom, ChatRoomMember, Role, RoomType } from '@prisma/client';
 import {
   CreateRoomDto,
@@ -22,20 +18,18 @@ import { NotificationService } from '../notifications/notification.service';
 
 @Injectable()
 export class ChatService {
-  private toBeUnMuted: { userId: number; roomId: number; time: number }[] = [];
-
   constructor(
     private repository: ChatRepository,
-    private usersService: UsersService,
     private notificationService: NotificationService,
   ) {}
 
   async createRoom(info: CreateRoomDto) {
-    if (info.type === RoomType.PROTECTED && !info.password) {
-      throw new BadRequestException('Password is required, for protected room');
-    }
-    if (info.password) {
-      info.password = await argon.hash(info.password); // hash password before save to database
+    if (info.type === RoomType.PROTECTED || info.type === RoomType.PRIVATE) {
+      if (!info.password) {
+        throw new BadRequestException(
+          'Password is required, for protected room',
+        );
+      }
     }
     // check if there is no other room with same name
     const room = await this.repository.getSimpleRoom({
@@ -44,11 +38,15 @@ export class ChatService {
     if (room) {
       throw new BadRequestException('Une salle avec ce nom existe déjà');
     }
+    let hashedPassword = '';
+    if (info.password) {
+      hashedPassword = await argon.hash(info.password);
+    }
     const data = {
       name: info.name,
       type: info.type,
       avatar: info.avatar ?? getRandomAvatarUrl(),
-      password: info.password,
+      password: info.type === RoomType.PUBLIC ? null : hashedPassword,
     };
     const ownerId = info.ownerId;
     return this.repository.createRoom({ data }, ownerId);
@@ -210,12 +208,31 @@ export class ChatService {
     roomId: number,
     userId: number,
     actorId: number,
-    timestamp: number, // expiration time
+    expireAt: number, // expiration time
   ): Promise<ChatRoomMember> {
     try {
-      const mutedMember = await this.setUserAsMuted(roomId, userId, actorId);
-      this.toBeUnMuted.push({ userId, roomId, time: timestamp });
-      return mutedMember;
+      const room = await this.getRoom({ roomId });
+      this.checkIfCanActInTheRoom(actorId, room, [Role.OWNER, Role.ADMIN]);
+      const member = this.checkIfCanActInTheRoom(userId, room, [
+        Role.MUTED,
+        Role.BAN,
+        Role.USER,
+        Role.ADMIN,
+      ]);
+      return this.repository
+        .updateChatRoomMember({
+          where: { id: member.id },
+          data: { role: Role.MUTED, unMuteAt: new Date(expireAt) },
+        })
+        .then((mutedMember) => {
+          this.notificationService.sendRoomRolesUpdated(
+            actorId,
+            mutedMember.memberId,
+            roomId,
+            room.name,
+          );
+          return mutedMember;
+        });
     } catch (e) {
       throw new BadRequestException('Failed to mute user');
     }
@@ -278,7 +295,6 @@ export class ChatService {
       case Role.ADMIN:
         return this.setUserAsAdmin(roomId, info.userId, actorId);
       case Role.MUTED:
-        console.log(info);
         if (info.expireAt) {
           return this.setUserAsMutedWithTime(
             roomId,
@@ -333,7 +349,7 @@ export class ChatService {
       Role.BAN,
     ]);
     if (member.role === Role.OWNER) {
-      await this.specialSelfDeleteForOwner(roomId, member, room);
+      return this.specialSelfDeleteForOwner(roomId, member, room);
     }
     return this.repository
       .deleteMemberFromRoom(member.id)
@@ -357,6 +373,7 @@ export class ChatService {
     const newOwner = await this.repository.findPotentialNewOwner(roomId);
     // if no other member is found, delete the room
     if (!newOwner) return this.deleteRoom(roomId, owner.memberId, room);
+    await this.repository.deleteMemberFromRoom(owner.id);
     await this.repository
       .updateChatRoomMember({
         where: { id: newOwner.id },
@@ -419,6 +436,7 @@ export class ChatService {
         Role.BAN,
       ]);
     }
+    await this.unMuteAllWaitingMutedUsers(room);
     return this.repository.getChatRoomMembers(roomId);
   }
 
@@ -461,20 +479,54 @@ export class ChatService {
   }
 
   async updateRoomInfo(data: UpdateRoomInfoDto, userId: number) {
-    const { roomId, roomType, oldPassword, password } = data;
+    const { roomId, roomType } = data;
     const room = await this.getRoom({ roomId });
     this.checkIfCanActInTheRoom(userId, room, [Role.OWNER, Role.ADMIN]);
-    if (room.type === RoomType.PROTECTED) {
-      if (!(await argon.verify(room.password, oldPassword))) {
-        throw new ForbiddenException(`Mot de passe incorrect`);
-      }
+    if (roomType === RoomType.PROTECTED || roomType === RoomType.PRIVATE) {
+      return this.updateToPrivateOrProtected(room, data);
+    } else {
+      return this.updateToPublic(room, data);
     }
-    let hashedPassword = '';
-    if (roomType === RoomType.PROTECTED) {
-      hashedPassword = await argon.hash(password);
-    }
+  }
+  async updateToPublic(room: ChatRoomWithMembers, data: UpdateRoomInfoDto) {
+    // const { oldPassword } = data;
+    // can be move if we don't want to check old
+    // if (room.password?.length && oldPassword) {
+    //   if (!(await argon.verify(room.password, oldPassword))) {
+    //     throw new ForbiddenException(`Mot de passe incorrect`);
+    //   }
+    // }
     return this.repository.updateRoom({
-      where: { id: roomId },
+      where: { id: room.id },
+      data: {
+        type: RoomType.PUBLIC,
+        password: null,
+      },
+    });
+  }
+  async updateToPrivateOrProtected(
+    room: ChatRoomWithMembers,
+    data: UpdateRoomInfoDto,
+  ) {
+    const { roomType, password } = data;
+    let hashedPassword = '';
+    // if (!oldPassword && room.password?.length > 0) {
+    //   throw new BadRequestException('Mot de passe requis');
+    // }
+
+    // can be move if we don't want to check old
+    // if (room.password?.length && oldPassword) {
+    //   if (!(await argon.verify(room.password, oldPassword))) {
+    //     throw new ForbiddenException(`Mot de passe incorrect`);
+    //   }
+    // }
+
+    if (!password) {
+      throw new BadRequestException('Mot de passe requis pour ce type de room');
+    }
+    hashedPassword = await argon.hash(password);
+    return this.repository.updateRoom({
+      where: { id: room.id },
       data: {
         type: roomType,
         password: hashedPassword,
@@ -526,18 +578,27 @@ export class ChatService {
   }
 
   // unMute all users that are muted and the time is up
-  async unMuteAllWaitingMutedUsers() {
-    const now = Date.now();
-    this.toBeUnMuted = this.toBeUnMuted.filter((mutedUser) => {
-      if (mutedUser.time <= now) {
-        this.repository.updateChatRoomMember({
-          where: { id: mutedUser.userId },
-          data: { role: Role.USER },
-        });
-        return false;
+  async unMuteAllWaitingMutedUsers(room: ChatRoomWithMembers) {
+    const now = new Date().getTime();
+    const toUnMuteMembers = room.members.filter((member) => {
+      if (member.role === Role.MUTED && member.unMuteAt) {
+        return member.unMuteAt.getTime() < now;
       }
-      return true;
     });
+    if (toUnMuteMembers.length > 0) {
+      await this.repository.updateManyChatRoomMembers({
+        where: { id: { in: toUnMuteMembers.map((m) => m.id) } },
+        data: { role: Role.USER, unMuteAt: new Date() },
+      });
+      toUnMuteMembers.forEach((member) => {
+        this.notificationService.sendRoomRolesUpdated(
+          member.memberId,
+          member.memberId,
+          member.chatroomId,
+          'room',
+        );
+      });
+    }
   }
 
   /*

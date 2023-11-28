@@ -22,26 +22,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     ServerToClientEvents,
     ClientToServerEvents
   >();
+  private readonly logger = new Logger(ChatGateway.name);
 
   constructor(
     private chatService: ChatService,
     private privateMessageService: MessageService,
   ) {}
 
-  private logger = new Logger('ChatGateway');
-  async handleConnection(client: Socket, ...args: any[]) {
-    try {
-      const userId = client.handshake.query.userId;
-      if (!userId) return;
-      const rooms = Object.keys(client.rooms);
-      if (!rooms.includes(`mp:${userId}`)) {
-        client.join(`mp:${userId}`);
-      }
-    } catch (e) {
-      client.emit('connectionError', e.message);
-      client.disconnect();
-    }
-  }
+  async handleConnection(client: Socket, ...args: any[]) {}
 
   async handleDisconnect(client: Socket): Promise<void> {
     // empty
@@ -62,6 +50,20 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
     } catch (e) {
       client.emit('failedToJoinRoom', e.message);
+    }
+  }
+
+  @SubscribeMessage('joinMyRoom')
+  async handleJoinMyRoom(@ConnectedSocket() client: Socket): Promise<void> {
+    try {
+      const userId = client.handshake.query.userId;
+      if (!userId) return;
+      const rooms = Object.keys(client.rooms);
+      if (!rooms.includes(`mp:${userId}`)) {
+        client.join(`mp:${userId}`);
+      }
+    } catch (e) {
+      client.emit('failedToJoinMyRoom', e.message);
     }
   }
 
@@ -143,7 +145,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         { content, receiverId },
         senderId,
       );
-      client.broadcast.to(`mp:${receiverId}`).emit('newMP', message);
+      this.server.to(`mp:${receiverId}`).emit('newMP', message);
       return message;
     } catch (e) {
       this.server.to(`mp:${senderId}`).emit('failedToSendMessage', e.message);
