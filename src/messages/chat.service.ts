@@ -338,7 +338,7 @@ export class ChatService {
       Role.BAN,
     ]);
     if (member.role === Role.OWNER) {
-      await this.specialSelfDeleteForOwner(roomId, member, room);
+      return this.specialSelfDeleteForOwner(roomId, member, room);
     }
     return this.repository
       .deleteMemberFromRoom(member.id)
@@ -362,6 +362,7 @@ export class ChatService {
     const newOwner = await this.repository.findPotentialNewOwner(roomId);
     // if no other member is found, delete the room
     if (!newOwner) return this.deleteRoom(roomId, owner.memberId, room);
+    await this.repository.deleteMemberFromRoom(owner.id);
     await this.repository
       .updateChatRoomMember({
         where: { id: newOwner.id },

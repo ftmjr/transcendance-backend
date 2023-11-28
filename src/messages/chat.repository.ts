@@ -220,7 +220,7 @@ export class ChatRepository {
       where: {
         chatroomId: roomId,
         NOT: {
-          role: Role.BAN,
+          OR: [{ role: Role.OWNER }, { role: Role.BAN }],
         },
       },
     });
