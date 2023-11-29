@@ -1,9 +1,7 @@
-import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { NotificationRepository } from './notification.repository';
 import { Notification, NotificationType, User, Game } from '@prisma/client';
 import { NotificationGateway } from './notification.gateway';
-import { JwtService } from '@nestjs/jwt';
-import { JwtPayload } from '../auth/auth.service';
 
 export enum NotificationTitle {
   // Game Events
@@ -62,24 +60,7 @@ export class NotificationService {
   constructor(
     private readonly notificationRepository: NotificationRepository,
     private readonly notificationGateway: NotificationGateway,
-    private jwtService: JwtService,
   ) {}
-
-  async canConnect(token: string, userId: number): Promise<boolean> {
-    try {
-      const isValid = this.jwtService.verify(token) as JwtPayload;
-      if (!isValid) {
-        throw new UnauthorizedException('Invalid credentials');
-      }
-      // check if the user is the same as the one in the token
-      if (isValid.sub.userId !== userId) {
-        throw new UnauthorizedException('Invalid credentials');
-      }
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
 
   // for normal notifications (with persistence in database)
   private async createNotification(

@@ -38,6 +38,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const id = Number(userId) ?? 0;
       // check if jwt token is valid and if user is assign that jwt token
       await this.chatService.canConnect(token, id);
+      this.logger.log(
+        `Client connected on chat: ${client.id} and with token ${token}`,
+      );
     } catch (e) {
       client.emit('failedToConnect', e.message);
       client.disconnect(true);
