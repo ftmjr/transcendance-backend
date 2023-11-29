@@ -32,8 +32,21 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private gameSessionService: GameSessionService,
   ) {}
 
-  handleConnection(client: Socket, ...args: any[]) {
-    this.logger.log(`Client connected to game socket: ${client.id}`);
+  async handleConnection(client: Socket, ...args: any[]) {
+    try {
+      const userId = client.handshake.query.userId;
+      if (!userId) throw new Error('User ID is required');
+      const token = client.handshake.auth.token;
+      if (!token) throw new Error('Token is required');
+      const id = Number(userId) ?? 0;
+      // check if jwt token is valid and if user is assign that jwt token
+      await this.gameSessionService.canConnect(token, id);
+      this.logger.log(`Client connected to game socket: ${client.id}`);
+    } catch (e) {
+      client.emit('failedToConnect', e.message);
+      client.disconnect(true);
+      return;
+    }
   }
 
   handleDisconnect(@ConnectedSocket() client: Socket): any {

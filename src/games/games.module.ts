@@ -8,9 +8,17 @@ import { UsersModule } from '../users/users.module';
 import { GameSessionService } from './game-session.service';
 import { GameRealtimeService } from './gameRealtime.service';
 import { GameGateway } from './game.gateway';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
-  imports: [PrismaModule, UsersModule, NotificationsModule],
+  imports: [
+    JwtModule.register({
+      secret: process.env.JWT_SECRET,
+    }),
+    PrismaModule,
+    UsersModule,
+    NotificationsModule,
+  ],
   providers: [
     GamesRepository,
     GamesService,
