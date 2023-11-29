@@ -1,15 +1,9 @@
-import { BadRequestException, Injectable, Logger } from "@nestjs/common";
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { NotificationRepository } from './notification.repository';
-import {
-  Notification,
-  NotificationType,
-  NotificationStatus,
-  User,
-  Game,
-  ContactRequest,
-} from '@prisma/client';
+import { Notification, NotificationType, User, Game } from '@prisma/client';
 import { NotificationGateway } from './notification.gateway';
-import { JwtService } from "@nestjs/jwt";
+import { JwtService } from '@nestjs/jwt';
+import { JwtPayload } from '../auth/auth.service';
 
 export enum NotificationTitle {
   // Game Events
@@ -71,13 +65,20 @@ export class NotificationService {
     private jwtService: JwtService,
   ) {}
 
-  async canConnect(token: string, userId: number): Promise<'ok'> {
-    // check if the jwt token is valid
-    const payload = this.jwtService.verify(token);
-    if (payload.userId !== userId) {
-      throw new BadRequestException('Invalid token');
+  async canConnect(token: string, userId: number): Promise<boolean> {
+    try {
+      const isValid = this.jwtService.verify(token) as JwtPayload;
+      if (!isValid) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      // check if the user is the same as the one in the token
+      if (isValid.sub.userId !== userId) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      return true;
+    } catch (e) {
+      return false;
     }
-    return 'ok';
   }
 
   // for normal notifications (with persistence in database)
