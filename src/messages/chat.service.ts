@@ -3,6 +3,7 @@ import {
   ForbiddenException,
   Injectable,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { ChatRepository, ChatRoomWithMembers } from './chat.repository';
 import * as argon from 'argon2';
@@ -16,6 +17,7 @@ import {
 } from './dto';
 import { NotificationService } from '../notifications/notification.service';
 import { JwtService } from '@nestjs/jwt';
+import { JwtPayload } from '../auth/auth.service';
 
 @Injectable()
 export class ChatService {
@@ -25,13 +27,20 @@ export class ChatService {
     private jwtService: JwtService,
   ) {}
 
-  async canConnect(token: string, userId: number): Promise<'ok'> {
-    // check if the jwt token is valid
-    const payload = this.jwtService.verify(token);
-    if (payload.userId !== userId) {
-      throw new BadRequestException('Invalid token');
+  async canConnect(token: string, userId: number): Promise<boolean> {
+    try {
+      const isValid = this.jwtService.verify(token) as JwtPayload;
+      if (!isValid) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      // check if the user is the same as the one in the token
+      if (isValid.sub.userId !== userId) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      return true;
+    } catch (e) {
+      return false;
     }
-    return 'ok';
   }
 
   async createRoom(info: CreateRoomDto) {

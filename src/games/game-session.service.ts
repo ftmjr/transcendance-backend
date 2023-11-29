@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   GAME_EVENTS,
@@ -18,7 +19,8 @@ import { Game, GameEvent, GameHistory } from '@prisma/client';
 import { GamesService } from './games.service';
 import { NotificationService } from '../notifications/notification.service';
 import { UsersService, UserWithData } from '../users/users.service';
-import { JwtService } from "@nestjs/jwt";
+import { JwtService } from '@nestjs/jwt';
+import { JwtPayload } from '../auth/auth.service';
 
 export interface GameSessionShort
   extends Omit<
@@ -62,13 +64,20 @@ export class GameSessionService {
     private jwtService: JwtService,
   ) {}
 
-  async canConnect(token: string, userId: number): Promise<'ok'> {
-    // check if the jwt token is valid
-    const payload = this.jwtService.verify(token);
-    if (payload.userId !== userId) {
-      throw new BadRequestException('Invalid token');
+  async canConnect(token: string, userId: number): Promise<boolean> {
+    try {
+      const isValid = this.jwtService.verify(token) as JwtPayload;
+      if (!isValid) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      // check if the user is the same as the one in the token
+      if (isValid.sub.userId !== userId) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      return true;
+    } catch (e) {
+      return false;
     }
-    return 'ok';
   }
 
   // HTTP REQUESTS METHODS SERVICE FUNCTIONS
