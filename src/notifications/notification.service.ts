@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from "@nestjs/common";
 import { NotificationRepository } from './notification.repository';
 import {
   Notification,
@@ -9,6 +9,7 @@ import {
   ContactRequest,
 } from '@prisma/client';
 import { NotificationGateway } from './notification.gateway';
+import { JwtService } from "@nestjs/jwt";
 
 export enum NotificationTitle {
   // Game Events
@@ -67,7 +68,17 @@ export class NotificationService {
   constructor(
     private readonly notificationRepository: NotificationRepository,
     private readonly notificationGateway: NotificationGateway,
+    private jwtService: JwtService,
   ) {}
+
+  async canConnect(token: string, userId: number): Promise<'ok'> {
+    // check if the jwt token is valid
+    const payload = this.jwtService.verify(token);
+    if (payload.userId !== userId) {
+      throw new BadRequestException('Invalid token');
+    }
+    return 'ok';
+  }
 
   // for normal notifications (with persistence in database)
   private async createNotification(

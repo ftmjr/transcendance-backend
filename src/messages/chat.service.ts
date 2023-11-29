@@ -15,13 +15,24 @@ import {
   UpdateRoleDto,
 } from './dto';
 import { NotificationService } from '../notifications/notification.service';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class ChatService {
   constructor(
     private repository: ChatRepository,
     private notificationService: NotificationService,
+    private jwtService: JwtService,
   ) {}
+
+  async canConnect(token: string, userId: number): Promise<'ok'> {
+    // check if the jwt token is valid
+    const payload = this.jwtService.verify(token);
+    if (payload.userId !== userId) {
+      throw new BadRequestException('Invalid token');
+    }
+    return 'ok';
+  }
 
   async createRoom(info: CreateRoomDto) {
     if (info.type === RoomType.PROTECTED || info.type === RoomType.PRIVATE) {

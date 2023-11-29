@@ -8,9 +8,16 @@ import { ChatGateway } from './chat.gateway';
 import { MessageController } from './message.controller';
 import { MessageService } from './message.service';
 import { MessageRepository } from './message.repository';
+import { JwtModule } from '@nestjs/jwt';
 
 @Module({
-  imports: [UsersModule, NotificationsModule],
+  imports: [
+    JwtModule.register({
+      secret: process.env.JWT_SECRET,
+    }),
+    UsersModule,
+    NotificationsModule,
+  ],
   providers: [
     ChatRepository,
     ChatService,

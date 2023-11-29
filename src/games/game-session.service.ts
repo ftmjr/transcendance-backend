@@ -18,6 +18,7 @@ import { Game, GameEvent, GameHistory } from '@prisma/client';
 import { GamesService } from './games.service';
 import { NotificationService } from '../notifications/notification.service';
 import { UsersService, UserWithData } from '../users/users.service';
+import { JwtService } from "@nestjs/jwt";
 
 export interface GameSessionShort
   extends Omit<
@@ -58,7 +59,17 @@ export class GameSessionService {
     private gameService: GamesService,
     private userRepository: UsersService,
     private notificationService: NotificationService,
+    private jwtService: JwtService,
   ) {}
+
+  async canConnect(token: string, userId: number): Promise<'ok'> {
+    // check if the jwt token is valid
+    const payload = this.jwtService.verify(token);
+    if (payload.userId !== userId) {
+      throw new BadRequestException('Invalid token');
+    }
+    return 'ok';
+  }
 
   // HTTP REQUESTS METHODS SERVICE FUNCTIONS
   async startGameSessionAgainstBot(
