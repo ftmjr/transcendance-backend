@@ -3,6 +3,7 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  UnauthorizedException,
 } from '@nestjs/common';
 import {
   GAME_EVENTS,
@@ -18,6 +19,8 @@ import { Game, GameEvent, GameHistory } from '@prisma/client';
 import { GamesService } from './games.service';
 import { NotificationService } from '../notifications/notification.service';
 import { UsersService, UserWithData } from '../users/users.service';
+import { JwtService } from '@nestjs/jwt';
+import { JwtPayload } from '../auth/auth.service';
 
 export interface GameSessionShort
   extends Omit<
@@ -58,7 +61,24 @@ export class GameSessionService {
     private gameService: GamesService,
     private userRepository: UsersService,
     private notificationService: NotificationService,
+    private jwtService: JwtService,
   ) {}
+
+  async canConnect(token: string, userId: number): Promise<boolean> {
+    try {
+      const isValid = this.jwtService.verify(token) as JwtPayload;
+      if (!isValid) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      // check if the user is the same as the one in the token
+      if (isValid.sub.userId !== userId) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
 
   // HTTP REQUESTS METHODS SERVICE FUNCTIONS
   async startGameSessionAgainstBot(

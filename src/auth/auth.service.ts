@@ -370,4 +370,20 @@ export class AuthService {
       secret: user.twoFactorSecret,
     });
   }
+
+  canListenStatus(token: string, userId: number): boolean {
+    try {
+      const isValid = this.jwtService.verify(token) as JwtPayload;
+      if (!isValid) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      // check if the user is the same as the one in the token
+      if (isValid.sub.userId !== userId) {
+        throw new UnauthorizedException('Invalid credentials');
+      }
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
 }

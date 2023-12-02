@@ -1,13 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { NotificationRepository } from './notification.repository';
-import {
-  Notification,
-  NotificationType,
-  NotificationStatus,
-  User,
-  Game,
-  ContactRequest,
-} from '@prisma/client';
+import { Notification, NotificationType, User, Game } from '@prisma/client';
 import { NotificationGateway } from './notification.gateway';
 
 export enum NotificationTitle {

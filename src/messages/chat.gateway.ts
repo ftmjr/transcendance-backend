@@ -29,7 +29,24 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private privateMessageService: MessageService,
   ) {}
 
-  async handleConnection(client: Socket, ...args: any[]) {}
+  async handleConnection(client: Socket, ...args: any[]) {
+    try {
+      const userId = client.handshake.query.userId;
+      if (!userId) throw new Error('User ID is required');
+      const token = client.handshake.auth.token;
+      if (!token) throw new Error('Token is required');
+      const id = Number(userId) ?? 0;
+      // check if jwt token is valid and if user is assign that jwt token
+      await this.chatService.canConnect(token, id);
+      this.logger.log(
+        `Client connected on chat: ${client.id} and with token ${token}`,
+      );
+    } catch (e) {
+      client.emit('failedToConnect', e.message);
+      client.disconnect(true);
+      return;
+    }
+  }
 
   async handleDisconnect(client: Socket): Promise<void> {
     // empty

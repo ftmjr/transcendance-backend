@@ -11,6 +11,7 @@ import { Server, Socket } from 'socket.io';
 import { Status } from '@prisma/client';
 import { Logger } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
+import { AuthService } from './auth.service';
 
 interface ServerToClientEvents {
   statusUpdate: (e: { userId: number; status: Status }) => void;
@@ -27,12 +28,18 @@ export class StatusGateway implements OnGatewayConnection, OnGatewayDisconnect {
     ClientToServerEvents
   >();
   private logger = new Logger('StatusGateway');
-  constructor(private usersService: UsersService) {}
+  constructor(
+    private usersService: UsersService,
+    private authService: AuthService,
+  ) {}
   async handleConnection(client: Socket, ...args: any[]) {
     try {
       const userId = client.handshake.query.userId;
       if (!userId) throw new Error('User ID is required');
       const id = Number(userId);
+      const token = client.handshake.auth.token;
+      if (!token) throw new Error('Token is required');
+      this.authService.canListenStatus(token, id);
       await this.usersService.changeStatus(id, Status.Online);
       this.server.emit('statusUpdate', {
         userId: id,
